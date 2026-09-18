@@ -50,12 +50,6 @@ export class ArchiveStore {
     }
   }
 
-  async loadTasks(now = new Date()): Promise<WorkTask[]> {
-    const result = await this.loadTasksSafe(now);
-    if (result.errors[0]) throw result.errors[0].error;
-    return result.tasks;
-  }
-
   async loadTasksSafe(now = new Date()): Promise<{
     tasks: WorkTask[];
     errors: Array<{ taskId: string; path: string; error: Error }>;

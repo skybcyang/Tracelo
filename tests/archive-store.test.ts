@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ArchiveStore, type ArchiveAdapter } from "../src/archive-store";
 import { parseTaskMarkdown } from "../src/archive";
-import { createTaskV2 } from "../src/domain";
+import { createTask } from "../src/domain";
 
 class MemoryAdapter implements ArchiveAdapter {
   files = new Map<string, string>();
@@ -47,7 +47,7 @@ class MemoryAdapter implements ArchiveAdapter {
   }
 }
 
-const makeTask = () => createTaskV2(
+const makeTask = () => createTask(
   {
     title: "任务",
     groupId: null,

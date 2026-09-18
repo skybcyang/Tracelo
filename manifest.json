@@ -1,9 +1,10 @@
 {
   "id": "work-timeline",
-  "name": "工作时间线",
+  "name": "Tracelo",
   "version": "0.2.0",
   "minAppVersion": "1.8.0",
-  "description": "用任务卡片和追加式进展记录还原每天的工作时间线。",
-  "author": "WorkAssistant",
+  "description": "Track tasks and append progress to local Markdown timelines.",
+  "author": "skybcyang",
+  "authorUrl": "https://github.com/skybcyang",
   "isDesktopOnly": false
 }

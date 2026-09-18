@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { addProgress, createTaskV2 } from "../src/domain";
+import { addProgress, createTask } from "../src/domain";
 import { AGENT_RULE } from "../src/agent-rule";
 import {
   GROUPS_FILE,
@@ -17,7 +17,7 @@ import {
 
 function task() {
   return addProgress(
-    createTaskV2(
+    createTask(
       {
         title: "排查登录异常",
         groupId: "support",

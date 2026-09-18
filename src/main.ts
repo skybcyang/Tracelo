@@ -25,7 +25,7 @@ import {
   closeTask,
   completeTask,
   createGroup,
-  createTaskV2,
+  createTask,
   dayKey,
   eventsByDay,
   eventsForDay,
@@ -335,7 +335,7 @@ class WorkTimelineView extends ItemView {
   }
 
   getViewType(): string { return VIEW_TYPE; }
-  getDisplayText(): string { return "工作时间线"; }
+  getDisplayText(): string { return this.plugin.manifest.name; }
   getIcon(): string { return "history"; }
   async onOpen(): Promise<void> { this.render(); }
 
@@ -374,7 +374,7 @@ class WorkTimelineView extends ItemView {
     const brand = header.createDiv({ cls: "wt-brand" });
     brand.createSpan({ cls: "wt-brand-mark", attr: { "aria-hidden": "true" } });
     const identity = brand.createDiv();
-    identity.createEl("h1", { text: "工作时间线" });
+    identity.createEl("h1", { text: this.plugin.manifest.name });
     const active = this.plugin.tasks.filter(({ status }) => status === "active").length;
     identity.createEl("p", { text: `${active} 项进行中 · 今天 ${eventsForDay(this.plugin.tasks, dayKey(new Date())).length} 条记录` });
 
@@ -633,7 +633,7 @@ class WorkTimelineSettingTab extends PluginSettingTab {
 
   display(): void {
     this.containerEl.empty();
-    this.containerEl.createEl("h2", { text: "工作时间线" });
+    this.containerEl.createEl("h2", { text: this.timeline.manifest.name });
     let nextDirectory = this.timeline.state.taskDirectory;
     new Setting(this.containerEl)
       .setName("任务目录")
@@ -690,8 +690,8 @@ export default class WorkTimelinePlugin extends Plugin {
     this.state.pluginVersion = this.manifest.version;
     await this.saveData(this.state);
     this.registerView(VIEW_TYPE, (leaf) => new WorkTimelineView(leaf, this));
-    this.addRibbonIcon("history", "打开工作时间线", () => void this.activateView());
-    this.addCommand({ id: "open-work-timeline", name: "打开工作时间线", callback: () => void this.activateView() });
+    this.addRibbonIcon("history", "打开 Tracelo", () => void this.activateView());
+    this.addCommand({ id: "open-work-timeline", name: "打开 Tracelo", callback: () => void this.activateView() });
     this.addCommand({ id: "create-work-task", name: "新建工作任务", callback: async () => {
       await this.activateView();
       this.currentView()?.openNewTask();
@@ -753,7 +753,7 @@ export default class WorkTimelinePlugin extends Plugin {
 
   async addTask(input: NewTaskValues): Promise<string> {
     const now = new Date();
-    let task = createTaskV2(input, now, makeId(), makeId());
+    let task = createTask(input, now, makeId(), makeId());
     if (input.initialProgress.trim()) task = addProgress(task, input.initialProgress, new Date(now.getTime() + 1), makeId());
     await this.persistTask(task);
     this.tasks = [...this.tasks, task];

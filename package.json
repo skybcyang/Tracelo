@@ -1,14 +1,20 @@
 {
-  "name": "obsidian-work-timeline",
+  "name": "tracelo",
   "version": "0.2.0",
   "private": true,
-  "description": "An Obsidian task progress timeline.",
+  "description": "Tracelo — task cards and append-only progress timelines for Obsidian.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skybcyang/Tracelo.git"
+  },
+  "engines": { "node": ">=22.12.0" },
   "type": "module",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "test": "vitest run",
-    "test:layout": "node tests/card-layout.browser.mjs && node tests/pane-scroll.browser.mjs"
+    "test:layout": "node tests/card-layout.browser.mjs && node tests/pane-scroll.browser.mjs",
+    "check": "npm test && npm run build && npm run test:layout"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

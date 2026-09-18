@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 
-const browser = await chromium.launch({ channel: "chrome", headless: true });
+const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL, headless: true });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, reducedMotion: "reduce" });
 try {
   await page.setContent(`<style>
@@ -10,7 +10,7 @@ try {
     #host { height: 640px; margin-top: 80px; }
     ${readFileSync("styles.css", "utf8")}
   </style><div id="host"><div class="work-timeline-view"><div class="wt-shell">
-    <header class="wt-header"><div>工作时间线</div><div class="wt-view-switch">分组 / 四象限</div><button>新建任务</button></header>
+    <header class="wt-header"><div>Tracelo</div><div class="wt-view-switch">分组 / 四象限</div><button>新建任务</button></header>
     <div class="wt-layout"><main class="wt-task-column"><div class="wt-card-grid">
       ${Array.from({ length: 100 }, (_, i) => `<article class="wt-card">任务 ${i}</article>`).join("")}
     </div></main><aside class="wt-timeline-column"><header class="wt-timeline-header">每日时间线</header>

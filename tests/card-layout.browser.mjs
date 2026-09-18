@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 
 // Measure the shipped CSS in Chromium, including repeated wide → narrow resizes.
 const css = readFileSync("styles.css", "utf8");
-const browser = await chromium.launch({ channel: "chrome", headless: true });
+const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL, headless: true });
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 const failures = [];
 let checks = 0;

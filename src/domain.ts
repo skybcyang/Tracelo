@@ -152,7 +152,7 @@ function requireTitle(title: string): string {
   return normalized;
 }
 
-export function createTaskV2(
+export function createTask(
   input: CreateTaskInput,
   now: Date,
   taskId: string,
@@ -247,10 +247,6 @@ export function reopenTask(task: WorkTask, now: Date, eventId: string): WorkTask
   if (task.status === "active") throw new Error("任务仍在进行中");
   const reopened = { ...task, status: "active" as const };
   return { ...reopened, events: [...task.events, event(reopened, "reopened", "重新打开任务", now, eventId)] };
-}
-
-export function isTaskComplete(task: WorkTask): boolean {
-  return task.status === "completed";
 }
 
 export function isTaskEnded(task: WorkTask): boolean {

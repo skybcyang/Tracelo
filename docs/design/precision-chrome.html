@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>工作时间线 - 冷调精密与透明铬</title>
+  <title>Tracelo — 冷调精密与透明铬视觉参考</title>
   <style>
     * { box-sizing: border-box; }
     html { background: #111214; }
@@ -242,7 +242,7 @@
       <div class="board-heading"><h1>冷调精密 + 透明铬</h1><p>平面主体，关键交互使用冷白透明材质</p></div>
       <article class="concept precision" data-concept="precision">
         <header class="appbar">
-          <div class="brand"><span class="brand-mark"></span><div><div class="brand-title">工作时间线</div><div class="brand-meta">8 项进行中　今天 6 条记录</div></div></div>
+          <div class="brand"><span class="brand-mark"></span><div><div class="brand-title">Tracelo</div><div class="brand-meta">8 项进行中　今天 6 条记录</div></div></div>
           <div class="segmented"><button class="active">分组</button><button>四象限</button></div>
           <div class="toolbar"><button class="icon-button" aria-label="搜索">⌕</button><button class="primary-button" aria-label="新建任务">＋ 新建任务</button></div>
         </header>
@@ -297,11 +297,8 @@
       workspace.replaceChildren(template.content.cloneNode(true));
     });
     const preview = new URLSearchParams(location.search).get("concept");
-    if (preview) {
+    if (preview === "precision") {
       document.body.classList.add("preview");
-      document.querySelectorAll(".board").forEach((board) => {
-        if (board.querySelector(`[data-concept="${preview}"]`) === null) board.remove();
-      });
     }
   </script>
 </body>

@@ -6,7 +6,7 @@ import {
   changeTaskQuadrant,
   closeTask,
   completeTask,
-  createTaskV2,
+  createTask,
   eventsByDay,
   pinTask,
   renameTask,
@@ -20,7 +20,7 @@ const at = (hour: number) => new Date(`2026-09-18T0${hour}:00:00.000Z`);
 describe("final task rules", () => {
   it("requires an explicit quadrant and snapshots local event identity", () => {
     expect(() =>
-      createTaskV2(
+      createTask(
         { title: "排查登录异常", groupId: null, groupName: "未分组" },
         at(1),
         "task-1",
@@ -28,7 +28,7 @@ describe("final task rules", () => {
       ),
     ).toThrow("必须选择象限");
 
-    const task = createTaskV2(
+    const task = createTask(
       {
         title: " 排查登录异常 ",
         groupId: "support",
@@ -61,7 +61,7 @@ describe("final task rules", () => {
   });
 
   it("keeps old names in history while current task uses the new name", () => {
-    const created = createTaskV2(
+    const created = createTask(
       {
         title: "旧名称",
         groupId: null,
@@ -85,7 +85,7 @@ describe("final task rules", () => {
   });
 
   it("records group and quadrant changes but does not rewrite prior events", () => {
-    const created = createTaskV2(
+    const created = createTask(
       {
         title: "任务",
         groupId: "one",
@@ -128,7 +128,7 @@ describe("final task rules", () => {
   });
 
   it("supports completion and exceptional closure, preserves history, and requires reopening before progress", () => {
-    const active = createTaskV2(
+    const active = createTask(
       {
         title: "任务",
         groupId: null,
@@ -155,7 +155,7 @@ describe("final task rules", () => {
 
   it("reads history from oldest to newest and searches all statuses by names and progress", () => {
     const first = addProgress(
-      createTaskV2(
+      createTask(
         {
           title: "登录故障",
           groupId: null,
@@ -172,7 +172,7 @@ describe("final task rules", () => {
       "event-3",
     );
     const second = completeTask(
-      createTaskV2(
+      createTask(
         {
           title: "月报",
           groupId: null,
@@ -198,7 +198,7 @@ describe("final task rules", () => {
       group: { support: ["a", "b", "c"] },
       quadrant: { important_urgent: ["c", "b", "a"] },
     };
-    const task = createTaskV2(
+    const task = createTask(
       {
         title: "B",
         groupId: "support",

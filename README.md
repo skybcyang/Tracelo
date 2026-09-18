@@ -1,6 +1,8 @@
-# 工作时间线
+# Tracelo（工作时间线）
 
 Obsidian 单设备任务进展插件。左侧持续展示当前待办，右侧显示每日时间线或单任务完整历史。
+
+仓库：https://github.com/skybcyang/Tracelo
 
 ## 功能
 
@@ -14,16 +16,25 @@ Obsidian 单设备任务进展插件。左侧持续展示当前待办，右侧�
 
 正式任务和历史默认保存在 `工作记录/任务/`。草稿、排序和界面偏好保存在插件数据中；旧 JSON 任务不会迁移，首次切换前会先备份。
 
-## 构建
+## 文档
+
+- [需求与验收基线](docs/requirements.md)：业务规则、存储方案与 17 条核心验收场景
+- [设计基线](docs/design/precision-chrome.html)：界面设计基线（参考图 `precision-chrome-refined.png`，由 `tests/design-baseline.test.ts` 守护）
+- [Agent 只读规则模板](docs/templates/agent.md)：插件初始化时写入任务目录的 `agent.md` 模板
+
+## 开发
+
+要求 Node.js ≥ 22.12。
 
 ```sh
 npm install
-npm test
-npm run build
+npm test          # vitest 单元/契约测试
+npm run build     # 类型检查 + esbuild 产出 main.js
+npm run test:layout  # 本机 Chrome 中的卡片布局与滚动检查（需要 playwright 浏览器）
+npm run check     # 依次执行以上全部
 ```
 
 卡片使用原生 CSS Grid：普通卡占一格，展开卡占同宽两格，列数随可用宽度自动变化。
-可运行 `npm run test:layout` 在本机 Chrome 中检查连续缩放、卡片等宽和两行底边对齐。
 
 ## 本地安装
 
@@ -35,4 +46,4 @@ manifest.json
 styles.css
 ```
 
-重新加载 Obsidian 后，在“第三方插件”中启用“工作时间线”。点击左侧历史图标，或从命令面板运行“打开工作时间线”。
+重新加载 Obsidian 后，在“第三方插件”中启用“Tracelo”。点击左侧历史图标，或从命令面板运行“打开工作时间线”。
