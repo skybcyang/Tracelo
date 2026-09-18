@@ -121,7 +121,8 @@ function eventContext(now: Date): Pick<TaskEvent, "at" | "day" | "timezone" | "o
     at: now.toISOString(),
     day: dayKey(now),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "local",
-    offsetMinutes: -now.getTimezoneOffset(),
+    // `|| 0` 将 UTC 下的 -0 规范化为 0，避免序列化往返后与 Object.is 比较冲突
+    offsetMinutes: -now.getTimezoneOffset() || 0,
   };
 }
 
