@@ -1,0 +1,21 @@
+{
+  "name": "obsidian-work-timeline",
+  "version": "0.2.0",
+  "private": true,
+  "description": "An Obsidian task progress timeline.",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "test": "vitest run",
+    "test:layout": "node tests/card-layout.browser.mjs && node tests/pane-scroll.browser.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.13.1",
+    "playwright": "^1.63.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

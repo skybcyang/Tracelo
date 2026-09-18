@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>工作时间线 - 冷调精密与透明铬</title>
+  <style>
+    * { box-sizing: border-box; }
+    html { background: #111214; }
+    body {
+      margin: 0;
+      padding: 56px 32px 96px;
+      background: #111214;
+      color: #f5f5f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button, .task-card { transition: color 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out; }
+    button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .board { width: min(1440px, calc(100vw - 64px)); margin: 0 auto 84px; }
+    .board-heading { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 16px; }
+    .board-heading h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: 0; }
+    .board-heading p { margin: 0; color: #90949b; font-size: 13px; }
+
+    .concept {
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --panel-soft: #f8f9fb;
+      --text: #17191d;
+      --muted: #6c727c;
+      --faint: #979da6;
+      --line: #dfe2e7;
+      --line-strong: #c9ced6;
+      --accent: #2856e8;
+      --accent-ink: #ffffff;
+      --accent-soft: #eaf0ff;
+      --warm: #c25c24;
+      --danger: #c43d3d;
+      --card-min: 260px;
+      --timeline-width: clamp(360px, 28%, 480px);
+      --shadow: 0 24px 70px rgb(0 0 0 / .25);
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      min-height: 760px;
+      max-height: 900px;
+      overflow: hidden;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid rgb(255 255 255 / .14);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+    .appbar {
+      height: 68px;
+      display: grid;
+      grid-template-columns: minmax(300px, 1fr) auto minmax(300px, 1fr);
+      align-items: center;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel) 88%, transparent);
+      position: relative;
+      z-index: 4;
+    }
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .brand-mark { width: 10px; height: 30px; border-radius: 2px; background: var(--accent); }
+    .brand-title { font-size: 18px; font-weight: 720; line-height: 1.1; }
+    .brand-meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .segmented { display: inline-flex; padding: 3px; gap: 2px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 8px; }
+    .segmented button { height: 31px; padding: 0 14px; border: 0; background: transparent; color: var(--muted); border-radius: 5px; font-size: 12px; }
+    .segmented .active { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / .08); font-weight: 650; }
+    .toolbar { display: flex; justify-content: flex-end; gap: 8px; }
+    .icon-button, .primary-button, .quiet-button {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--text);
+    }
+    .icon-button { width: 38px; padding: 0; font-size: 19px; }
+    .primary-button { padding: 0 16px; border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 680; }
+    .quiet-button { padding: 0 12px; font-size: 12px; color: var(--muted); }
+
+    .workspace { height: calc(100% - 68px); display: grid; grid-template-columns: minmax(0, 1fr) var(--timeline-width); }
+    .tasks-pane { min-width: 0; padding: 22px 25px 20px; overflow: auto; scrollbar-gutter: stable; }
+    .timeline-pane { min-width: 0; padding: 22px 25px; border-left: 1px solid var(--line); background: var(--panel); overflow: auto; scrollbar-gutter: stable; }
+    .pane-heading { height: 39px; display: flex; align-items: flex-start; justify-content: space-between; }
+    .pane-heading h2 { margin: 0; font-size: 14px; font-weight: 720; }
+    .pane-heading .count { color: var(--muted); font-size: 12px; }
+    .pane-actions { display: flex; gap: 8px; align-items: center; }
+    .search-chip { color: var(--muted); font-size: 12px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+
+    .group { margin-top: 8px; }
+    .group + .group { margin-top: 18px; }
+    .group-title { display: flex; align-items: center; gap: 9px; height: 28px; color: var(--text); }
+    .group-title h3 { margin: 0; font-size: 12px; font-weight: 700; }
+    .group-title .rule { height: 1px; flex: 1; background: var(--line); }
+    .group-title .number { color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .task-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-min)), 1fr)); align-items: start; gap: 9px; }
+    .task-card {
+      position: relative;
+      min-width: 0;
+      padding: 13px 14px 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+    }
+    .task-card.selected { border-color: color-mix(in srgb, var(--accent) 58%, var(--line)); box-shadow: 0 7px 20px color-mix(in srgb, var(--accent) 10%, transparent); }
+    .task-card.selected::before { content: ""; position: absolute; left: -1px; top: 11px; bottom: 11px; width: 3px; border-radius: 2px; background: var(--accent); }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .task-name { min-width: 0; font-size: 14px; font-weight: 720; line-height: 1.3; }
+    .task-tools { display: flex; gap: 3px; flex: 0 0 auto; color: var(--faint); font-size: 14px; }
+    .task-progress { margin-top: 6px; min-height: 18px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task-meta { margin-top: 9px; display: flex; align-items: center; gap: 8px; color: var(--faint); font-size: 10px; }
+    .task-meta .spacer { flex: 1; }
+    .flag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); background: var(--panel-soft); }
+    .flag.urgent { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 24%, var(--line)); background: color-mix(in srgb, var(--danger) 6%, var(--panel)); }
+    .flag.important { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 24%, var(--line)); background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+    .composer { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line); }
+    .composer-field { display: block; }
+    .composer-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 10px; font-weight: 680; }
+    .composer textarea { display: block; width: 100%; height: 68px; resize: none; padding: 11px 12px; color: var(--text); background: var(--panel-soft); border: 1px solid var(--line); border-radius: 6px; outline: none; font-size: 12px; line-height: 1.5; }
+    .composer textarea::placeholder { color: var(--faint); }
+    .composer-actions { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .draft-state { color: var(--faint); font-size: 10px; }
+    .submit-button { height: 31px; padding: 0 13px; border: 0; border-radius: 6px; color: var(--accent-ink); background: var(--accent); font-size: 11px; font-weight: 700; }
+    .ended { margin-top: 18px; height: 42px; display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--muted); background: color-mix(in srgb, var(--panel) 64%, transparent); border: 1px solid var(--line); border-radius: 7px; font-size: 12px; }
+    .ended strong { color: var(--text); font-weight: 680; }
+    .ended .spacer { flex: 1; }
+
+    .timeline-head { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .timeline-kicker { color: var(--accent); font-size: 10px; font-weight: 750; }
+    .timeline-head h2 { margin: 5px 0 0; font-size: 18px; font-weight: 740; }
+    .timeline-sub { margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .back-button { border: 0; padding: 7px 0 7px 10px; color: var(--muted); background: transparent; font-size: 11px; }
+    .history { position: relative; padding-top: 17px; }
+    .history::before { content: ""; position: absolute; left: 64px; top: 26px; bottom: -50px; width: 1px; background: var(--line); }
+    .day-label { margin: 2px 0 10px 78px; color: var(--text); font-size: 12px; font-weight: 740; }
+    .event { position: relative; display: grid; grid-template-columns: 51px 14px 1fr; column-gap: 8px; padding: 9px 0 13px; }
+    .event time { color: var(--faint); font-size: 10px; font-variant-numeric: tabular-nums; text-align: right; padding-top: 2px; }
+    .event-dot { position: relative; z-index: 1; width: 8px; height: 8px; margin: 3px auto 0; border-radius: 50%; border: 2px solid var(--panel); background: var(--line-strong); box-shadow: 0 0 0 1px var(--line-strong); }
+    .event.progress .event-dot { background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .event-body { min-width: 0; }
+    .event-type { color: var(--muted); font-size: 10px; }
+    .event-text { margin-top: 4px; color: var(--text); font-size: 12px; line-height: 1.55; }
+    .event.system .event-text { color: var(--muted); font-size: 11px; }
+    .now-marker { margin: 5px 0 0 78px; display: flex; align-items: center; gap: 8px; color: var(--accent); font-size: 10px; font-weight: 700; }
+    .now-marker::after { content: ""; height: 1px; flex: 1; background: color-mix(in srgb, var(--accent) 34%, transparent); }
+
+    /* Precision chrome */
+    .precision {
+      --bg: #edf0f4; --panel: #fbfcfe; --panel-soft: #f2f5f8; --text: #15191f;
+      --muted: #596373; --faint: #8a95a5; --line: #d7dee7; --line-strong: #aeb9c8;
+      --accent: #245be7; --accent-ink: #ffffff; --accent-soft: #e7eeff; --danger: #bd4848;
+      background:
+        linear-gradient(90deg, rgb(69 89 119 / .028) 1px, transparent 1px),
+        linear-gradient(0deg, rgb(69 89 119 / .022) 1px, transparent 1px),
+        var(--bg);
+      background-size: 72px 72px;
+    }
+    .precision::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(118deg, rgb(255 255 255 / .52), transparent 19% 82%, rgb(74 105 157 / .035)); }
+    .precision .appbar { height: 72px; padding: 0 27px; background: rgb(249 251 253 / .78); border-bottom-color: #cfd7e1; backdrop-filter: blur(24px) saturate(145%); box-shadow: inset 0 1px #fff, 0 8px 24px rgb(49 64 87 / .055); }
+    .precision .workspace { height: calc(100% - 72px); grid-template-columns: minmax(0, 1fr) var(--timeline-width); }
+    .precision .brand-mark { width: 32px; height: 32px; border: 1px solid #9aa8bb; border-radius: 7px; background: linear-gradient(135deg, transparent 0 43%, #245be7 44% 56%, transparent 57%), rgb(255 255 255 / .66); box-shadow: inset 0 1px #fff, 0 4px 12px rgb(50 71 105 / .08); }
+    .precision .brand-title { font-weight: 690; }
+    .precision .segmented { background: rgb(221 227 235 / .72); border-color: #c6cfdb; box-shadow: inset 0 1px rgb(117 134 158 / .08); }
+    .precision .segmented .active { background: rgb(255 255 255 / .88); box-shadow: 0 1px 4px rgb(42 57 78 / .1), inset 0 1px #fff; }
+    .precision .icon-button { background: rgb(255 255 255 / .64); border-color: #c9d2de; }
+    .precision .primary-button { color: #234fae; background: rgb(255 255 255 / .55); border-color: #9db2e8; box-shadow: inset 0 1px #fff; }
+    .precision .primary-button:hover, .precision .icon-button:hover { background: #ffffff; border-color: #7897df; box-shadow: 0 5px 14px rgb(48 78 145 / .1), inset 0 1px #fff; }
+    .precision .primary-button:active, .precision .icon-button:active { box-shadow: inset 0 2px 5px rgb(46 64 92 / .12); }
+    .precision .tasks-pane { padding: 25px 28px 22px; }
+    .precision .timeline-pane { padding: 25px 28px; background: rgb(250 252 254 / .76); border-left-color: #cbd4df; backdrop-filter: blur(24px) saturate(125%); box-shadow: -18px 0 48px rgb(58 73 94 / .06), inset 1px 0 rgb(255 255 255 / .78); }
+    .precision .pane-heading h2 { font-size: 16px; }
+    .precision .search-chip { background: rgb(255 255 255 / .48); border-color: #cbd4df; }
+    .precision .task-card { background: rgb(251 252 254 / .82); border-color: #d3dae3; box-shadow: inset 0 1px rgb(255 255 255 / .9); }
+    .precision .task-card:hover { background: #ffffff; border-color: #b1bdcc; box-shadow: 0 5px 16px rgb(43 59 82 / .065), inset 0 1px #fff; }
+    .precision .task-card.selected { border-color: #8da9eb; background: linear-gradient(108deg, rgb(231 238 255 / .85), rgb(255 255 255 / .92) 45%); box-shadow: 0 18px 42px rgb(54 82 145 / .12), inset 0 1px #fff, 0 0 0 1px rgb(255 255 255 / .65); }
+    .precision .task-card.selected::before { top: 17px; bottom: 17px; width: 4px; box-shadow: 0 0 14px rgb(36 91 231 / .2); }
+    .precision .composer-label { color: #4e5b6d; }
+    .precision .composer textarea { background: rgb(247 250 253 / .86); border-color: #b8c5d7; box-shadow: inset 0 2px 9px rgb(59 78 108 / .055), inset 0 1px #fff; }
+    .precision .composer textarea:focus { border-color: #6f91e7; box-shadow: 0 0 0 3px rgb(36 91 231 / .09), inset 0 1px #fff; }
+    .precision .submit-button { box-shadow: 0 7px 16px rgb(36 91 231 / .18), inset 0 1px rgb(255 255 255 / .22); }
+    .precision .submit-button:hover { background: #174edb; box-shadow: 0 9px 20px rgb(36 91 231 / .24), inset 0 1px rgb(255 255 255 / .22); }
+    .precision .submit-button:active { background: #1744b9; box-shadow: inset 0 2px 5px rgb(5 28 87 / .24); }
+    .precision .ended { background: rgb(250 252 254 / .55); border-color: #d1d9e3; }
+    .precision .timeline-head { border-bottom-color: #cfd8e3; }
+    .precision .event.progress .event-text { font-weight: 620; }
+    .precision .event.progress .event-dot { box-shadow: 0 0 0 1px var(--accent), 0 0 0 5px rgb(36 91 231 / .075); }
+
+    body.preview { padding: 0; overflow: hidden; }
+    body.preview .board { width: 100vw; height: 100vh; margin: 0; }
+    body.preview .board-heading { display: none; }
+    body.preview .concept { width: 100vw; height: 100vh; min-height: 0; max-height: none; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; }
+
+    @media (max-width: 1180px) and (min-width: 820px) {
+      .precision .tasks-pane, .precision .timeline-pane { padding-right: 22px; padding-left: 22px; }
+    }
+    @media (max-width: 819px) {
+      body { padding: 24px 12px 60px; }
+      .board { width: 100%; }
+      .concept { min-height: 0; max-height: none; overflow: visible; aspect-ratio: auto; }
+      .precision .appbar { grid-template-columns: minmax(0, 1fr) auto; }
+      .appbar > .segmented { display: none; }
+      .precision .workspace { height: auto; min-height: calc(100vh - 72px); grid-template-columns: minmax(0, 1fr); }
+      .precision .tasks-pane { overflow: visible; }
+      .precision .timeline-pane { min-height: 620px; overflow: visible; border-top: 1px solid #cbd4df; border-left: 0; box-shadow: 0 -18px 48px rgb(58 73 94 / .045), inset 0 1px rgb(255 255 255 / .78); }
+      body.preview { overflow: auto; }
+      body.preview .board { height: auto; min-height: 100vh; }
+      body.preview .concept { height: auto; min-height: 100vh; }
+    }
+    @media (max-width: 520px) {
+      .precision .appbar { height: 64px; gap: 10px; padding: 0 14px; }
+      .precision .workspace { min-height: calc(100vh - 64px); }
+      .precision .brand-mark { width: 29px; height: 29px; }
+      .precision .brand-title { font-size: 16px; }
+      .brand-meta { display: none; }
+      .toolbar { gap: 6px; }
+      .primary-button { width: 38px; padding: 0; overflow: hidden; font-size: 0; }
+      .primary-button::before { content: "＋"; font-size: 18px; }
+      .precision .tasks-pane, .precision .timeline-pane { padding: 20px 14px 24px; }
+      .pane-heading { height: 42px; }
+      .pane-actions { gap: 6px; }
+      .search-chip { padding: 6px 7px; font-size: 11px; }
+      .task-grid { grid-template-columns: minmax(0, 1fr); }
+      .timeline-head { gap: 14px; }
+      .timeline-head h2 { font-size: 17px; }
+      .back-button { max-width: 104px; padding-left: 0; line-height: 1.4; }
+      .history::before { left: 55px; }
+      .day-label, .now-marker { margin-left: 69px; }
+      .event { grid-template-columns: 43px 12px minmax(0, 1fr); column-gap: 7px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="board">
+      <div class="board-heading"><h1>冷调精密 + 透明铬</h1><p>平面主体，关键交互使用冷白透明材质</p></div>
+      <article class="concept precision" data-concept="precision">
+        <header class="appbar">
+          <div class="brand"><span class="brand-mark"></span><div><div class="brand-title">工作时间线</div><div class="brand-meta">8 项进行中　今天 6 条记录</div></div></div>
+          <div class="segmented"><button class="active">分组</button><button>四象限</button></div>
+          <div class="toolbar"><button class="icon-button" aria-label="搜索">⌕</button><button class="primary-button" aria-label="新建任务">＋ 新建任务</button></div>
+        </header>
+        <div class="workspace">__WORKSPACE__</div>
+      </article>
+    </section>
+
+  </main>
+
+  <template id="workspace-template">
+    <section class="tasks-pane">
+      <div class="pane-heading"><h2>当前任务</h2><div class="pane-actions"><span class="search-chip">最近进展优先</span><span class="count">8 项</span></div></div>
+      <section class="group">
+        <div class="group-title"><h3>客户支持</h3><span class="rule"></span><span class="number">3</span></div>
+        <div class="task-grid">
+          <article class="task-card selected">
+            <div class="card-top"><div class="task-name">排查登录异常</div><div class="task-tools">⋯　⠿</div></div>
+            <div class="task-progress">已排除账号权限问题，正在检查缓存与会话刷新链路</div>
+            <div class="task-meta"><span class="flag urgent">紧急</span><span class="flag important">重要</span><span class="spacer"></span><span>刚刚更新</span></div>
+            <div class="composer"><label class="composer-field"><span class="composer-label">记录当前进展</span><textarea placeholder="例如：已确认缓存键未按租户隔离……"></textarea></label><div class="composer-actions"><span class="draft-state">草稿已自动保存</span><button class="submit-button">记录进展</button></div></div>
+          </article>
+          <article class="task-card"><div class="card-top"><div class="task-name">跟进退款工单</div><div class="task-tools">⋯</div></div><div class="task-progress">等待支付渠道返回流水状态</div><div class="task-meta"><span class="flag urgent">紧急</span><span class="spacer"></span><span>42 分钟前</span></div></article>
+          <article class="task-card"><div class="card-top"><div class="task-name">整理客户反馈</div><div class="task-tools">⋯</div></div><div class="task-progress">已归纳 5 条高频问题，待补充影响范围</div><div class="task-meta"><span class="flag important">重要</span><span class="spacer"></span><span>2 小时前</span></div></article>
+        </div>
+      </section>
+      <section class="group">
+        <div class="group-title"><h3>产品建设</h3><span class="rule"></span><span class="number">2</span></div>
+        <div class="task-grid">
+          <article class="task-card"><div class="card-top"><div class="task-name">改造任务存储</div><div class="task-tools">⋯</div></div><div class="task-progress">已明确 Markdown 目录结构，下一步设计文件协议</div><div class="task-meta"><span class="flag important">重要</span><span class="spacer"></span><span>昨天</span></div></article>
+          <article class="task-card"><div class="card-top"><div class="task-name">验证自动备份</div><div class="task-tools">⋯</div></div><div class="task-progress">待验证最近 7 天轮换与异常恢复</div><div class="task-meta"><span class="spacer"></span><span>昨天</span></div></article>
+        </div>
+      </section>
+      <div class="ended"><span>›</span><strong>已结束</strong><span>已完成 9　异常关闭 3</span><span class="spacer"></span><span>12</span></div>
+    </section>
+    <aside class="timeline-pane">
+      <div class="timeline-head"><div><div class="timeline-kicker">进展时间线</div><h2>排查登录异常</h2><div class="timeline-sub">客户支持　重要且紧急</div></div><button class="back-button">← 返回每日时间线</button></div>
+      <div class="history">
+        <div class="day-label">9 月 17 日　星期四</div>
+        <div class="event system"><time>09:10</time><span class="event-dot"></span><div class="event-body"><div class="event-type">创建</div><div class="event-text">创建任务，归入客户支持</div></div></div>
+        <div class="event progress"><time>10:25</time><span class="event-dot"></span><div class="event-body"><div class="event-type">进展</div><div class="event-text">已复现登录循环，初步判断与账号权限缓存有关。</div></div></div>
+        <div class="event system"><time>11:40</time><span class="event-dot"></span><div class="event-body"><div class="event-type">象限变更</div><div class="event-text">重要不紧急 → 重要且紧急</div></div></div>
+        <div class="day-label">9 月 18 日　星期五</div>
+        <div class="event progress"><time>09:32</time><span class="event-dot"></span><div class="event-body"><div class="event-type">进展</div><div class="event-text">已排除账号权限问题，正在检查缓存与会话刷新链路。</div></div></div>
+        <div class="event system"><time>10:08</time><span class="event-dot"></span><div class="event-body"><div class="event-type">分组变更</div><div class="event-text">未分组 → 客户支持</div></div></div>
+        <div class="now-marker">当前</div>
+      </div>
+    </aside>
+  </template>
+  <script>
+    const template = document.querySelector("#workspace-template");
+    document.querySelectorAll(".workspace").forEach((workspace) => {
+      workspace.replaceChildren(template.content.cloneNode(true));
+    });
+    const preview = new URLSearchParams(location.search).get("concept");
+    if (preview) {
+      document.body.classList.add("preview");
+      document.querySelectorAll(".board").forEach((board) => {
+        if (board.querySelector(`[data-concept="${preview}"]`) === null) board.remove();
+      });
+    }
+  </script>
+</body>
+</html>
