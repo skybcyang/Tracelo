@@ -32,11 +32,13 @@ Obsidian 单设备任务进展插件。左侧持续展示当前待办，右侧�
 npm install
 npm test          # vitest 单元/契约测试
 npm run build     # 类型检查 + esbuild 产出 main.js
-npm run test:layout  # 本机 Chrome 中的卡片布局与滚动检查（需要 playwright 浏览器）
+npm run test:layout  # 布局、滚动与真实卡片交互检查（需要 playwright 浏览器）
 npm run check     # 依次执行以上全部
 ```
 
 卡片使用原生 CSS Grid：基础高度 148px，按内容占用最少整数格；列数随可用宽度自动变化，长进展与待办不会裁切。
+
+卡片交互测试直接加载插件渲染代码，并模拟 Obsidian 的默认控件样式和图标 API，覆盖展开／收起、可选字段、清单编辑、日期、草稿及深浅色响应式布局。使用已安装的 Chrome 时运行 `PLAYWRIGHT_CHANNEL=chrome npm run check`。
 
 ## 本地安装
 

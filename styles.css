@@ -3,12 +3,13 @@
   --wt-accent-strong: #1748c8;
   --wt-bg: #edf0f4;
   --wt-panel: rgba(250, 252, 255, 0.76);
-  --wt-card: rgba(252, 253, 255, 0.9);
+  --wt-card: #fff;
   --wt-text: #172033;
-  --wt-muted: #657287;
-  --wt-faint: #8995a8;
-  --wt-line: #cbd4e0;
-  --wt-line-strong: #aebbd0;
+  --wt-muted: #5d6b7f;
+  --wt-faint: #5d6b7f;
+  --wt-line: #d4dce7;
+  --wt-line-strong: #99a9bf;
+  --wt-soft: #f2f5f9;
   --wt-red: #c44545;
   --wt-green: #27785d;
   --wt-card-min: 260px;
@@ -30,10 +31,11 @@
 .theme-dark .work-timeline-view {
   --wt-bg: #151a22;
   --wt-panel: rgba(29, 36, 48, 0.82);
-  --wt-card: rgba(31, 38, 51, 0.94);
+  --wt-card: #232c3a;
   --wt-text: #edf2fb;
   --wt-muted: #a8b3c5;
-  --wt-faint: #7f8a9c;
+  --wt-faint: #b0bdcf;
+  --wt-soft: #19212d;
   --wt-line: #394457;
   --wt-line-strong: #58677f;
 }
@@ -331,8 +333,8 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--wt-line);
-  border-radius: 7px;
-  box-shadow: 0 1px 2px rgba(40, 57, 82, 0.04), inset 0 1px rgba(255, 255, 255, 0.72);
+  border-radius: 9px;
+  box-shadow: none;
   background: var(--wt-card);
   color: var(--wt-text);
   transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease, opacity 160ms ease;
@@ -340,37 +342,31 @@
 
 .wt-card-body {
   display: flex;
+  min-width: 0;
   min-height: calc(var(--wt-card-height) - 2px);
   flex-direction: column;
-  gap: 4px;
   padding: 12px;
 }
 
+.wt-card.is-expanded .wt-card-body { min-height: 0; }
+
 .wt-card:hover {
   border-color: var(--wt-line-strong);
-  box-shadow: 0 7px 19px rgba(45, 62, 89, 0.085), inset 0 1px rgba(255, 255, 255, 0.82);
 }
 
-.wt-card.is-selected {
-  border-color: #7898e8;
-  box-shadow: 0 12px 29px rgba(36, 71, 141, 0.13), inset 0 1px rgba(255, 255, 255, 0.9);
-  background: linear-gradient(112deg, rgba(237, 244, 255, 0.94), rgba(255, 255, 255, 0.88) 42%, rgba(245, 249, 255, 0.93));
+.wt-card.is-expanded {
+  border-color: var(--wt-accent);
+  box-shadow: 0 6px 24px rgba(42, 80, 156, 0.08);
 }
 
-.theme-dark .wt-card.is-selected {
-  background: #27344b;
-  box-shadow: 0 12px 29px rgba(0, 0, 0, 0.2), inset 0 1px rgba(255, 255, 255, 0.08);
-}
-
-.wt-card.is-selected::before {
+.wt-card.is-expanded::before {
   content: "";
   position: absolute;
-  top: 15px;
-  bottom: 15px;
+  top: 18px;
   left: 0;
-  width: 4px;
-  border-radius: 0 3px 3px 0;
-  box-shadow: 0 0 14px rgba(36, 91, 231, 0.24);
+  width: 3px;
+  height: 28px;
+  border-radius: 2px;
   background: var(--wt-accent);
 }
 
@@ -386,42 +382,57 @@
   box-shadow: 0 -2px 0 var(--wt-accent);
 }
 
-.wt-card-open {
-  display: grid;
-  width: 100%;
-  min-height: 0;
-  gap: 8px;
-  padding: 0 28px 0 0;
+.wt-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Beat Obsidian's button:not(.clickable-icon), and reset its fixed height/nowrap. */
+.work-timeline-view .wt-card-open {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  min-height: 24px;
+  padding: 0;
   border: 0;
-  border-radius: 0;
+  border-radius: 2px;
   box-shadow: none;
   background: transparent;
   color: inherit;
   text-align: left;
+  white-space: normal;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.6;
+  cursor: pointer;
 }
 
-.wt-card.is-expanded .wt-card-open {
-  min-height: 0;
+.work-timeline-view .wt-card-open:hover {
+  background: transparent;
+  color: var(--wt-accent);
 }
 
-.wt-card-top {
-  min-width: 0;
-  justify-content: space-between;
-  gap: 8px;
+.work-timeline-view .wt-card :is(button, input, textarea):focus-visible {
+  outline: 2px solid var(--wt-accent);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .wt-card-title {
   min-width: 0;
-  font-size: 15px;
-  font-weight: 720;
-  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .wt-card-latest {
-  color: #4f5d72;
-  font-size: 13px;
-  line-height: 1.5;
+  margin: 4px 0 0;
+  flex-shrink: 0;
+  color: var(--wt-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
@@ -429,13 +440,21 @@
   color: var(--wt-muted);
 }
 
+.wt-card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  margin-top: auto;
+}
+
 .wt-card-meta {
   min-width: 0;
-  gap: 6px;
-  margin-top: auto;
-  color: var(--wt-faint);
-  font-size: 10px;
-  line-height: 1.35;
+  gap: 12px;
+  justify-content: space-between;
+  color: var(--wt-muted);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .wt-card-summary {
@@ -443,38 +462,43 @@
   min-width: 0;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: auto;
 }
 
-.wt-card-summary + .wt-card-meta { margin-top: 0; }
-
-.wt-summary-chip {
+.work-timeline-view .wt-summary-chip {
   display: inline-flex;
-  min-height: 28px;
+  height: auto;
+  min-height: 24px;
+  max-width: 100%;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
+  gap: 6px;
+  padding: 2px 7px;
   border: 0;
   border-radius: 5px;
-  background: #f0f3f7;
+  box-shadow: none;
+  background: var(--wt-soft);
   color: var(--wt-muted);
   font-size: 11px;
-  line-height: 1.35;
+  font-weight: 400;
+  line-height: 1.5;
   text-align: left;
+  white-space: normal;
   overflow-wrap: anywhere;
+  cursor: pointer;
 }
 
+.work-timeline-view .wt-summary-chip:hover { background: var(--wt-line); }
 .wt-summary-chip svg,
 .wt-optional-actions svg { width: 14px; height: 14px; flex: 0 0 auto; }
-.wt-due-chip.is-overdue { color: var(--wt-red); background: #fff1f1; }
-.theme-dark .wt-summary-chip { background: #303a4b; }
+.work-timeline-view .wt-due-chip.is-overdue { color: var(--wt-red); background: #fff1f1; }
 .theme-dark .wt-due-chip.is-overdue { background: #493137; }
 
-.wt-card-meta > span:first-child {
+.wt-card-properties {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .wt-card-time {
@@ -485,10 +509,10 @@
 .wt-tag,
 .wt-status {
   flex: 0 0 auto;
-  padding: 2px 5px;
+  padding: 1px 6px;
   border: 1px solid var(--wt-line);
-  border-radius: 3px;
-  font-size: 9px;
+  border-radius: 4px;
+  font-size: 10px;
   line-height: 1.25;
 }
 
@@ -497,6 +521,12 @@
   border-color: #e7b7b7;
   background: #fff4f4;
   color: var(--wt-red);
+}
+
+.work-timeline-view .wt-card .wt-tag {
+  border-color: var(--wt-line);
+  background: transparent;
+  color: var(--wt-muted);
 }
 
 .wt-tag.is-important {
@@ -511,14 +541,18 @@
   color: var(--wt-green);
 }
 
-.wt-card-menu {
-  position: absolute;
-  top: 9px;
-  right: 9px;
-  z-index: 2;
-  border-color: transparent;
+.work-timeline-view .wt-card-menu {
+  position: static;
+  flex: none;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
   box-shadow: none;
   background: transparent;
+  color: var(--wt-muted);
 }
 
 .wt-card-menu:hover,
@@ -531,18 +565,20 @@
 }
 
 .wt-card-composer {
-  margin: 4px 0 0;
-  padding: 10px 0 0;
-  border-top: 1px solid #ccd7e6;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--wt-line);
 }
 
 .wt-card.is-expanded .wt-card-composer {
   margin-bottom: 0;
-  padding: 6px 0 0;
 }
 
 .wt-card.is-expanded .wt-card-composer label {
   gap: 4px;
+  color: var(--wt-text);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .wt-card-composer label,
@@ -567,10 +603,14 @@
 }
 
 .wt-card-composer textarea {
-  min-height: 68px;
-  padding: 10px 11px;
+  display: block;
+  height: 54px;
+  min-height: 54px;
+  max-height: 90px;
+  padding: 8px 10px;
   resize: vertical;
-  font: inherit;
+  font-family: inherit;
+  font-weight: 400;
   font-size: 12px;
   line-height: 1.5;
 }
@@ -583,25 +623,31 @@
 }
 
 .wt-card.is-expanded .wt-card-composer textarea {
-  height: 48px;
-  min-height: 48px;
-  padding: 6px 9px;
-  resize: vertical;
+  border-color: var(--wt-line);
+  background: var(--wt-soft);
+  box-shadow: none;
 }
 
-.wt-card-todos { min-width: 0; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--wt-line); }
-.wt-card-todos h4 { margin: 0 0 5px; color: var(--wt-muted); font-size: 11px; }
-.wt-todo-row { display: flex; min-height: 32px; align-items: center; gap: 4px; }
+.wt-card-todos { min-width: 0; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--wt-line); }
+.wt-checklist-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.wt-card-todos h4 { margin: 0; color: var(--wt-text); font-size: 12px; font-weight: 650; line-height: 1.5; }
+.wt-checklist-count { color: var(--wt-muted); font-size: 11px; }
+.wt-todo-row { display: flex; min-height: 32px; align-items: center; gap: 8px; border-bottom: 1px solid color-mix(in srgb, var(--wt-line) 55%, transparent); }
 .wt-todo-label { display: flex; min-width: 0; flex: 1; align-items: center; gap: 8px; color: var(--wt-text); font-size: 12px; line-height: 1.5; }
+.wt-todo-label { padding: 4px 0; cursor: pointer; }
 .wt-todo-label span { min-width: 0; overflow-wrap: anywhere; }
 .wt-todo-label .is-done { color: var(--wt-muted); text-decoration: line-through; }
-.wt-todo-check { flex: 0 0 auto; width: 17px; height: 17px; accent-color: var(--wt-accent); }
-.wt-todo-row .wt-icon-button { width: 28px; min-width: 28px; height: 28px; border: 0; background: transparent; }
-.wt-optional-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
-.wt-optional-actions button { display: inline-flex; min-height: 30px; align-items: center; gap: 5px; padding: 3px 7px; border: 0; background: transparent; color: var(--wt-accent-strong); font-size: 11px; }
-.wt-add-todo { display: flex; gap: 5px; margin-top: 3px; }
-.wt-add-todo input { min-width: 0; flex: 1; padding: 5px 7px; border: 1px solid var(--wt-line); border-radius: 5px; background: var(--wt-card); color: var(--wt-text); }
-.wt-add-todo button { min-width: 30px; padding: 0 6px; }
+.work-timeline-view .wt-todo-check { flex: 0 0 auto; width: 17px; height: 17px; margin: 0; accent-color: var(--wt-accent); }
+.wt-todo-row .wt-icon-button { width: 25px; min-width: 25px; height: 28px; padding: 0; border: 0; box-shadow: none; background: transparent; }
+.wt-todo-row .wt-icon-button + .wt-icon-button { margin-left: -8px; }
+.wt-todo-row .wt-icon-button svg { width: 13px; height: 13px; }
+.wt-optional-actions { display: flex; flex-wrap: wrap; gap: 4px; margin: 7px 0; }
+.work-timeline-view .wt-optional-actions button { display: inline-flex; height: auto; min-height: 29px; align-items: center; gap: 5px; padding: 4px 6px; border: 0; box-shadow: none; background: transparent; color: var(--wt-muted); font-size: 11px; white-space: normal; cursor: pointer; }
+.wt-optional-actions button > span { display: inline-flex; }
+.wt-add-todo { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.work-timeline-view .wt-add-todo input { width: 100%; min-width: 0; flex: 1; height: 30px; padding: 5px 9px; border: 1px solid var(--wt-line); border-radius: 6px; background: var(--wt-card); color: var(--wt-text); font-size: 12px; }
+.work-timeline-view .wt-add-todo button { flex: none; width: 38px; min-width: 30px; height: 30px; padding: 0 10px; border: 1px solid var(--wt-line); border-radius: 6px; background: transparent; color: var(--wt-muted); box-shadow: none; }
+.work-timeline-view .wt-card :is(.wt-card-menu, .wt-icon-button, .wt-optional-actions button):hover { background: var(--wt-soft); }
 .wt-undo-button { margin-left: 12px; }
 
 .wt-composer-footer {
@@ -615,7 +661,14 @@
 }
 
 .wt-card.is-expanded .wt-composer-footer .mod-cta {
-  min-height: 30px;
+  height: auto;
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  border-radius: 6px;
+  box-shadow: none;
 }
 
 .wt-draft-state {
@@ -707,8 +760,8 @@
   font-size: 10px;
 }
 
-.wt-back-button,
-.wt-date-controls button {
+.work-timeline-view .wt-back-button,
+.work-timeline-view .wt-date-controls button {
   min-height: 32px;
   padding: 0 9px;
   border: 0;
@@ -741,10 +794,10 @@
 }
 
 .wt-task-due { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 9px; color: var(--wt-muted); font-size: 11px; }
-.wt-task-due button { border: 0; background: transparent; color: var(--wt-accent-strong); font-size: 11px; }
-.wt-timeline-due { flex: 0 1 auto; max-height: 38%; overflow: auto; padding: 13px 28px; border-bottom: 1px solid var(--wt-line); }
+.work-timeline-view .wt-task-due button { border: 0; box-shadow: none; background: transparent; color: var(--wt-accent-strong); font-size: 11px; }
+.wt-timeline-due { flex: 0 0 auto; max-height: 38%; overflow: auto; padding: 13px 28px; border-bottom: 1px solid var(--wt-line); }
 .wt-timeline-due h3 { margin: 0 0 8px; font-size: 11px; color: var(--wt-muted); }
-.wt-due-row { display: flex; width: 100%; min-height: 32px; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; border: 0; background: transparent; text-align: left; color: var(--wt-text); font-size: 12px; }
+.work-timeline-view .wt-due-row { display: flex; width: 100%; height: auto; min-height: 32px; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; border: 0; box-shadow: none; background: transparent; text-align: left; white-space: normal; color: var(--wt-text); font-size: 12px; }
 .wt-due-row span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .wt-due-row span:last-child { flex: 0 0 auto; color: var(--wt-muted); font-size: 10px; }
 .wt-date-shortcuts { display: flex; gap: 8px; }
@@ -835,9 +888,10 @@
   font-size: 9px;
 }
 
-.wt-event-task {
+.work-timeline-view .wt-event-task {
   display: block;
   max-width: 100%;
+  height: auto;
   min-height: 24px;
   overflow: hidden;
   padding: 0;
@@ -1430,7 +1484,14 @@
 
   .wt-todo-row { min-height: 44px; }
   .wt-todo-row .wt-icon-button { width: 44px; min-width: 44px; height: 44px; }
-  .wt-summary-chip, .wt-optional-actions button { min-height: 44px; }
+  .work-timeline-view .wt-summary-chip,
+  .work-timeline-view .wt-optional-actions button,
+  .work-timeline-view .wt-card-open,
+  .work-timeline-view .wt-card-menu,
+  .work-timeline-view .wt-add-todo button,
+  .work-timeline-view .wt-add-todo input { min-height: 44px; }
+  .work-timeline-view .wt-card-menu,
+  .work-timeline-view .wt-add-todo button { min-width: 44px; }
   .wt-timeline-due { padding-left: 14px; padding-right: 14px; }
 
 }

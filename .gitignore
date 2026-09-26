@@ -8,3 +8,5 @@ playwright-report/
 test-results/
 .env
 .env.*
+.obsidian/
+工作记录/

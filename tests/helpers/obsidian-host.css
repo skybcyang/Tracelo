@@ -1,0 +1,41 @@
+/* Minimal host collision fixture based on Obsidian 1.13.7 button/input rules.
+   Deliberately independent of plugin selectors; native-vault QA remains required. */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 14px/1.5 -apple-system, sans-serif;
+  --text-normal: #222;
+  --interactive-normal: #e5e5e5;
+  --interactive-hover: #ddd;
+  --input-shadow: 0 1px 2px #0002;
+  --input-height: 30px;
+  --font-ui-small: 13px;
+  --input-font-weight: 500;
+  --background-modifier-border-focus: #245be7;
+}
+.view-content { width: 100vw; height: 100vh; }
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-ui-small);
+  border: 0;
+  border-radius: 5px;
+  padding: 4px 12px;
+  height: var(--input-height);
+  font-weight: var(--input-font-weight);
+  font-family: inherit;
+  outline: none;
+  white-space: nowrap;
+}
+button:not(.clickable-icon) {
+  color: var(--text-normal);
+  background-color: var(--interactive-normal);
+  box-shadow: var(--input-shadow);
+}
+button:hover { background-color: var(--interactive-hover); }
+button:focus-visible { box-shadow: 0 0 0 3px var(--background-modifier-border-focus); }
+textarea { font-family: inherit; }
+input[type=checkbox] { width: 16px; height: 16px; margin: 0 6px 0 0; }
+.modal { position: fixed; inset: 10% auto auto 30%; z-index: 100; background: white; }
+.notice { position: fixed; right: 20px; bottom: 20px; z-index: 101; background: white; }

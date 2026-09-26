@@ -12,10 +12,10 @@ try {
   await page.setContent(`<style>* { box-sizing: border-box } body { margin: 0; font: 14px Arial } ${css}</style>
     <div class="work-timeline-view"><div class="wt-card-grid">
     ${Array.from({ length: 12 }, (_, i) => `<article class="wt-card${i === 0 ? " is-expanded is-selected" : ""}"><div class="wt-card-body">
-      <button class="wt-card-open"><span class="wt-card-title">任务 ${i + 1}</span>
-      <span class="wt-card-latest">${i === 2 ? '很长的进展文字需要完整显示。'.repeat(40) : '检查任务进展与响应式布局'}</span></button>
+      <div class="wt-card-heading"><button class="wt-card-open"><span class="wt-card-title">任务 ${i + 1}</span></button></div>
+      <p class="wt-card-latest">${i === 2 ? '很长的进展文字需要完整显示。'.repeat(40) : '检查任务进展与响应式布局'}</p><footer class="wt-card-footer">
       ${i === 0 ? '<div class="wt-card-summary"><button class="wt-summary-chip">待办 1/4</button><button class="wt-summary-chip">9月30日截止</button></div>' : ''}
-      <div class="wt-card-meta"><span>未分组</span><span class="wt-tag">重要</span><span class="wt-card-time">9/18 20:50</span></div>
+      <div class="wt-card-meta"><span>未分组</span><span class="wt-tag">重要</span><span class="wt-card-time">9/18 20:50</span></div></footer>
       ${i === 0 ? `<section class="wt-card-todos"><h4>待办</h4>${Array.from({ length: 4 }, (_, j) => `<div class="wt-todo-row"><label class="wt-todo-label"><input type="checkbox"><span>${j === 2 ? '需要换行的待办内容。'.repeat(6) : '核对清单项目'}</span></label></div>`).join('')}</section><div class="wt-optional-actions"><button>添加待办</button></div><form class="wt-card-composer"><label>记录当前进展<textarea></textarea></label><div class="wt-composer-footer"><span class="wt-draft-state">草稿已自动保存</span><button class="mod-cta">记录进展</button></div></form>` : ''}
     </div></article>`).join("")}</div></div>`);
   await page.evaluate(() => {
@@ -41,7 +41,8 @@ try {
       await page.waitForFunction(({ width, zoom }) => {
         const cards = [...document.querySelectorAll('.wt-card')];
         const fits = cards.every(card => card.getBoundingClientRect().height / zoom + 0.5 >= card.querySelector('.wt-card-body').scrollHeight + 2);
-        return fits && (width !== 735 || zoom !== 1 || Math.abs(cards[0].getBoundingClientRect().height / zoom - 468) < 0.5);
+        const compact = cards.every(card => card.getBoundingClientRect().height / zoom - card.querySelector('.wt-card-body').scrollHeight - 2 < 160);
+        return fits && compact;
       }, { width, zoom });
       const settled = await page.evaluate((zoom) => {
         const rect = (el) => { const r = el.getBoundingClientRect(); return { left: r.left / zoom, top: r.top / zoom, width: r.width / zoom, height: r.height / zoom, bottom: r.bottom / zoom, right: r.right / zoom }; };
@@ -55,7 +56,7 @@ try {
         assert.ok(cards.every(c => c.width >= Math.min(width, 260) - 0.1 && c.right <= grid.right + 0.1), 'narrow or overflowing columns');
         assert.ok(cards.every((c, i) => c.height + 0.5 >= content[i]), `card content clipped: ${cards.map((c, i) => `${i}:${c.height}/${content[i]}`).join(', ')}`);
         assert.ok(cards.every(c => Math.abs((c.height + gap) / (148 + gap) - Math.round((c.height + gap) / (148 + gap))) < 0.02), 'card height not on integer grid');
-        if (width === 735 && zoom === 1) assert.equal(expanded.height, 468, 'four-item card unnecessarily occupies four rows');
+        assert.ok(cards.every((c, i) => c.height - content[i] < 160), 'card reserves more than the smallest whole-row height');
         if (width >= 529) {
           const beside = cards.filter(c => c.left > expanded.left + 1 && c.top < expanded.bottom);
           assert.ok(beside.length > 0, 'neighbor cards are not packed beside expanded card');

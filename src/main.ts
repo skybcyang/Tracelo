@@ -597,21 +597,24 @@ class WorkTimelineView extends ItemView {
       attr: { "data-task-id": task.id, draggable: String(task.status === "active") },
     });
     const body = card.createDiv({ cls: "wt-card-body" });
-    const open = body.createEl("button", {
+    const heading = body.createDiv({ cls: "wt-card-heading" });
+    const open = heading.createEl("button", {
       cls: "wt-card-open",
       attr: { type: "button", "aria-expanded": String(expanded), "aria-label": `${task.status === "active" ? "查看并记录" : "查看任务"}：${task.title}` },
     });
-    const top = open.createSpan({ cls: "wt-card-top" });
-    top.createSpan({ text: task.title, cls: "wt-card-title" });
-    if (task.status !== "active") top.createSpan({ text: task.status === "completed" ? "已完成" : "异常关闭", cls: `wt-status is-${task.status}` });
+    open.createSpan({ text: task.title, cls: "wt-card-title" });
+    iconButton(heading, "more-horizontal", `任务操作：${task.title}`, "wt-card-menu")
+      .addEventListener("click", (event) => this.showTaskMenu(event, task));
     const latest = [...task.events].reverse().find(({ kind }) => kind === "progress") ?? task.events[0]!;
-    open.createSpan({ text: latest.text, cls: "wt-card-latest" });
+    body.createEl("p", { text: latest.text, cls: "wt-card-latest" });
+    const footer = body.createEl("footer", { cls: "wt-card-footer" });
     if (task.todos?.length || task.dueDate) {
-      const summary = body.createDiv({ cls: "wt-card-summary" });
+      const summary = footer.createDiv({ cls: "wt-card-summary" });
       if (task.todos?.length) {
         const count = task.todos.filter(({ done }) => done).length;
         const todo = summary.createEl("button", { cls: "wt-summary-chip", attr: { type: "button", "aria-label": `查看待办，已完成 ${count}/${task.todos.length}` } });
         setIcon(todo, "list-checks");
+        todo.querySelector("svg")?.setAttribute("aria-hidden", "true");
         todo.createSpan({ text: `待办 ${count}/${task.todos.length}` });
         todo.addEventListener("click", () => {
           this.selectedTaskId = task.id;
@@ -623,24 +626,26 @@ class WorkTimelineView extends ItemView {
       if (task.dueDate) {
         const due = summary.createEl("button", { cls: `wt-summary-chip wt-due-chip${task.status === "active" && task.dueDate < dayKey(new Date()) ? " is-overdue" : ""}`, attr: { type: "button", "aria-label": `修改截止日期：${dueLabel(task)}` } });
         setIcon(due, "calendar-days");
+        due.querySelector("svg")?.setAttribute("aria-hidden", "true");
         due.createSpan({ text: dueLabel(task) });
         due.addEventListener("click", () => this.openDueDate(task));
       }
     }
-    const meta = body.createDiv({ cls: "wt-card-meta" });
-    meta.createSpan({ text: task.groupName });
-    if (task.urgent) meta.createSpan({ text: "紧急", cls: "wt-tag is-urgent" });
-    if (task.important) meta.createSpan({ text: "重要", cls: "wt-tag is-important" });
-    meta.createSpan({ text: formatDateTime(task.events.at(-1)!.at), cls: "wt-card-time" });
+    const meta = footer.createDiv({ cls: "wt-card-meta" });
+    const properties = meta.createDiv({ cls: "wt-card-properties" });
+    properties.createSpan({ text: task.groupName });
+    if (task.important) properties.createSpan({ text: "重要", cls: "wt-tag is-important" });
+    if (task.urgent) properties.createSpan({ text: "紧急", cls: "wt-tag is-urgent" });
+    if (task.status !== "active") properties.createSpan({ text: task.status === "completed" ? "已完成" : "异常关闭", cls: `wt-status is-${task.status}` });
+    const updated = task.events.at(-1)!;
+    meta.createEl("time", { text: updated.day === dayKey(new Date()) ? formatTime(updated.at) : formatDateTime(updated.at), cls: "wt-card-time", attr: { datetime: updated.at } });
     open.addEventListener("click", () => {
       this.selectedTaskId = task.id;
       this.expandedTaskId = expanded ? null : task.id;
       if (expanded) this.addingTodoTaskId = null;
       this.render();
-      requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"] ${!expanded && task.status === "active" ? ".wt-card-composer textarea" : ".wt-card-open"}`)?.focus());
+      requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"] .wt-card-open`)?.focus({ preventScroll: true }));
     });
-    iconButton(card, "more-horizontal", `任务操作：${task.title}`, "wt-card-menu")
-      .addEventListener("click", (event) => this.showTaskMenu(event, task));
 
     if (task.status === "active") {
       card.addEventListener("dragstart", (event) => {
@@ -670,10 +675,15 @@ class WorkTimelineView extends ItemView {
   }
 
   private renderTodoDetails(card: HTMLElement, task: WorkTask): void {
-    if (task.todos?.length) {
-      const section = card.createEl("section", { cls: "wt-card-todos", attr: { "aria-label": "待办" } });
-      section.createEl("h4", { text: "待办" });
-      for (const item of task.todos) {
+    const showChecklist = Boolean(task.todos?.length) || this.addingTodoTaskId === task.id;
+    let section: HTMLElement | undefined;
+    if (showChecklist) {
+      section = card.createEl("section", { cls: "wt-card-todos", attr: { "aria-label": "待办清单" } });
+      const heading = section.createDiv({ cls: "wt-checklist-heading" });
+      heading.createEl("h4", { text: "待办清单" });
+      const done = task.todos?.filter((item) => item.done).length ?? 0;
+      heading.createSpan({ text: task.todos?.length ? `${done} / ${task.todos.length} 已完成` : "按需添加", cls: "wt-checklist-count" });
+      for (const item of task.todos ?? []) {
         const row = section.createDiv({ cls: "wt-todo-row" });
         const label = row.createEl("label", { cls: "wt-todo-label" });
         const check = label.createEl("input", { type: "checkbox", cls: "wt-todo-check", attr: { "aria-label": item.text } });
@@ -711,28 +721,40 @@ class WorkTimelineView extends ItemView {
       }
     }
     if (task.status !== "active") return;
-    const actions = card.createDiv({ cls: "wt-optional-actions" });
-    const add = actions.createEl("button", { text: "添加待办", attr: { type: "button" } });
-    setIcon(add, "plus");
-    add.addEventListener("click", () => { this.addingTodoTaskId = task.id; this.render(); this.contentEl.querySelector<HTMLInputElement>(`.wt-card[data-task-id="${task.id}"] .wt-add-todo input`)?.focus(); });
-    if (!task.dueDate) {
-      const due = actions.createEl("button", { text: "设置截止日期", attr: { type: "button" } });
-      setIcon(due, "calendar-days");
-      due.addEventListener("click", () => this.openDueDate(task));
-    }
-    if (this.addingTodoTaskId === task.id) {
-      const form = card.createEl("form", { cls: "wt-add-todo" });
-      const input = form.createEl("input", { type: "text", attr: { "aria-label": "新增待办", placeholder: "输入待办并按回车", maxlength: "160", required: "" } });
-      const submit = form.createEl("button", { text: "添加", attr: { type: "submit" } });
-      iconButton(form, "x", "取消添加待办").addEventListener("click", () => { this.addingTodoTaskId = null; this.render(); });
+    if (section) {
+      const form = section.createEl("form", { cls: "wt-add-todo" });
+      const input = form.createEl("input", { type: "text", attr: { "aria-label": "新增待办", placeholder: "添加下一步要做的事", maxlength: "160", required: "" } });
+      const submit = iconButton(form, "plus", "添加待办", "wt-add-todo-submit");
+      submit.setAttr("type", "submit");
+      if (!task.todos?.length) {
+        const cancel = () => { this.addingTodoTaskId = null; this.render(); this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"] .wt-optional-actions button`)?.focus(); };
+        iconButton(form, "x", "取消添加待办").addEventListener("click", cancel);
+        input.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.preventDefault(); cancel(); } });
+      }
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         submit.disabled = true;
         try {
+          this.addingTodoTaskId = null;
           await this.plugin.addTaskTodo(task.id, input.value);
           this.contentEl.querySelector<HTMLInputElement>(`.wt-card[data-task-id="${task.id}"] .wt-add-todo input`)?.focus();
         } catch (reason) { submit.disabled = false; new Notice(reason instanceof Error ? reason.message : "未能保存，请重试"); }
       });
+    }
+    if (!showChecklist || !task.dueDate) {
+      const actions = card.createDiv({ cls: "wt-optional-actions" });
+      if (!showChecklist) {
+        const add = actions.createEl("button", { attr: { type: "button" } });
+        setIcon(add.createSpan({ attr: { "aria-hidden": "true" } }), "plus");
+        add.createSpan({ text: "添加待办" });
+        add.addEventListener("click", () => { this.addingTodoTaskId = task.id; this.render(); this.contentEl.querySelector<HTMLInputElement>(`.wt-card[data-task-id="${task.id}"] .wt-add-todo input`)?.focus(); });
+      }
+      if (!task.dueDate) {
+        const due = actions.createEl("button", { attr: { type: "button" } });
+        setIcon(due.createSpan({ attr: { "aria-hidden": "true" } }), "calendar-days");
+        due.createSpan({ text: "设置截止日期" });
+        due.addEventListener("click", () => this.openDueDate(task));
+      }
     }
   }
 
@@ -741,12 +763,12 @@ class WorkTimelineView extends ItemView {
     const label = form.createEl("label");
     label.createSpan({ text: "记录当前进展" });
     const input = label.createEl("textarea", {
-      attr: { rows: "3", maxlength: "2000", placeholder: "例如：已确认缓存键未按租户隔离……", required: "" },
+      attr: { rows: "3", maxlength: "2000", placeholder: "记录已经推进的事…", required: "" },
     });
     input.value = this.plugin.state.drafts[task.id] ?? "";
     input.addEventListener("input", () => this.plugin.updateDraft(task.id, input.value));
     const footer = form.createDiv({ cls: "wt-composer-footer" });
-    footer.createSpan({ text: "草稿已自动保存", cls: "wt-draft-state" });
+    footer.createSpan({ text: "切换卡牌保留草稿", cls: "wt-draft-state" });
     const submit = footer.createEl("button", { text: "记录进展", cls: "mod-cta", attr: { type: "submit" } });
     form.addEventListener("submit", async (event) => {
       event.preventDefault();

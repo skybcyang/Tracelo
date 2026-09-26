@@ -24,7 +24,7 @@ describe("final plugin surface", () => {
       "异常关闭",
       "搜索任务和进展",
       "返回每日时间线",
-      "草稿已自动保存",
+      "切换卡牌保留草稿",
       "wt-card-composer",
       "wt-view-switch",
       "wt-ended-section",
@@ -40,7 +40,7 @@ describe("final plugin surface", () => {
     for (const token of [
       "--wt-accent: #245be7",
       "backdrop-filter: blur",
-      ".wt-card.is-selected",
+      ".wt-card.is-expanded",
       ".wt-timeline-column",
       ".wt-view-switch",
       "prefers-reduced-motion",

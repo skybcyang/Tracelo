@@ -13,7 +13,7 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "test": "vitest run",
-    "test:layout": "node tests/card-layout.browser.mjs && node tests/pane-scroll.browser.mjs",
+    "test:layout": "node tests/card-layout.browser.mjs && node tests/pane-scroll.browser.mjs && node tests/card-interactions.browser.mjs",
     "check": "npm test && npm run build && npm run test:layout"
   },
   "devDependencies": {
