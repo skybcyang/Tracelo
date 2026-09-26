@@ -19,6 +19,7 @@ import {
   QUADRANTS,
   UNGROUPED_TASKS,
   addProgress,
+  addTodo,
   applyGroupRename,
   changeTaskGroup,
   changeTaskQuadrant,
@@ -27,6 +28,8 @@ import {
   createGroup,
   createTask,
   dayKey,
+  dueTasksForDay,
+  editTodo,
   eventsByDay,
   eventsForDay,
   groupEvent,
@@ -38,12 +41,17 @@ import {
   quadrantName,
   quadrantTasks,
   renameTask,
+  removeTodo,
   reopenTask,
+  restoreTodo,
   searchTasks,
+  setDueDate,
+  toggleTodo,
   type CreateTaskInput,
   type GroupArchive,
   type QuadrantId,
   type TaskEvent,
+  type TaskTodo,
   type TaskGroup,
   type ViewMode,
   type WorkGroup,
@@ -61,6 +69,13 @@ const EVENT_LABELS: Record<TaskEvent["kind"], string> = {
   reopened: "重新打开",
   group_changed: "分组变更",
   quadrant_changed: "象限变更",
+  todo_added: "添加待办",
+  todo_done: "完成待办",
+  todo_undone: "恢复待办",
+  todo_edited: "编辑待办",
+  todo_removed: "删除待办",
+  todo_restored: "恢复待办",
+  due_changed: "截止日期变更",
 };
 
 function makeId(): string {
@@ -86,6 +101,15 @@ function formatDay(day: string): string {
     .format(new Date(`${day}T12:00:00`));
 }
 
+function dueLabel(task: WorkTask, today = dayKey(new Date())): string {
+  const date = task.dueDate!;
+  const label = `${Number(date.slice(5, 7))}月${Number(date.slice(8))}日截止`;
+  if (task.status !== "active") return label;
+  if (date < today) return `${label} · 已逾期`;
+  if (date === today) return `${label} · 今天`;
+  return label;
+}
+
 function iconButton(container: HTMLElement, icon: string, label: string, cls = "wt-icon-button"): HTMLButtonElement {
   const button = container.createEl("button", {
     cls: `clickable-icon ${cls}`,
@@ -98,6 +122,8 @@ function iconButton(container: HTMLElement, icon: string, label: string, cls = "
 
 interface NewTaskValues extends CreateTaskInput {
   initialProgress: string;
+  dueDate: string | null;
+  todos: string[];
 }
 
 class NewTaskModal extends Modal {
@@ -145,6 +171,21 @@ class NewTaskModal extends Modal {
       });
     }
 
+    const optional = form.createDiv({ cls: "wt-new-optional" });
+    const todoButton = optional.createEl("button", { text: "添加待办", cls: "wt-secondary-action", attr: { type: "button" } });
+    const todoList = form.createDiv({ cls: "wt-new-todos" });
+    todoButton.addEventListener("click", () => {
+      const row = todoList.createDiv({ cls: "wt-new-todo-row" });
+      const field = row.createEl("input", { type: "text", attr: { "aria-label": "待办内容", placeholder: "待办内容", maxlength: "160" } });
+      iconButton(row, "x", "移除待办").addEventListener("click", () => row.remove());
+      field.focus();
+    });
+    const dateButton = optional.createEl("button", { text: "设置截止日期", cls: "wt-secondary-action", attr: { type: "button" } });
+    const dueField = form.createEl("label", { cls: "wt-field wt-new-due" });
+    dueField.hidden = true;
+    dueField.createSpan({ text: "截止日期", cls: "wt-field-label" });
+    const due = dueField.createEl("input", { type: "date" });
+    dateButton.addEventListener("click", () => { dueField.hidden = false; due.focus(); });
     const progressLabel = form.createEl("label", { cls: "wt-field" });
     const progressHeading = progressLabel.createSpan({ cls: "wt-field-heading" });
     progressHeading.createSpan({ text: "初始进展", cls: "wt-field-label" });
@@ -180,6 +221,8 @@ class NewTaskModal extends Modal {
           important: quadrant.important,
           urgent: quadrant.urgent,
           initialProgress: progress.value,
+          dueDate: due.value || null,
+          todos: [...todoList.querySelectorAll<HTMLInputElement>("input")].map((field) => field.value.trim()).filter(Boolean),
         });
         this.close();
       } catch (reason) {
@@ -217,7 +260,7 @@ class TextPromptModal extends Modal {
     const field = form.createEl("label", { cls: "wt-field" });
     const fieldName = this.heading === "异常关闭" ? "关闭原因"
       : this.heading === "删除分组" ? "确认分组名称"
-        : this.heading.includes("分组") ? "分组名称" : "任务名称";
+      : this.heading.includes("分组") ? "分组名称" : this.heading.includes("待办") ? "待办内容" : "任务名称";
     field.createSpan({ text: fieldName, cls: "wt-field-label" });
     const input = this.multiline
       ? field.createEl("textarea", { attr: { rows: "4", maxlength: "2000", placeholder: this.placeholder, required: "" } })
@@ -249,6 +292,67 @@ class TextPromptModal extends Modal {
   onClose(): void {
     this.contentEl.empty();
   }
+}
+
+class DueDateModal extends Modal {
+  constructor(app: App, private readonly current: string | undefined, private readonly save: (day: string | null) => Promise<void>) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.setTitle("截止日期");
+    this.modalEl.addClass("wt-modal");
+    const form = this.contentEl.createEl("form", { cls: "wt-modal-form" });
+    const field = form.createEl("label", { cls: "wt-field" });
+    field.createSpan({ text: "截止日期", cls: "wt-field-label" });
+    const input = field.createEl("input", { type: "date", attr: { required: "" } });
+    input.value = this.current ?? "";
+    const shortcuts = form.createDiv({ cls: "wt-date-shortcuts" });
+    for (const [label, offset] of [["今天", 0], ["明天", 1]] as const) {
+      shortcuts.createEl("button", { text: label, attr: { type: "button" } }).addEventListener("click", () => {
+        const date = new Date();
+        date.setDate(date.getDate() + offset);
+        input.value = dayKey(date);
+      });
+    }
+    const error = form.createEl("p", { cls: "wt-form-error", attr: { role: "alert" } });
+    const actions = form.createDiv({ cls: "wt-modal-actions" });
+    const run = async (day: string | null, button: HTMLButtonElement) => {
+      button.disabled = true;
+      try { await this.save(day); this.close(); }
+      catch (reason) { error.setText(reason instanceof Error ? reason.message : "未能保存，请重试"); button.disabled = false; }
+    };
+    if (this.current) actions.createEl("button", { text: "清除日期", cls: "wt-secondary-action", attr: { type: "button" } })
+      .addEventListener("click", (event) => void run(null, event.currentTarget as HTMLButtonElement));
+    actions.createEl("button", { text: "取消", cls: "wt-secondary-action", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    const submit = actions.createEl("button", { text: "保存日期", cls: "wt-primary-action", attr: { type: "submit" } });
+    form.addEventListener("submit", (event) => { event.preventDefault(); void run(input.value, submit); });
+    requestAnimationFrame(() => input.focus());
+  }
+
+  onClose(): void { this.contentEl.empty(); }
+}
+
+class CompleteTaskModal extends Modal {
+  constructor(app: App, private readonly remaining: number, private readonly finish: () => Promise<void>) { super(app); }
+
+  onOpen(): void {
+    this.setTitle("完成任务");
+    this.modalEl.addClass("wt-modal");
+    this.contentEl.createEl("p", { text: `还有 ${this.remaining} 条待办未完成。仍然完成任务？`, cls: "wt-confirm-copy" });
+    const error = this.contentEl.createEl("p", { cls: "wt-form-error", attr: { role: "alert" } });
+    const actions = this.contentEl.createDiv({ cls: "wt-modal-actions" });
+    actions.createEl("button", { text: "返回处理", cls: "wt-secondary-action", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    const confirm = actions.createEl("button", { text: "仍然完成", cls: "wt-primary-action", attr: { type: "button" } });
+    confirm.addEventListener("click", async () => {
+      confirm.disabled = true;
+      try { await this.finish(); this.close(); }
+      catch (reason) { error.setText(reason instanceof Error ? reason.message : "未能保存，请重试"); confirm.disabled = false; }
+    });
+    requestAnimationFrame(() => confirm.focus());
+  }
+
+  onClose(): void { this.contentEl.empty(); }
 }
 
 class GroupManagerModal extends Modal {
@@ -326,9 +430,12 @@ class GroupManagerModal extends Modal {
 
 class WorkTimelineView extends ItemView {
   private selectedDay = dayKey(new Date());
+  private currentDay = this.selectedDay;
   private selectedTaskId: string | null = null;
   private expandedTaskId: string | null = null;
   private searchQuery = "";
+  private addingTodoTaskId: string | null = null;
+  private cardObserver: ResizeObserver | null = null;
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: WorkTimelinePlugin) {
     super(leaf);
@@ -337,7 +444,17 @@ class WorkTimelineView extends ItemView {
   getViewType(): string { return VIEW_TYPE; }
   getDisplayText(): string { return this.plugin.manifest.name; }
   getIcon(): string { return "history"; }
-  async onOpen(): Promise<void> { this.render(); }
+  async onOpen(): Promise<void> {
+    this.render();
+    this.registerInterval(window.setInterval(() => {
+      const today = dayKey(new Date());
+      if (today === this.currentDay) return;
+      if (this.selectedDay === this.currentDay) this.selectedDay = today;
+      this.currentDay = today;
+      this.render();
+    }, 60_000));
+  }
+  async onClose(): Promise<void> { this.cardObserver?.disconnect(); }
 
   taskRecorded(taskId: string): void {
     if (this.expandedTaskId === taskId) this.expandedTaskId = null;
@@ -357,6 +474,7 @@ class WorkTimelineView extends ItemView {
     const root = this.contentEl;
     const taskScrollTop = root.querySelector(".wt-task-column")?.scrollTop ?? 0;
     const layoutScrollTop = root.querySelector(".wt-layout")?.scrollTop ?? 0;
+    this.cardObserver?.disconnect();
     root.empty();
     root.addClass("work-timeline-view");
     const shell = root.createDiv({ cls: "wt-shell" });
@@ -364,6 +482,19 @@ class WorkTimelineView extends ItemView {
     const layout = shell.createDiv({ cls: "wt-layout" });
     const tasks = layout.createEl("main", { cls: "wt-task-column" });
     this.renderTasks(tasks);
+    this.cardObserver = new ResizeObserver((entries) => {
+      for (const { target } of entries) {
+        const body = target as HTMLElement;
+        const card = body.parentElement;
+        const grid = card?.parentElement;
+        if (!card || !grid) continue;
+        const style = getComputedStyle(grid);
+        const row = parseFloat(style.gridAutoRows);
+        const gap = parseFloat(style.rowGap);
+        if (row > 0) card.style.gridRowEnd = `span ${Math.max(1, Math.ceil((body.scrollHeight + 2 + gap) / (row + gap)))}`;
+      }
+    });
+    tasks.querySelectorAll<HTMLElement>(".wt-card-body").forEach((body) => this.cardObserver?.observe(body));
     this.renderTimeline(layout.createEl("aside", { cls: "wt-timeline-column" }));
     tasks.scrollTop = taskScrollTop;
     layout.scrollTop = layoutScrollTop;
@@ -460,36 +591,60 @@ class WorkTimelineView extends ItemView {
 
   private renderCard(container: HTMLElement, task: WorkTask, area: string): void {
     const selected = this.selectedTaskId === task.id;
-    const expanded = this.expandedTaskId === task.id && task.status === "active";
+    const expanded = this.expandedTaskId === task.id;
     const card = container.createEl("article", {
       cls: `wt-card${selected ? " is-selected" : ""}${isTaskEnded(task) ? " is-ended" : ""}${expanded ? " is-expanded" : ""}`,
       attr: { "data-task-id": task.id, draggable: String(task.status === "active") },
     });
-    const open = card.createEl("button", {
+    const body = card.createDiv({ cls: "wt-card-body" });
+    const open = body.createEl("button", {
       cls: "wt-card-open",
-      attr: { type: "button", "aria-expanded": String(expanded), "aria-label": `查看并记录：${task.title}` },
+      attr: { type: "button", "aria-expanded": String(expanded), "aria-label": `${task.status === "active" ? "查看并记录" : "查看任务"}：${task.title}` },
     });
     const top = open.createSpan({ cls: "wt-card-top" });
     top.createSpan({ text: task.title, cls: "wt-card-title" });
     if (task.status !== "active") top.createSpan({ text: task.status === "completed" ? "已完成" : "异常关闭", cls: `wt-status is-${task.status}` });
     const latest = [...task.events].reverse().find(({ kind }) => kind === "progress") ?? task.events[0]!;
     open.createSpan({ text: latest.text, cls: "wt-card-latest" });
-    const meta = open.createSpan({ cls: "wt-card-meta" });
+    if (task.todos?.length || task.dueDate) {
+      const summary = body.createDiv({ cls: "wt-card-summary" });
+      if (task.todos?.length) {
+        const count = task.todos.filter(({ done }) => done).length;
+        const todo = summary.createEl("button", { cls: "wt-summary-chip", attr: { type: "button", "aria-label": `查看待办，已完成 ${count}/${task.todos.length}` } });
+        setIcon(todo, "list-checks");
+        todo.createSpan({ text: `待办 ${count}/${task.todos.length}` });
+        todo.addEventListener("click", () => {
+          this.selectedTaskId = task.id;
+          this.expandedTaskId = task.id;
+          this.render();
+          requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"] ${task.status === "active" ? ".wt-todo-check" : ".wt-card-open"}`)?.focus());
+        });
+      }
+      if (task.dueDate) {
+        const due = summary.createEl("button", { cls: `wt-summary-chip wt-due-chip${task.status === "active" && task.dueDate < dayKey(new Date()) ? " is-overdue" : ""}`, attr: { type: "button", "aria-label": `修改截止日期：${dueLabel(task)}` } });
+        setIcon(due, "calendar-days");
+        due.createSpan({ text: dueLabel(task) });
+        due.addEventListener("click", () => this.openDueDate(task));
+      }
+    }
+    const meta = body.createDiv({ cls: "wt-card-meta" });
     meta.createSpan({ text: task.groupName });
     if (task.urgent) meta.createSpan({ text: "紧急", cls: "wt-tag is-urgent" });
     if (task.important) meta.createSpan({ text: "重要", cls: "wt-tag is-important" });
-    meta.createSpan({ text: formatDateTime(latest.at), cls: "wt-card-time" });
+    meta.createSpan({ text: formatDateTime(task.events.at(-1)!.at), cls: "wt-card-time" });
     open.addEventListener("click", () => {
       this.selectedTaskId = task.id;
-      this.expandedTaskId = task.status === "active" ? (expanded ? null : task.id) : null;
+      this.expandedTaskId = expanded ? null : task.id;
+      if (expanded) this.addingTodoTaskId = null;
       this.render();
-      if (!expanded) requestAnimationFrame(() => this.contentEl.querySelector<HTMLTextAreaElement>(`.wt-card[data-task-id="${task.id}"] textarea`)?.focus());
+      requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"] ${!expanded && task.status === "active" ? ".wt-card-composer textarea" : ".wt-card-open"}`)?.focus());
     });
     iconButton(card, "more-horizontal", `任务操作：${task.title}`, "wt-card-menu")
       .addEventListener("click", (event) => this.showTaskMenu(event, task));
 
     if (task.status === "active") {
       card.addEventListener("dragstart", (event) => {
+        if ((event.target as HTMLElement).closest("input, textarea, button, label")) { event.preventDefault(); return; }
         event.dataTransfer?.setData("text/plain", task.id);
         card.addClass("is-dragging");
       });
@@ -504,7 +659,81 @@ class WorkTimelineView extends ItemView {
         if (moving && moving !== task.id) void this.plugin.dropTask(moving, this.plugin.state.viewMode, area, task.id);
       });
     }
-    if (expanded) this.renderComposer(card, task);
+    if (expanded) {
+      this.renderTodoDetails(body, task);
+      if (task.status === "active") this.renderComposer(body, task);
+    }
+  }
+
+  private openDueDate(task: WorkTask): void {
+    new DueDateModal(this.app, task.dueDate, (date) => this.plugin.setTaskDueDate(task.id, date)).open();
+  }
+
+  private renderTodoDetails(card: HTMLElement, task: WorkTask): void {
+    if (task.todos?.length) {
+      const section = card.createEl("section", { cls: "wt-card-todos", attr: { "aria-label": "待办" } });
+      section.createEl("h4", { text: "待办" });
+      for (const item of task.todos) {
+        const row = section.createDiv({ cls: "wt-todo-row" });
+        const label = row.createEl("label", { cls: "wt-todo-label" });
+        const check = label.createEl("input", { type: "checkbox", cls: "wt-todo-check", attr: { "aria-label": item.text } });
+        check.checked = item.done;
+        check.disabled = task.status !== "active";
+        label.createSpan({ text: item.text, cls: item.done ? "is-done" : "" });
+        check.addEventListener("change", async () => {
+          check.disabled = true;
+          try {
+            await this.plugin.toggleTaskTodo(task.id, item.id, check.checked);
+            requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"] .wt-todo-check[aria-label="${CSS.escape(item.text)}"]`)?.focus());
+          } catch (reason) {
+            check.checked = item.done;
+            check.disabled = false;
+            new Notice(reason instanceof Error ? reason.message : "未能保存，请重试");
+          }
+        });
+        if (task.status === "active") {
+          iconButton(row, "pencil", `编辑待办：${item.text}`).addEventListener("click", () => new TextPromptModal(
+            this.app, "编辑待办", item.text, "待办内容", false, (value) => this.plugin.editTaskTodo(task.id, item.id, value),
+          ).open());
+          iconButton(row, "trash-2", `删除待办：${item.text}`).addEventListener("click", async () => {
+            try {
+              const removed = await this.plugin.removeTaskTodo(task.id, item.id);
+              const notice = new Notice("待办已删除", 8000);
+              const undo = notice.messageEl.createEl("button", { text: "撤销", cls: "wt-undo-button", attr: { type: "button" } });
+              undo.addEventListener("click", async () => {
+                undo.disabled = true;
+                try { await this.plugin.restoreTaskTodo(task.id, removed.todo, removed.index); notice.hide(); }
+                catch (reason) { undo.disabled = false; new Notice(reason instanceof Error ? reason.message : "未能恢复，请重试"); }
+              });
+            } catch (reason) { new Notice(reason instanceof Error ? reason.message : "未能保存，请重试"); }
+          });
+        }
+      }
+    }
+    if (task.status !== "active") return;
+    const actions = card.createDiv({ cls: "wt-optional-actions" });
+    const add = actions.createEl("button", { text: "添加待办", attr: { type: "button" } });
+    setIcon(add, "plus");
+    add.addEventListener("click", () => { this.addingTodoTaskId = task.id; this.render(); this.contentEl.querySelector<HTMLInputElement>(`.wt-card[data-task-id="${task.id}"] .wt-add-todo input`)?.focus(); });
+    if (!task.dueDate) {
+      const due = actions.createEl("button", { text: "设置截止日期", attr: { type: "button" } });
+      setIcon(due, "calendar-days");
+      due.addEventListener("click", () => this.openDueDate(task));
+    }
+    if (this.addingTodoTaskId === task.id) {
+      const form = card.createEl("form", { cls: "wt-add-todo" });
+      const input = form.createEl("input", { type: "text", attr: { "aria-label": "新增待办", placeholder: "输入待办并按回车", maxlength: "160", required: "" } });
+      const submit = form.createEl("button", { text: "添加", attr: { type: "submit" } });
+      iconButton(form, "x", "取消添加待办").addEventListener("click", () => { this.addingTodoTaskId = null; this.render(); });
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        submit.disabled = true;
+        try {
+          await this.plugin.addTaskTodo(task.id, input.value);
+          this.contentEl.querySelector<HTMLInputElement>(`.wt-card[data-task-id="${task.id}"] .wt-add-todo input`)?.focus();
+        } catch (reason) { submit.disabled = false; new Notice(reason instanceof Error ? reason.message : "未能保存，请重试"); }
+      });
+    }
   }
 
   private renderComposer(card: HTMLElement, task: WorkTask): void {
@@ -551,8 +780,15 @@ class WorkTimelineView extends ItemView {
         .onClick(() => void this.plugin.changeQuadrant(task.id, quadrant.id)));
     }
     menu.addSeparator();
+    menu.addItem((item) => item.setTitle(task.dueDate ? "修改截止日期" : "设置截止日期").setIcon("calendar-days")
+      .onClick(() => this.openDueDate(task)));
+    menu.addSeparator();
     if (task.status === "active") {
-      menu.addItem((item) => item.setTitle("完成").setIcon("check").onClick(() => void this.plugin.finishTask(task.id)));
+      menu.addItem((item) => item.setTitle("完成").setIcon("check").onClick(() => {
+        const remaining = task.todos?.filter(({ done }) => !done).length ?? 0;
+        if (remaining) new CompleteTaskModal(this.app, remaining, () => this.plugin.finishTask(task.id)).open();
+        else void this.plugin.finishTask(task.id).catch((reason) => new Notice(reason instanceof Error ? reason.message : "未能保存，请重试"));
+      }));
       menu.addItem((item) => item.setTitle("异常关闭").setIcon("circle-slash-2").onClick(() => new TextPromptModal(
         this.app, "异常关闭", "", "填写关闭原因", true, (value) => this.plugin.closeTask(task.id, value),
       ).open()));
@@ -570,6 +806,15 @@ class WorkTimelineView extends ItemView {
       title.createSpan({ text: "进展时间线", cls: "wt-eyebrow" });
       title.createEl("h2", { text: task.title });
       title.createEl("p", { text: `${task.groupName} · ${quadrantName(task)}` });
+      if (task.dueDate) {
+        const due = title.createDiv({ cls: "wt-task-due" });
+        due.createSpan({ text: dueLabel(task) });
+        due.createEl("button", { text: "查看截止日", attr: { type: "button" } }).addEventListener("click", () => {
+          this.selectedDay = task.dueDate!;
+          this.selectedTaskId = null;
+          this.render();
+        });
+      }
       const back = header.createEl("button", { text: "返回每日时间线", cls: "wt-back-button", attr: { type: "button" } });
       back.addEventListener("click", () => { this.selectedTaskId = null; this.render(); });
       const body = container.createDiv({ cls: "wt-timeline-scroll" });
@@ -586,7 +831,7 @@ class WorkTimelineView extends ItemView {
     title.createSpan({ text: "每日时间线", cls: "wt-eyebrow" });
     title.createEl("h2", { text: formatDay(this.selectedDay) });
     const controls = header.createDiv({ cls: "wt-date-controls" });
-    const date = controls.createEl("input", { type: "date", attr: { max: dayKey(new Date()), "aria-label": "选择时间线日期" } });
+    const date = controls.createEl("input", { type: "date", attr: { "aria-label": "选择时间线日期" } });
     date.value = this.selectedDay;
     date.addEventListener("change", () => { if (date.value) { this.selectedDay = date.value; this.render(); } });
     if (this.selectedDay !== dayKey(new Date())) {
@@ -594,6 +839,17 @@ class WorkTimelineView extends ItemView {
         this.selectedDay = dayKey(new Date());
         this.render();
       });
+    }
+    const dueTasks = dueTasksForDay(this.plugin.tasks, this.selectedDay);
+    if (dueTasks.length) {
+      const due = container.createEl("section", { cls: "wt-timeline-due", attr: { "aria-label": "当日截止" } });
+      due.createEl("h3", { text: `当日截止 · ${dueTasks.length}` });
+      for (const item of dueTasks) {
+        const row = due.createEl("button", { cls: "wt-due-row", attr: { type: "button" } });
+        row.createSpan({ text: item.title });
+        row.createSpan({ text: item.status === "completed" ? "已完成" : item.status === "closed" ? "已关闭" : this.selectedDay < dayKey(new Date()) ? "已逾期" : "进行中" });
+        row.addEventListener("click", () => { this.selectedTaskId = item.id; this.render(); });
+      }
     }
     const body = container.createDiv({ cls: "wt-timeline-scroll" });
     const entries = eventsForDay(this.plugin.tasks, this.selectedDay);
@@ -609,7 +865,7 @@ class WorkTimelineView extends ItemView {
   }
 
   private renderEvent(list: HTMLElement, event: TaskEvent, showTask: boolean, taskId?: string): void {
-    const muted = ["renamed", "group_changed", "quadrant_changed"].includes(event.kind);
+    const muted = ["renamed", "group_changed", "quadrant_changed", "todo_added", "todo_edited", "todo_removed", "todo_restored", "due_changed"].includes(event.kind);
     const item = list.createEl("li", { cls: `is-${event.kind}${muted ? " is-muted" : ""}` });
     item.createEl("time", { text: formatTime(event.at), attr: { datetime: event.at } });
     const body = item.createDiv({ cls: "wt-event-body" });
@@ -754,7 +1010,10 @@ export default class WorkTimelinePlugin extends Plugin {
   async addTask(input: NewTaskValues): Promise<string> {
     const now = new Date();
     let task = createTask(input, now, makeId(), makeId());
-    if (input.initialProgress.trim()) task = addProgress(task, input.initialProgress, new Date(now.getTime() + 1), makeId());
+    let tick = 1;
+    if (input.dueDate) task = setDueDate(task, input.dueDate, new Date(now.getTime() + tick++), makeId());
+    for (const text of input.todos) task = addTodo(task, text, new Date(now.getTime() + tick++), makeId(), makeId());
+    if (input.initialProgress.trim()) task = addProgress(task, input.initialProgress, new Date(now.getTime() + tick), makeId());
     await this.persistTask(task);
     this.tasks = [...this.tasks, task];
     this.state.orders = pinTask(this.state.orders, task);
@@ -782,6 +1041,41 @@ export default class WorkTimelinePlugin extends Plugin {
 
   async renameTask(taskId: string, title: string): Promise<void> {
     await this.updateTask(taskId, (task) => renameTask(task, title, new Date(), makeId()));
+    this.renderViews();
+  }
+
+  async setTaskDueDate(taskId: string, date: string | null): Promise<void> {
+    await this.updateTask(taskId, (task) => setDueDate(task, date, new Date(), makeId()));
+    this.renderViews();
+  }
+
+  async addTaskTodo(taskId: string, text: string): Promise<void> {
+    await this.updateTask(taskId, (task) => addTodo(task, text, new Date(), makeId(), makeId()));
+    this.renderViews();
+  }
+
+  async toggleTaskTodo(taskId: string, todoId: string, done: boolean): Promise<void> {
+    await this.updateTask(taskId, (task) => toggleTodo(task, todoId, done, new Date(), makeId()));
+    this.renderViews();
+  }
+
+  async editTaskTodo(taskId: string, todoId: string, text: string): Promise<void> {
+    await this.updateTask(taskId, (task) => editTodo(task, todoId, text, new Date(), makeId()));
+    this.renderViews();
+  }
+
+  async removeTaskTodo(taskId: string, todoId: string): Promise<{ todo: TaskTodo; index: number }> {
+    const current = this.requireTask(taskId);
+    const index = current.todos?.findIndex(({ id }) => id === todoId) ?? -1;
+    if (index < 0) throw new Error("没有找到这条待办");
+    const todo = { ...current.todos![index]! };
+    await this.updateTask(taskId, (task) => removeTodo(task, todoId, new Date(), makeId()));
+    this.renderViews();
+    return { todo, index };
+  }
+
+  async restoreTaskTodo(taskId: string, todo: TaskTodo, index: number): Promise<void> {
+    await this.updateTask(taskId, (task) => restoreTodo(task, todo, index, new Date(), makeId()));
     this.renderViews();
   }
 

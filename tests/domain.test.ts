@@ -2,16 +2,23 @@ import { describe, expect, it } from "vitest";
 
 import {
   addProgress,
+  addTodo,
   changeTaskGroup,
   changeTaskQuadrant,
   closeTask,
   completeTask,
   createTask,
+  dueTasksForDay,
+  editTodo,
   eventsByDay,
   pinTask,
   renameTask,
   reopenTask,
+  removeTodo,
+  restoreTodo,
   searchTasks,
+  setDueDate,
+  toggleTodo,
   type TaskOrders,
 } from "../src/domain";
 
@@ -215,5 +222,39 @@ describe("final task rules", () => {
       group: { support: ["b", "a", "c"] },
       quadrant: { important_urgent: ["b", "c", "a"] },
     });
+  });
+});
+
+describe("optional task details", () => {
+  const base = () => createTask({ title: "交付", groupId: null, groupName: "未分组", important: true, urgent: false }, at(1), "task-1", "created");
+
+  it("defaults to neither option and projects only current due dates onto a day", () => {
+    const plain = base();
+    expect(plain.dueDate).toBeUndefined();
+    expect(plain.todos).toBeUndefined();
+    const scheduled = setDueDate(plain, "2026-09-30", at(2), "due-1");
+    expect(dueTasksForDay([scheduled, plain], "2026-09-30")).toEqual([scheduled]);
+    expect(scheduled.events.at(-1)).toMatchObject({ kind: "due_changed", meta: { from: null, to: "2026-09-30" } });
+    const cleared = setDueDate(scheduled, null, at(3), "due-2");
+    expect(dueTasksForDay([cleared], "2026-09-30")).toEqual([]);
+    expect(cleared.events.at(-1)).toMatchObject({ kind: "due_changed", meta: { from: "2026-09-30", to: null } });
+    expect(() => setDueDate(plain, "2026-02-30", at(2), "bad")).toThrow("截止日期无效");
+  });
+
+  it("adds, edits, checks and restores todos without changing their order or the main task status", () => {
+    const one = addTodo(base(), " 首项 ", at(2), "todo-1", "event-1");
+    const two = addTodo(one, "次项", at(3), "todo-2", "event-2");
+    const checked = toggleTodo(two, "todo-1", true, at(4), "event-3");
+    expect(checked.todos).toEqual([{ id: "todo-1", text: "首项", done: true }, { id: "todo-2", text: "次项", done: false }]);
+    expect(checked.status).toBe("active");
+    expect(checked.events.at(-1)).toMatchObject({ kind: "todo_done", text: "首项" });
+    const edited = editTodo(checked, "todo-2", "新次项", at(5), "event-4");
+    expect(edited.todos?.[1]?.text).toBe("新次项");
+    const removed = removeTodo(edited, "todo-1", at(6), "event-5");
+    expect(removed.todos).toEqual([{ id: "todo-2", text: "新次项", done: false }]);
+    const restored = restoreTodo(removed, { id: "todo-1", text: "首项", done: true }, 0, at(7), "event-6");
+    expect(restored.todos).toEqual(edited.todos);
+    expect(restored.events.map(({ kind }) => kind).slice(-6)).toEqual(["todo_added", "todo_added", "todo_done", "todo_edited", "todo_removed", "todo_restored"]);
+    expect(() => toggleTodo(completeTask(restored, at(8), "ended"), "todo-1", false, at(9), "event-7")).toThrow("必须先重新打开");
   });
 });

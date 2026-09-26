@@ -1,7 +1,7 @@
 {
   "id": "work-timeline",
   "name": "Tracelo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "minAppVersion": "1.8.0",
   "description": "Track tasks and append progress to local Markdown timelines.",
   "author": "skybcyang",

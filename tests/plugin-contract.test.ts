@@ -7,6 +7,13 @@ describe("final plugin surface", () => {
   const main = readFileSync("src/main.ts", "utf8");
   const styles = readFileSync("styles.css", "utf8");
 
+  it("advances the plugin version so existing vaults receive an upgrade snapshot", () => {
+    const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
+    const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+    expect(manifest.version).toBe("0.3.0");
+    expect(pkg.version).toBe(manifest.version);
+  });
+
   it("exposes the complete task workflow", () => {
     for (const token of [
       "NewTaskModal",
@@ -63,5 +70,14 @@ describe("final plugin surface", () => {
 
     expect(styles).toContain("input:not([type=\"radio\"])");
     expect(styles).not.toContain(".wt-modal-form :is(input, select, textarea)");
+  });
+
+  it("offers optional card details and due-day navigation without a required feature switch", () => {
+    for (const token of ["添加待办", "设置截止日期", "查看截止日", "当日截止", "wt-card-todos", "wt-card-summary", "wt-timeline-due"]) {
+      expect(main + styles).toContain(token);
+    }
+    expect(main).toContain("this.registerInterval(");
+    expect(main).toContain("check.disabled = task.status !== \"active\"");
+    expect(styles).toContain(".theme-dark .wt-card-composer textarea");
   });
 });

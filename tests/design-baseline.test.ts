@@ -5,10 +5,7 @@ import { describe, expect, it } from "vitest";
 
 describe("single visual baseline", () => {
   it("keeps only the selected cold precision and transparent chrome direction", () => {
-    expect(readdirSync("docs/design").sort()).toEqual([
-      "precision-chrome-refined.png",
-      "precision-chrome.html",
-    ]);
+    expect(readdirSync("docs/design")).toContain("precision-chrome.html");
     const html = readFileSync("docs/design/precision-chrome.html", "utf8");
     expect(html).toContain("冷调精密");
     expect(html).toContain("记录当前进展");
@@ -74,18 +71,17 @@ describe("single visual baseline", () => {
     expect(css).toMatch(/\.wt-card-grid\s*\{[^}]*grid-auto-rows:\s*var\(--wt-card-height\)/s);
     expect(main).not.toContain("gridColumnStart");
     expect(main).not.toContain("gridRowStart");
-    expect(main).not.toContain("layoutCardGrid");
+    expect(main).toContain("ResizeObserver");
   });
 
-  it("keeps an expanded card exactly two card rows tall", () => {
+  it("sizes compact cards in whole rows without clipping progress or todo content", () => {
     const css = readFileSync("styles.css", "utf8");
 
-    expect(css).toContain("--wt-card-height: 96px");
-    expect(css).toContain("--wt-card-gap: 9px");
-    expect(css).toMatch(/\.wt-card-open\s*\{[^}]*min-height:\s*var\(--wt-card-height\)/s);
-    expect(css).toMatch(
-      /\.wt-card\.is-expanded\s*\{[^}]*grid-row:\s*span 2/s,
-    );
+    expect(css).toContain("--wt-card-height: 148px");
+    expect(css).toContain("--wt-card-gap: 12px");
+    expect(css).toMatch(/\.wt-card-body\s*\{[^}]*min-height:\s*calc\(var\(--wt-card-height\) - 2px\)/s);
+    expect(css).not.toMatch(/\.wt-card\.is-expanded\s*\{[^}]*grid-row:\s*span 2/s);
+    expect(css).not.toContain("-webkit-line-clamp");
     expect(css).toMatch(/\.wt-card-grid\s*\{[^}]*gap:\s*var\(--wt-card-gap\)/s);
   });
 });

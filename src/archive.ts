@@ -8,6 +8,7 @@ import {
   type ViewMode,
   type WorkGroup,
   type WorkTask,
+  isValidDay,
 } from "./domain";
 
 export const DEFAULT_TASK_DIRECTORY = "工作记录/任务";
@@ -90,6 +91,13 @@ const EVENT_LABELS: Record<TaskEventKind, string> = {
   reopened: "重新打开",
   group_changed: "分组变更",
   quadrant_changed: "象限变更",
+  todo_added: "添加待办",
+  todo_done: "完成待办",
+  todo_undone: "恢复待办",
+  todo_edited: "编辑待办",
+  todo_removed: "删除待办",
+  todo_restored: "恢复待办",
+  due_changed: "截止日期变更",
 };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -107,11 +115,15 @@ function taskBody(task: WorkTask): string {
     `- 状态：${STATUS_LABELS[task.status]}`,
     `- 分组：${inline(task.groupName)}`,
     `- 象限：${task.important ? "重要" : "不重要"} · ${task.urgent ? "紧急" : "不紧急"}`,
+    ...(task.dueDate ? [`- 截止日期：${task.dueDate}`] : []),
   ].join("\n");
+  const todos = task.todos?.length
+    ? `\n\n## 待办\n\n${task.todos.map(({ done, text }) => `- [${done ? "x" : " "}] ${inline(text)}`).join("\n")}`
+    : "";
   const timeline = task.events.map((entry) =>
     `- ${entry.at} · **${EVENT_LABELS[entry.kind]}** · ${inline(entry.text)}`,
   ).join("\n");
-  return `# ${inline(task.title)}\n\n${properties}\n\n## 时间线\n\n${timeline}\n`;
+  return `# ${inline(task.title)}\n\n${properties}${todos}\n\n## 时间线\n\n${timeline}\n`;
 }
 
 export function serializeTaskMarkdown(task: WorkTask): string {
@@ -123,6 +135,7 @@ function isEvent(value: unknown): value is TaskEvent {
   if (!isRecord(value)) return false;
   const kinds: TaskEventKind[] = [
     "created", "renamed", "progress", "completed", "closed", "reopened", "group_changed", "quadrant_changed",
+    "todo_added", "todo_done", "todo_undone", "todo_edited", "todo_removed", "todo_restored", "due_changed",
   ];
   return typeof value.id === "string"
     && kinds.includes(value.kind as TaskEventKind)
@@ -152,6 +165,12 @@ export function assertTask(value: unknown): asserts value is WorkTask {
     || typeof value.groupName !== "string"
     || typeof value.important !== "boolean"
     || typeof value.urgent !== "boolean"
+    || (value.dueDate !== undefined && (typeof value.dueDate !== "string" || !isValidDay(value.dueDate)))
+    || (value.todos !== undefined && (!Array.isArray(value.todos)
+      || !value.todos.length
+      || !value.todos.every((todo) => isRecord(todo) && typeof todo.id === "string" && Boolean(todo.id)
+        && typeof todo.text === "string" && Boolean(todo.text.trim()) && typeof todo.done === "boolean")
+      || new Set(value.todos.map((todo) => todo.id)).size !== value.todos.length))
     || !Array.isArray(value.events)
     || value.events.length === 0
     || !value.events.every(isEvent)) {

@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { addProgress, createTask } from "../src/domain";
+import { addProgress, addTodo, createTask, setDueDate } from "../src/domain";
 import { AGENT_RULE } from "../src/agent-rule";
 import {
   GROUPS_FILE,
@@ -43,6 +43,19 @@ describe("Markdown archive protocol", () => {
     expect(source).toContain("## 时间线");
     expect(source).toContain("确认缓存键冲突");
     expect(parseTaskMarkdown(source)).toEqual(task());
+  });
+
+  it("keeps v1 notes readable and round-trips optional details in the same archive", () => {
+    const old = serializeTaskMarkdown(task());
+    expect(parseTaskMarkdown(old)).toEqual(task());
+    const withTodo = addTodo(task(), "核对退款路径", new Date("2026-09-18T03:00:00.000Z"), "todo-1", "event-3");
+    const current = setDueDate(withTodo, "2026-09-30", new Date("2026-09-18T04:00:00.000Z"), "event-4");
+    const source = serializeTaskMarkdown(current);
+    expect(source).toContain("- 截止日期：2026-09-30");
+    expect(source).toContain("- [ ] 核对退款路径");
+    expect(parseTaskMarkdown(source)).toEqual(current);
+    const invalid = source.replace('"dueDate": "2026-09-30"', '"dueDate": "2026-02-30"');
+    expect(() => parseTaskMarkdown(invalid)).toThrow("任务文件格式无效");
   });
 
   it("rejects any hand-edited projection instead of silently accepting history changes", () => {

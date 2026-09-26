@@ -7,7 +7,14 @@ export type TaskEventKind =
   | "closed"
   | "reopened"
   | "group_changed"
-  | "quadrant_changed";
+  | "quadrant_changed"
+  | "todo_added"
+  | "todo_done"
+  | "todo_undone"
+  | "todo_edited"
+  | "todo_removed"
+  | "todo_restored"
+  | "due_changed";
 export type ViewMode = "group" | "quadrant";
 export type QuadrantId =
   | "important_urgent"
@@ -41,7 +48,15 @@ export interface WorkTask {
   groupName: string;
   important: boolean;
   urgent: boolean;
+  dueDate?: string;
+  todos?: TaskTodo[];
   events: TaskEvent[];
+}
+
+export interface TaskTodo {
+  id: string;
+  text: string;
+  done: boolean;
 }
 
 export interface WorkGroup {
@@ -179,6 +194,86 @@ export function addProgress(task: WorkTask, text: string, now: Date, eventId: st
   const normalized = text.trim();
   if (!normalized) throw new Error("进展内容不能为空");
   return { ...task, events: [...task.events, event(task, "progress", normalized, now, eventId)] };
+}
+
+export function isValidDay(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+export function dueTasksForDay(tasks: WorkTask[], day: string): WorkTask[] {
+  return tasks.filter(({ dueDate }) => dueDate === day);
+}
+
+export function setDueDate(task: WorkTask, dueDate: string | null, now: Date, eventId: string): WorkTask {
+  if (dueDate !== null && !isValidDay(dueDate)) throw new Error("截止日期无效");
+  if ((task.dueDate ?? null) === dueDate) return task;
+  const changed = { ...task };
+  if (dueDate) changed.dueDate = dueDate;
+  else delete changed.dueDate;
+  return {
+    ...changed,
+    events: [...task.events, event(changed, "due_changed", `截止日期：${task.dueDate ?? "未设置"} → ${dueDate ?? "未设置"}`, now, eventId, {
+      from: task.dueDate ?? null, to: dueDate,
+    })],
+  };
+}
+
+function activeTodoTask(task: WorkTask): void {
+  if (task.status !== "active") throw new Error("已结束任务必须先重新打开");
+}
+
+function requireTodo(task: WorkTask, todoId: string): TaskTodo {
+  const todo = task.todos?.find(({ id }) => id === todoId);
+  if (!todo) throw new Error("没有找到这条待办");
+  return todo;
+}
+
+export function addTodo(task: WorkTask, text: string, now: Date, todoId: string, eventId: string): WorkTask {
+  activeTodoTask(task);
+  const normalized = text.trim();
+  if (!normalized) throw new Error("待办内容不能为空");
+  if (task.todos?.some(({ id }) => id === todoId)) throw new Error("待办已存在");
+  const added = { ...task, todos: [...(task.todos ?? []), { id: todoId, text: normalized, done: false }] };
+  return { ...added, events: [...task.events, event(added, "todo_added", normalized, now, eventId, { todoId })] };
+}
+
+export function toggleTodo(task: WorkTask, todoId: string, done: boolean, now: Date, eventId: string): WorkTask {
+  activeTodoTask(task);
+  const todo = requireTodo(task, todoId);
+  if (todo.done === done) return task;
+  const changed = { ...task, todos: task.todos!.map((item) => item.id === todoId ? { ...item, done } : item) };
+  return { ...changed, events: [...task.events, event(changed, done ? "todo_done" : "todo_undone", todo.text, now, eventId, { todoId })] };
+}
+
+export function editTodo(task: WorkTask, todoId: string, text: string, now: Date, eventId: string): WorkTask {
+  activeTodoTask(task);
+  const todo = requireTodo(task, todoId);
+  const normalized = text.trim();
+  if (!normalized) throw new Error("待办内容不能为空");
+  if (todo.text === normalized) return task;
+  const changed = { ...task, todos: task.todos!.map((item) => item.id === todoId ? { ...item, text: normalized } : item) };
+  return { ...changed, events: [...task.events, event(changed, "todo_edited", `${todo.text} → ${normalized}`, now, eventId, { todoId, from: todo.text, to: normalized })] };
+}
+
+export function removeTodo(task: WorkTask, todoId: string, now: Date, eventId: string): WorkTask {
+  activeTodoTask(task);
+  const todo = requireTodo(task, todoId);
+  const changed = { ...task };
+  const remaining = task.todos!.filter(({ id }) => id !== todoId);
+  if (remaining.length) changed.todos = remaining;
+  else delete changed.todos;
+  return { ...changed, events: [...task.events, event(changed, "todo_removed", todo.text, now, eventId, { todoId })] };
+}
+
+export function restoreTodo(task: WorkTask, todo: TaskTodo, index: number, now: Date, eventId: string): WorkTask {
+  activeTodoTask(task);
+  if (!todo.id || !todo.text.trim() || task.todos?.some(({ id }) => id === todo.id)) throw new Error("待办无法恢复");
+  const todos = [...(task.todos ?? [])];
+  todos.splice(index, 0, { ...todo });
+  const changed = { ...task, todos };
+  return { ...changed, events: [...task.events, event(changed, "todo_restored", todo.text, now, eventId, { todoId: todo.id })] };
 }
 
 export function renameTask(task: WorkTask, title: string, now: Date, eventId: string): WorkTask {
