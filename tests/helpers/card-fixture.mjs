@@ -17,6 +17,6 @@ await plugin.toggleTaskTodo(payment, plugin.tasks[0].todos[0].id, true);
 await plugin.toggleTaskTodo(payment, plugin.tasks[0].todos[1].id, true);
 const plain = await plugin.addTask({ ...common, title: "整理客户反馈", initialProgress: "归纳了五条高频问题，正在补充具体场景。" });
 const long = await plugin.addTask({ ...common, title: "检查长内容", initialProgress: "长进展要完整换行，不能被按钮高度裁切。".repeat(12), todos: ["长待办也应完整换行并保持与编辑按钮对齐。".repeat(5)] });
-const dateOnly = await plugin.addTask({ ...common, title: "提交本周周报", dueDate: "2026-09-26", initialProgress: "本周完成项已整理。" });
+const dateOnly = await plugin.addTask({ ...common, title: "提交本周项目周报", dueDate: "2026-09-26", initialProgress: "已汇总本周交付与风险，今天发送最终版。只设置截止日期，不拆分待办。" });
 await plugin.activateView();
 window.cardFixture = { plugin, app, ids: { payment, plain, long, dateOnly } };

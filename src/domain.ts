@@ -50,6 +50,8 @@ export interface WorkTask {
   urgent: boolean;
   dueDate?: string;
   todos?: TaskTodo[];
+  archiveName?: string;
+  materialFolder?: string;
   events: TaskEvent[];
 }
 

@@ -1,13 +1,16 @@
 import {
   App,
+  FileSystemAdapter,
   ItemView,
   Menu,
   Modal,
   Notice,
   Plugin,
   PluginSettingTab,
+  Platform,
   Setting,
   TFile,
+  TFolder,
   WorkspaceLeaf,
   setIcon,
 } from "obsidian";
@@ -15,6 +18,8 @@ import {
 import { AGENT_RULE } from "./agent-rule";
 import { normalizePluginState, type PluginState } from "./archive";
 import { ArchiveStore } from "./archive-store";
+import { folderForTask, MATERIALS_DIRECTORY, safeSegment } from "./storage-names";
+import { exportBundle, importBundle, MAX_PACKAGE_BYTES, parseBundle, planImport, recoverInterruptedImport, type TransferBundle } from "./transfer";
 import {
   QUADRANTS,
   UNGROUPED_TASKS,
@@ -428,6 +433,76 @@ class GroupManagerModal extends Modal {
   }
 }
 
+class TransferModal extends Modal {
+  constructor(app: App, private readonly plugin: WorkTimelinePlugin) { super(app); }
+  onOpen(): void {
+    this.setTitle("导入与导出");
+    this.modalEl.addClass("wt-modal");
+    this.modalEl.addClass("wt-transfer-modal");
+    const body = this.contentEl;
+    body.createEl("p", { text: "将卡片、待办、截止日期、完整历史、分组、草稿和材料打包，带到另一个 Obsidian 仓库。", cls: "wt-modal-description" });
+    const exportSection = body.createEl("section", { cls: "wt-transfer-section" });
+    exportSection.createEl("h3", { text: "导出备份" });
+    exportSection.createEl("p", { text: "包含已有材料和空文件夹，不包含插件程序。单个导出包上限 100 MB。" });
+    const exportButton = exportSection.createEl("button", { text: "导出全部数据", cls: "wt-secondary-action", attr: { type: "button" } });
+    const importSection = body.createEl("section", { cls: "wt-transfer-section" });
+    importSection.createEl("h3", { text: "导入数据" });
+    importSection.createEl("p", { text: "先预览再导入。已存在的卡片会跳过并保留本地内容；不同卡片即使同名也会分别保留。" });
+    const label = importSection.createEl("label", { cls: "wt-field" });
+    label.createSpan({ text: "选择 Tracelo 导出包", cls: "wt-field-label" });
+    const file = label.createEl("input", { cls: "wt-transfer-file", attr: { type: "file", accept: ".json,.tracelo.json,application/json" } });
+    const preview = importSection.createDiv({ cls: "wt-transfer-preview" });
+    const status = body.createEl("p", { cls: "wt-transfer-status", attr: { role: "status", "aria-live": "polite" } });
+    const actions = body.createDiv({ cls: "wt-modal-actions" });
+    const close = actions.createEl("button", { text: "关闭", cls: "wt-secondary-action", attr: { type: "button" } });
+    const confirm = actions.createEl("button", { text: "确认导入", cls: "wt-primary-action", attr: { type: "button" } });
+    let bundle: TransferBundle | null = null;
+    confirm.disabled = true;
+    const busy = (value: boolean) => {
+      exportButton.disabled = value; file.disabled = value; confirm.disabled = value || !bundle; close.disabled = value;
+      body.setAttr("aria-busy", String(value));
+    };
+    const failure = (reason: unknown) => { status.setText(reason instanceof Error ? reason.message : "操作失败，请重试"); status.setAttr("role", "alert"); };
+    close.addEventListener("click", () => this.close());
+    exportButton.addEventListener("click", async () => {
+      busy(true); status.setAttr("role", "status"); status.setText("正在读取任务和材料，生成导出包…");
+      let url: string | null = null;
+      try {
+        const data = await this.plugin.createExport();
+        url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
+        const link = body.createEl("a", { attr: { href: url, download: `Tracelo ${dayKey(new Date())} ${new Date().toTimeString().slice(0, 8).replace(/:/g, "-")}.tracelo.json` } });
+        link.click(); link.remove();
+        status.setText(`已生成导出包：${data.tasks.length} 张卡片、${data.materials.filter(e => e.type === "file").length} 个材料文件。请在下载位置保存备份。`);
+      } catch (reason) { failure(reason); }
+      finally { if (url) window.setTimeout(() => URL.revokeObjectURL(url!), 60_000); busy(false); }
+    });
+    file.addEventListener("change", async () => {
+      bundle = null; preview.empty(); confirm.disabled = true;
+      const selected = file.files?.[0]; if (!selected) return;
+      busy(true); status.setAttr("role", "status"); status.setText("正在校验导入包和材料…");
+      try {
+        if (selected.size > MAX_PACKAGE_BYTES) throw new Error("导入包超过 100 MB");
+        bundle = await parseBundle(await selected.text());
+        const plan = planImport(bundle, this.plugin.tasks, this.plugin.groupArchive);
+        preview.createEl("p", { text: `将新增 ${plan.tasks.length} 张卡片，跳过 ${plan.skipped} 张已有卡片。` });
+        preview.createEl("p", { text: `新增 ${plan.groups.groups.length - this.plugin.groups.length} 个分组，带入 ${plan.materials.filter(e => e.type === "file").length} 个材料文件。` });
+        status.setText("校验通过。导入前会备份当前数据，同日同名任务自动追加序号。");
+      } catch (reason) { bundle = null; failure(reason); }
+      finally { busy(false); }
+    });
+    confirm.addEventListener("click", async () => {
+      if (!bundle) return;
+      busy(true); status.setAttr("role", "status"); status.setText("正在导入，请等待完成…");
+      try {
+        const result = await this.plugin.applyImport(bundle);
+        status.setText(`导入完成：新增 ${result.imported} 张卡片，跳过 ${result.skipped} 张已有卡片。`);
+        bundle = null; file.value = ""; preview.empty();
+      } catch (reason) { failure(reason); }
+      finally { busy(false); }
+    });
+  }
+}
+
 class WorkTimelineView extends ItemView {
   private selectedDay = dayKey(new Date());
   private currentDay = this.selectedDay;
@@ -472,16 +547,21 @@ class WorkTimelineView extends ItemView {
 
   render(): void {
     const root = this.contentEl;
+    const endedOpen = root.querySelector<HTMLDetailsElement>(".wt-ended-section")?.open ?? false;
     const taskScrollTop = root.querySelector(".wt-task-column")?.scrollTop ?? 0;
     const layoutScrollTop = root.querySelector(".wt-layout")?.scrollTop ?? 0;
     this.cardObserver?.disconnect();
     root.empty();
     root.addClass("work-timeline-view");
     const shell = root.createDiv({ cls: "wt-shell" });
+    shell.inert = this.plugin.storageBusy;
+    shell.setAttr("aria-busy", String(this.plugin.storageBusy));
     this.renderHeader(shell);
     const layout = shell.createDiv({ cls: "wt-layout" });
     const tasks = layout.createEl("main", { cls: "wt-task-column" });
     this.renderTasks(tasks);
+    const ended = root.querySelector<HTMLDetailsElement>(".wt-ended-section");
+    if (ended) ended.open = endedOpen;
     this.cardObserver = new ResizeObserver((entries) => {
       for (const { target } of entries) {
         const body = target as HTMLElement;
@@ -520,6 +600,7 @@ class WorkTimelineView extends ItemView {
     }
 
     const actions = header.createDiv({ cls: "wt-header-actions" });
+    iconButton(actions, "archive", "导入与导出").addEventListener("click", () => this.plugin.openTransfer());
     iconButton(actions, "folders", "管理分组").addEventListener("click", () => new GroupManagerModal(this.app, this.plugin).open());
     const create = actions.createEl("button", { cls: "wt-new-task-button", attr: { type: "button" } });
     setIcon(create, "plus");
@@ -603,6 +684,18 @@ class WorkTimelineView extends ItemView {
       attr: { type: "button", "aria-expanded": String(expanded), "aria-label": `${task.status === "active" ? "查看并记录" : "查看任务"}：${task.title}` },
     });
     open.createSpan({ text: task.title, cls: "wt-card-title" });
+    if (this.plugin.hasTaskFolder(task.id)) {
+      const folder = iconButton(heading, "folder-open", `打开文件夹：${task.title}`, "wt-card-folder");
+      folder.disabled = !this.plugin.canOpenTaskFolder || this.plugin.openingTaskFolders.has(task.id);
+      folder.setAttr("title", this.plugin.canOpenTaskFolder ? "打开任务文件夹" : "请在桌面端打开任务文件夹");
+      folder.addEventListener("click", async () => {
+        folder.disabled = true;
+        folder.setAttr("aria-busy", "true");
+        try { await this.plugin.accessTaskFolder(task.id); }
+        catch (reason) { new Notice(reason instanceof Error ? reason.message : "无法打开任务文件夹"); }
+        finally { folder.disabled = !this.plugin.canOpenTaskFolder; folder.removeAttribute("aria-busy"); }
+      });
+    }
     iconButton(heading, "more-horizontal", `任务操作：${task.title}`, "wt-card-menu")
       .addEventListener("click", (event) => this.showTaskMenu(event, task));
     const latest = [...task.events].reverse().find(({ kind }) => kind === "progress") ?? task.events[0]!;
@@ -646,10 +739,37 @@ class WorkTimelineView extends ItemView {
       this.render();
       requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"] .wt-card-open`)?.focus({ preventScroll: true }));
     });
+    let pointerStart: { x: number; y: number } | null = null;
+    let dragged = false;
+    card.addEventListener("pointerdown", (event) => { pointerStart = { x: event.clientX, y: event.clientY }; dragged = false; });
+    card.addEventListener("click", (event) => {
+      if (event.button !== 0 || event.defaultPrevented || dragged || (expanded && selected)) return;
+      if ((event.target as Element).closest("button, a, input, textarea, select, label, [contenteditable], .wt-card-todos, .wt-card-composer, .wt-optional-actions")) return;
+      if (pointerStart && Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 5) return;
+      const selection = card.ownerDocument.getSelection();
+      if (selection && !selection.isCollapsed && card.contains(selection.anchorNode)) return;
+      this.selectedTaskId = task.id;
+      this.expandedTaskId = task.id;
+      this.render();
+      requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"] .wt-card-open`)?.focus({ preventScroll: true }));
+    });
+    card.addEventListener("contextmenu", (event) => {
+      if ((event.target as Element).closest("input, textarea, [contenteditable]")) return;
+      event.preventDefault();
+      this.showTaskMenu(event, task);
+    });
+    card.addEventListener("keydown", (event) => {
+      if (!(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) return;
+      if ((event.target as Element).closest("input, textarea, [contenteditable]")) return;
+      event.preventDefault();
+      const bounds = open.getBoundingClientRect();
+      this.showTaskMenu(new MouseEvent("contextmenu", { clientX: bounds.left, clientY: bounds.bottom }), task);
+    });
 
     if (task.status === "active") {
       card.addEventListener("dragstart", (event) => {
         if ((event.target as HTMLElement).closest("input, textarea, button, label")) { event.preventDefault(); return; }
+        dragged = true;
         event.dataTransfer?.setData("text/plain", task.id);
         card.addClass("is-dragging");
       });
@@ -787,6 +907,12 @@ class WorkTimelineView extends ItemView {
   private showTaskMenu(event: MouseEvent, task: WorkTask): void {
     event.stopPropagation();
     const menu = new Menu();
+    const exists = this.plugin.hasTaskFolder(task.id);
+    menu.addItem((item) => item.setTitle(this.plugin.canOpenTaskFolder ? (exists ? "打开文件夹" : "创建文件夹") : "任务文件夹（仅桌面端）")
+      .setIcon(exists ? "folder-open" : "folder-plus")
+      .setDisabled(!this.plugin.canOpenTaskFolder || this.plugin.openingTaskFolders.has(task.id))
+      .onClick(() => void this.plugin.accessTaskFolder(task.id, !exists).catch((reason) => new Notice(reason instanceof Error ? reason.message : "无法打开任务文件夹"))));
+    menu.addSeparator();
     menu.addItem((item) => item.setTitle("改名").setIcon("pencil").onClick(() => new TextPromptModal(
       this.app, "任务改名", task.title, "任务名称", false, (value) => this.plugin.renameTask(task.id, value),
     ).open()));
@@ -927,8 +1053,12 @@ class WorkTimelineSettingTab extends PluginSettingTab {
         }
       }));
     new Setting(this.containerEl)
+      .setName("导入与导出")
+      .setDesc("备份或迁移卡片、分组、草稿和材料；导入前预览，已有任务保留。")
+      .addButton(button => button.setButtonText("导入与导出").onClick(() => this.timeline.openTransfer()));
+    new Setting(this.containerEl)
       .setName("备份策略")
-      .setDesc("每次正式写入同步生成当日备份，自动保留最近 7 天；升级前备份不会自动清理。");
+      .setDesc("每次正式写入同步生成当日备份，保留最近 7 个备份日期；升级和迁移备份不会自动清理。自动备份不包含材料，请使用完整导出包。") ;
   }
 }
 
@@ -941,6 +1071,57 @@ export default class WorkTimelinePlugin extends Plugin {
   private readonly internalWrites = new Set<string>();
   private draftTimer: number | null = null;
   private writeQueue: Promise<void> = Promise.resolve();
+  readonly openingTaskFolders = new Set<string>();
+  storageBusy = false;
+
+  get canOpenTaskFolder(): boolean { return Platform.isDesktopApp && this.app.vault.adapter instanceof FileSystemAdapter; }
+
+  private taskFolderPath(taskId: string): string {
+    const task = this.tasks.find(task => task.id === taskId);
+    if (!task) throw new Error("没有找到这个任务");
+    return folderForTask(task);
+  }
+
+  hasTaskFolder(taskId: string): boolean {
+    return this.app.vault.getAbstractFileByPath(this.taskFolderPath(taskId)) instanceof TFolder;
+  }
+
+  async accessTaskFolder(taskId: string, create = false): Promise<void> {
+    if (!this.canOpenTaskFolder) throw new Error("请在桌面端打开任务文件夹");
+    if (this.openingTaskFolders.has(taskId)) return;
+    this.openingTaskFolders.add(taskId);
+    try { await this.enqueueWrite(() => this.performFolderAccess(taskId, create)); }
+    finally { this.openingTaskFolders.delete(taskId); this.renderViews(); }
+  }
+
+  private async performFolderAccess(taskId: string, create: boolean): Promise<void> {
+    const path = this.taskFolderPath(taskId);
+    const hadFolder = this.hasTaskFolder(taskId);
+    try {
+      if (create) {
+        let current = "";
+        for (const part of path.split("/")) {
+          current = current ? `${current}/${part}` : part;
+          const existing = this.app.vault.getAbstractFileByPath(current);
+          if (existing instanceof TFolder) continue;
+          if (existing) throw new Error(`同名文件占用了目录位置：${current}`);
+          try { await this.app.vault.createFolder(current); }
+          catch (reason) { if (!(this.app.vault.getAbstractFileByPath(current) instanceof TFolder)) throw reason; }
+        }
+      }
+      if (!this.hasTaskFolder(taskId)) throw new Error("任务文件夹已被移动或删除，请从菜单重新创建，或将原目录移回原位置");
+      if (create && this.requireTask(taskId).materialFolder !== path) {
+        const task = { ...this.requireTask(taskId), materialFolder: path };
+        await this.persistTask(task);
+        this.tasks = this.tasks.map(t => t.id === taskId ? task : t);
+      }
+      const { shell } = require("electron") as { shell: { openPath(path: string): Promise<string> } };
+      const failure = await shell.openPath((this.app.vault.adapter as FileSystemAdapter).getFullPath(path));
+      if (failure) throw new Error(`文件夹已保留，但无法打开：${failure}`);
+    } finally {
+      if (!hadFolder || !this.hasTaskFolder(taskId)) this.renderViews();
+    }
+  }
 
   get groups(): WorkGroup[] { return this.groupArchive.groups; }
 
@@ -949,6 +1130,8 @@ export default class WorkTimelinePlugin extends Plugin {
     this.state = normalizePluginState(raw);
     const previouslyInitialized = this.state.initialized;
     this.store = this.createStore(this.state.taskDirectory);
+    const recoveredState = await recoverInterruptedImport(this.app.vault.adapter, this.store, state => this.saveData(state));
+    if (recoveredState) { this.state = recoveredState; new Notice("上次导入未完成，已恢复导入前的数据"); }
     if (!this.state.initialized) {
       if (raw !== null && raw !== undefined) await this.store.backupLegacy(raw);
       await this.store.initialize();
@@ -970,12 +1153,19 @@ export default class WorkTimelinePlugin extends Plugin {
     this.registerView(VIEW_TYPE, (leaf) => new WorkTimelineView(leaf, this));
     this.addRibbonIcon("history", "打开 Tracelo", () => void this.activateView());
     this.addCommand({ id: "open-work-timeline", name: "打开 Tracelo", callback: () => void this.activateView() });
+    this.addCommand({ id: "transfer-work-timeline", name: "导入与导出", callback: () => this.openTransfer() });
     this.addCommand({ id: "create-work-task", name: "新建工作任务", callback: async () => {
       await this.activateView();
       this.currentView()?.openNewTask();
     } });
     this.addSettingTab(new WorkTimelineSettingTab(this.app, this));
     this.watchArchive();
+    const refreshFolder = (path: string) => {
+      if (path === "工作记录" || path === MATERIALS_DIRECTORY || (path.startsWith(`${MATERIALS_DIRECTORY}/`) && !path.slice(MATERIALS_DIRECTORY.length + 1).includes("/"))) this.renderViews();
+    };
+    this.registerEvent(this.app.vault.on("create", file => { if (file instanceof TFolder) refreshFolder(file.path); }));
+    this.registerEvent(this.app.vault.on("delete", file => { if (file instanceof TFolder) refreshFolder(file.path); }));
+    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => { if (file instanceof TFolder) { refreshFolder(oldPath); refreshFolder(file.path); } }));
   }
 
   async onunload(): Promise<void> {
@@ -986,12 +1176,13 @@ export default class WorkTimelinePlugin extends Plugin {
 
   private createStore(directory: string): ArchiveStore {
     const backup = `${this.app.vault.configDir}/plugins/${this.manifest.id}/backups`;
-    return new ArchiveStore(this.app.vault.adapter, directory, backup, AGENT_RULE);
+    return new ArchiveStore(this.app.vault.adapter, directory, backup, AGENT_RULE, path => this.guardWrite(path));
   }
 
   private async loadArchive(): Promise<void> {
     const loaded = await this.store.loadTasksSafe();
     this.tasks = loaded.tasks;
+    await this.store.migrateTaskNames(this.tasks);
     for (const failure of loaded.errors) {
       this.lockedTasks.add(failure.taskId);
       new Notice(`${failure.path} 无法恢复，已暂停该任务写入`);
@@ -1030,18 +1221,20 @@ export default class WorkTimelinePlugin extends Plugin {
   }
 
   async addTask(input: NewTaskValues): Promise<string> {
-    const now = new Date();
-    let task = createTask(input, now, makeId(), makeId());
-    let tick = 1;
-    if (input.dueDate) task = setDueDate(task, input.dueDate, new Date(now.getTime() + tick++), makeId());
-    for (const text of input.todos) task = addTodo(task, text, new Date(now.getTime() + tick++), makeId(), makeId());
-    if (input.initialProgress.trim()) task = addProgress(task, input.initialProgress, new Date(now.getTime() + tick), makeId());
-    await this.persistTask(task);
-    this.tasks = [...this.tasks, task];
-    this.state.orders = pinTask(this.state.orders, task);
-    await this.persistState();
-    this.renderViews();
-    return task.id;
+    return this.enqueueWrite(async () => {
+      const now = new Date();
+      let task = createTask(input, now, makeId(), makeId());
+      let tick = 1;
+      if (input.dueDate) task = setDueDate(task, input.dueDate, new Date(now.getTime() + tick++), makeId());
+      for (const text of input.todos) task = addTodo(task, text, new Date(now.getTime() + tick++), makeId(), makeId());
+      if (input.initialProgress.trim()) task = addProgress(task, input.initialProgress, new Date(now.getTime() + tick), makeId());
+      await this.persistTask(task);
+      this.tasks = [...this.tasks, task];
+      this.state.orders = pinTask(this.state.orders, task);
+      await this.persistState();
+      this.renderViews();
+      return task.id;
+    });
   }
 
   updateDraft(taskId: string, value: string): void {
@@ -1160,101 +1353,123 @@ export default class WorkTimelinePlugin extends Plugin {
   }
 
   async setViewMode(mode: ViewMode): Promise<void> {
-    this.state.viewMode = mode;
-    await this.persistState();
-    this.renderViews();
+    return this.enqueueWrite(async () => {
+      this.state.viewMode = mode;
+      await this.persistState();
+      this.renderViews();
+    });
   }
 
   async addGroup(name: string): Promise<void> {
-    const now = new Date();
-    const group = createGroup(name, makeId(), this.groups);
-    const archive: GroupArchive = {
-      version: 1,
-      groups: [...this.groups, group],
-      events: [...this.groupArchive.events, groupEvent("group_created", group.id, now, makeId(), { name: group.name })],
-    };
-    await this.persistGroups(archive);
-    this.groupArchive = archive;
-    this.renderViews();
+    return this.enqueueWrite(async () => {
+      const now = new Date();
+      const group = createGroup(name, makeId(), this.groups);
+      const archive: GroupArchive = {
+        version: 1,
+        groups: [...this.groups, group],
+        events: [...this.groupArchive.events, groupEvent("group_created", group.id, now, makeId(), { name: group.name })],
+      };
+      await this.persistGroups(archive);
+      this.groupArchive = archive;
+      this.renderViews();
+    });
   }
 
   async renameGroup(groupId: string, name: string): Promise<void> {
-    const current = this.groups.find(({ id }) => id === groupId);
-    if (!current) throw new Error("没有找到这个分组");
-    const renamed = createGroup(name, groupId, this.groups.filter(({ id }) => id !== groupId));
-    if (renamed.name === current.name) return;
-    const tasks = applyGroupRename(this.tasks, groupId, renamed.name);
-    for (const task of tasks.filter((task, index) => task !== this.tasks[index])) await this.persistTask(task);
-    const archive: GroupArchive = {
-      version: 1,
-      groups: this.groups.map((group) => group.id === groupId ? renamed : group),
-      events: [...this.groupArchive.events, groupEvent("group_renamed", groupId, new Date(), makeId(), {
-        from: current.name, to: renamed.name,
-      })],
-    };
-    await this.persistGroups(archive);
-    this.tasks = tasks;
-    this.groupArchive = archive;
-    this.renderViews();
+    return this.enqueueWrite(async () => {
+      const current = this.groups.find(({ id }) => id === groupId);
+      if (!current) throw new Error("没有找到这个分组");
+      const renamed = createGroup(name, groupId, this.groups.filter(({ id }) => id !== groupId));
+      if (renamed.name === current.name) return;
+      const tasks = applyGroupRename(this.tasks, groupId, renamed.name);
+      for (const task of tasks.filter((task, index) => task !== this.tasks[index])) await this.persistTask(task);
+      const archive: GroupArchive = {
+        version: 1,
+        groups: this.groups.map((group) => group.id === groupId ? renamed : group),
+        events: [...this.groupArchive.events, groupEvent("group_renamed", groupId, new Date(), makeId(), {
+          from: current.name, to: renamed.name,
+        })],
+      };
+      await this.persistGroups(archive);
+      this.tasks = tasks;
+      this.groupArchive = archive;
+      this.renderViews();
+    });
   }
 
   async reorderGroup(groupId: string, direction: -1 | 1): Promise<void> {
-    const index = this.groups.findIndex(({ id }) => id === groupId);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= this.groups.length) return;
-    const groups = [...this.groups];
-    [groups[index], groups[target]] = [groups[target]!, groups[index]!];
-    const archive = { ...this.groupArchive, groups };
-    await this.persistGroups(archive);
-    this.groupArchive = archive;
-    this.renderViews();
+    return this.enqueueWrite(async () => {
+      const index = this.groups.findIndex(({ id }) => id === groupId);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= this.groups.length) return;
+      const groups = [...this.groups];
+      [groups[index], groups[target]] = [groups[target]!, groups[index]!];
+      const archive = { ...this.groupArchive, groups };
+      await this.persistGroups(archive);
+      this.groupArchive = archive;
+      this.renderViews();
+    });
   }
 
   async deleteGroup(groupId: string): Promise<void> {
-    const group = this.groups.find(({ id }) => id === groupId);
-    if (!group) throw new Error("没有找到这个分组");
-    const updated = [...this.tasks];
-    for (let index = 0; index < updated.length; index += 1) {
-      if (updated[index]!.groupId !== groupId) continue;
-      const task = changeTaskGroup(updated[index]!, null, UNGROUPED_TASKS, new Date(), makeId(), "原分组已删除");
-      await this.persistTask(task);
-      updated[index] = task;
-    }
-    const archive: GroupArchive = {
-      version: 1,
-      groups: this.groups.filter(({ id }) => id !== groupId),
-      events: [...this.groupArchive.events, groupEvent("group_deleted", groupId, new Date(), makeId(), { name: group.name })],
-    };
-    await this.persistGroups(archive);
-    this.tasks = updated;
-    this.groupArchive = archive;
-    this.renderViews();
+    return this.enqueueWrite(async () => {
+      const group = this.groups.find(({ id }) => id === groupId);
+      if (!group) throw new Error("没有找到这个分组");
+      const updated = [...this.tasks];
+      for (let index = 0; index < updated.length; index += 1) {
+        if (updated[index]!.groupId !== groupId) continue;
+        const task = changeTaskGroup(updated[index]!, null, UNGROUPED_TASKS, new Date(), makeId(), "原分组已删除");
+        await this.persistTask(task);
+        updated[index] = task;
+      }
+      const archive: GroupArchive = {
+        version: 1,
+        groups: this.groups.filter(({ id }) => id !== groupId),
+        events: [...this.groupArchive.events, groupEvent("group_deleted", groupId, new Date(), makeId(), { name: group.name })],
+      };
+      await this.persistGroups(archive);
+      this.tasks = updated;
+      this.groupArchive = archive;
+      this.renderViews();
+    });
   }
 
   async changeTaskDirectory(value: string): Promise<void> {
-    const directory = value.trim().replace(/^\/+|\/+$/g, "");
-    if (!directory) throw new Error("任务目录不能为空");
-    if (directory === this.state.taskDirectory) return;
-    await this.store.backupLegacy({ state: this.state, tasks: this.tasks, groups: this.groupArchive });
-    const previous = this.store;
-    const next = this.createStore(directory);
-    await next.initialize();
-    for (const task of this.tasks) await next.saveTask(task);
-    await next.saveGroups(this.groupArchive);
-    for (const task of this.tasks) {
-      this.guardWrite(previous.taskPath(task.id));
-      await this.app.vault.adapter.remove(previous.taskPath(task.id));
-    }
-    for (const name of ["agent.md", "_groups.md"]) {
-      const path = `${previous.taskDirectory}/${name}`;
-      if (await this.app.vault.adapter.exists(path)) {
-        this.guardWrite(path);
-        await this.app.vault.adapter.remove(path);
+    return this.enqueueWrite(async () => {
+      const directory = value.trim().replace(/\/+$/g, "");
+      if (!directory || !directory.split("/").every(safeSegment)) throw new Error("请选择仓库内的有效相对目录");
+      if (directory === this.state.taskDirectory) return;
+      if (directory.startsWith(`${this.state.taskDirectory}/`) || directory === this.app.vault.configDir || directory.startsWith(`${this.app.vault.configDir}/`)
+        || directory === MATERIALS_DIRECTORY || directory.startsWith(`${MATERIALS_DIRECTORY}/`)) throw new Error("任务目录不能位于原任务目录、材料目录或插件配置目录内");
+      if (await this.app.vault.adapter.exists(directory)) {
+        if ((await this.app.vault.adapter.stat(directory))?.type !== "folder") throw new Error("目标路径不是目录");
+        const listing = await this.app.vault.adapter.list(directory);
+        if (listing.files.length || listing.folders.length) throw new Error("目标目录不是空目录，请使用导入功能合并已有任务");
       }
-    }
-    this.store = next;
-    this.state.taskDirectory = directory;
-    await this.persistState();
+      await this.store.backupLegacy({ state: this.state, tasks: this.tasks, groups: this.groupArchive });
+      const previous = this.store;
+      const next = this.createStore(directory);
+      await next.initialize();
+      const copied = structuredClone(this.tasks);
+      const nextState = { ...this.state, taskDirectory: directory };
+      try {
+        for (const task of copied) await next.saveTask(task);
+        await next.saveGroups(this.groupArchive);
+        await this.saveData(nextState);
+      } catch (reason) {
+        // Original files and settings remain authoritative until the destination is fully saved.
+        new Notice("迁移未完成，原目录已保留。目标目录中可能有副本，请检查后重试。");
+        throw reason;
+      }
+      this.store = next; this.state = nextState; this.tasks = copied;
+      try {
+        for (const path of [...this.tasks.map(t => previous.taskPath(t.id)), ...["agent.md", "_groups.md"].map(name => `${previous.taskDirectory}/${name}`)]) {
+          this.guardWrite(path);
+          if (await this.app.vault.adapter.exists(path)) await this.app.vault.adapter.remove(path);
+        }
+      } catch { new Notice("任务已迁移；部分旧文件未能移除，已保留在原目录。"); }
+      this.renderViews();
+    });
   }
 
   async persistState(): Promise<void> {
@@ -1269,7 +1484,7 @@ export default class WorkTimelinePlugin extends Plugin {
   }
 
   private updateTask(taskId: string, transform: (task: WorkTask) => WorkTask): Promise<WorkTask> {
-    const operation = this.writeQueue.then(async () => {
+    return this.enqueueWrite(async () => {
       const current = this.requireTask(taskId);
       const next = transform(current);
       if (next === current) return current;
@@ -1277,6 +1492,11 @@ export default class WorkTimelinePlugin extends Plugin {
       this.tasks = this.tasks.map((task) => task.id === taskId ? next : task);
       return next;
     });
+  }
+
+  private enqueueWrite<T>(run: () => Promise<T>): Promise<T> {
+    if (this.storageBusy) return Promise.reject(new Error("正在导入或导出，请等待完成"));
+    const operation = this.writeQueue.then(run);
     this.writeQueue = operation.then(() => undefined, () => undefined);
     return operation;
   }
@@ -1315,10 +1535,33 @@ export default class WorkTimelinePlugin extends Plugin {
   }
 
   private taskIdFromPath(path: string): string | null {
-    const prefix = `${this.state.taskDirectory}/`;
-    if (!path.startsWith(prefix) || path.slice(prefix.length).includes("/") || !path.endsWith(".md")) return null;
-    const name = path.slice(prefix.length, -3);
-    return ["agent", "_groups"].includes(name) ? null : name;
+    return this.store.taskIdFromPath(path);
+  }
+
+  openTransfer(): void { new TransferModal(this.app, this).open(); }
+
+  private async transferOperation<T>(run: () => Promise<T>): Promise<T> {
+    return this.enqueueWrite(async () => {
+      this.storageBusy = true;
+      if (this.draftTimer !== null) { window.clearTimeout(this.draftTimer); this.draftTimer = null; }
+      this.renderViews();
+      try {
+        if (this.lockedTasks.size) throw new Error("存在无法恢复的任务，请先处理存档错误再导入或导出");
+        return await run();
+      } finally { this.storageBusy = false; this.renderViews(); }
+    });
+  }
+
+  createExport(): Promise<TransferBundle> {
+    return this.transferOperation(() => exportBundle(this.app.vault.adapter, this.tasks, this.groupArchive, this.state));
+  }
+
+  applyImport(bundle: TransferBundle): Promise<{ imported: number; skipped: number }> {
+    return this.transferOperation(async () => {
+      const result = await importBundle(this.app.vault.adapter, this.store, bundle, this.tasks, this.groupArchive, this.state, state => this.saveData(state));
+      this.tasks = result.tasks; this.groupArchive = result.groups; this.state = result.state;
+      return { imported: result.imported, skipped: result.skipped };
+    });
   }
 
   private async recoverExternalTask(taskId: string, file?: TFile, renamedPath?: string): Promise<void> {

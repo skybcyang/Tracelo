@@ -354,6 +354,9 @@
   border-color: var(--wt-line-strong);
 }
 
+.wt-card:not(.is-expanded) { cursor: pointer; }
+.wt-card-latest { cursor: text; }
+
 .wt-card.is-expanded {
   border-color: var(--wt-accent);
   box-shadow: 0 6px 24px rgba(42, 80, 156, 0.08);
@@ -541,7 +544,8 @@
   color: var(--wt-green);
 }
 
-.work-timeline-view .wt-card-menu {
+.work-timeline-view .wt-card-menu,
+.work-timeline-view .wt-card-folder {
   position: static;
   flex: none;
   width: 24px;
@@ -554,6 +558,9 @@
   background: transparent;
   color: var(--wt-muted);
 }
+
+.wt-card-heading:has(.wt-card-folder) { gap: 6px; }
+.wt-card-folder svg { width: 15px; height: 15px; }
 
 .wt-card-menu:hover,
 .wt-icon-button:hover,
@@ -641,13 +648,14 @@
 .wt-todo-row .wt-icon-button { width: 25px; min-width: 25px; height: 28px; padding: 0; border: 0; box-shadow: none; background: transparent; }
 .wt-todo-row .wt-icon-button + .wt-icon-button { margin-left: -8px; }
 .wt-todo-row .wt-icon-button svg { width: 13px; height: 13px; }
-.wt-optional-actions { display: flex; flex-wrap: wrap; gap: 4px; margin: 7px 0; }
+/* The composer owns the following 8px gap; flex-item margins do not collapse. */
+.wt-optional-actions { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
 .work-timeline-view .wt-optional-actions button { display: inline-flex; height: auto; min-height: 29px; align-items: center; gap: 5px; padding: 4px 6px; border: 0; box-shadow: none; background: transparent; color: var(--wt-muted); font-size: 11px; white-space: normal; cursor: pointer; }
 .wt-optional-actions button > span { display: inline-flex; }
 .wt-add-todo { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .work-timeline-view .wt-add-todo input { width: 100%; min-width: 0; flex: 1; height: 30px; padding: 5px 9px; border: 1px solid var(--wt-line); border-radius: 6px; background: var(--wt-card); color: var(--wt-text); font-size: 12px; }
 .work-timeline-view .wt-add-todo button { flex: none; width: 38px; min-width: 30px; height: 30px; padding: 0 10px; border: 1px solid var(--wt-line); border-radius: 6px; background: transparent; color: var(--wt-muted); box-shadow: none; }
-.work-timeline-view .wt-card :is(.wt-card-menu, .wt-icon-button, .wt-optional-actions button):hover { background: var(--wt-soft); }
+.work-timeline-view .wt-card :is(.wt-card-menu, .wt-card-folder, .wt-icon-button, .wt-optional-actions button):hover { background: var(--wt-soft); }
 .wt-undo-button { margin-left: 12px; }
 
 .wt-composer-footer {
@@ -1488,9 +1496,11 @@
   .work-timeline-view .wt-optional-actions button,
   .work-timeline-view .wt-card-open,
   .work-timeline-view .wt-card-menu,
+  .work-timeline-view .wt-card-folder,
   .work-timeline-view .wt-add-todo button,
   .work-timeline-view .wt-add-todo input { min-height: 44px; }
   .work-timeline-view .wt-card-menu,
+  .work-timeline-view .wt-card-folder,
   .work-timeline-view .wt-add-todo button { min-width: 44px; }
   .wt-timeline-due { padding-left: 14px; padding-right: 14px; }
 
@@ -1529,6 +1539,29 @@
     grid-template-columns: minmax(0, 1fr) auto;
   }
 }
+
+.wt-transfer-section {
+  padding: 16px 0;
+  border-top: 1px solid var(--wt-line);
+}
+.wt-transfer-section h3 { margin: 0 0 8px; font-size: 15px; }
+.wt-transfer-section p,
+.wt-transfer-modal .wt-modal-description { color: var(--wt-muted); line-height: 1.65; }
+.wt-transfer-file { width: 100%; margin-top: 8px; }
+.wt-transfer-file::file-selector-button {
+  min-height: 32px;
+  margin-right: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--wt-line);
+  border-radius: 6px;
+  background: var(--wt-control-bg);
+  color: var(--wt-text);
+  font: inherit;
+}
+.wt-transfer-preview { margin-top: 12px; }
+.wt-transfer-preview p { margin: 4px 0; color: var(--wt-text); }
+.wt-transfer-status { min-height: 24px; line-height: 1.6; }
+.wt-transfer-status[role="alert"] { color: var(--wt-red); }
 
 @media (prefers-reduced-motion: reduce) {
   .work-timeline-view *,

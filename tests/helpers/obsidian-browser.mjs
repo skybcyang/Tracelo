@@ -44,14 +44,18 @@ export class ItemView {
 export class Modal {
   constructor(app) {
     this.app = app;
+    this.containerEl = document.createElement("div");
+    this.containerEl.className = "modal-container";
+    this.containerEl.style.cssText = "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;background:rgba(15,23,42,.25)";
     this.modalEl = document.createElement("div");
     this.modalEl.className = "modal";
+    this.containerEl.append(this.modalEl);
     this.titleEl = this.modalEl.createEl("h2", { cls: "modal-title" });
     this.contentEl = this.modalEl.createDiv({ cls: "modal-content" });
   }
   setTitle(title) { this.titleEl.textContent = title; }
-  open() { document.body.append(this.modalEl); this.onOpen(); }
-  close() { this.onClose?.(); this.modalEl.remove(); }
+  open() { document.body.append(this.containerEl); this.onOpen(); }
+  close() { this.onClose?.(); this.containerEl.remove(); }
 }
 export class Notice {
   constructor(text) { this.messageEl = document.body.createDiv({ cls: "notice", text }); }
@@ -61,22 +65,52 @@ export class PluginSettingTab { constructor(app) { this.app = app; } }
 export class App {}
 export class WorkspaceLeaf {}
 export class TFile {}
+export class TFolder { constructor(path) { this.path = path; } }
+export class FileSystemAdapter { getFullPath(path) { return '/test-vault/' + path; } }
+export const Platform = { isDesktopApp: true };
 export class Setting {}
-export class Menu {}
+export class Menu {
+  constructor() { this.el = document.createElement('div'); this.el.setAttribute('role', 'menu'); }
+  addItem(build) {
+    const button = this.el.createEl('button', { attr: { role: 'menuitem' } });
+    const item = {
+      setTitle(text) { button.textContent = text; return item; },
+      setIcon() { return item; }, setChecked() { return item; },
+      setDisabled(value) { button.disabled = value; return item; },
+      onClick(callback) { button.onclick = () => { button.closest('[role=menu]').remove(); callback(); }; return item; },
+    };
+    build(item); return this;
+  }
+  addSeparator() { return this; }
+  showAtMouseEvent() { document.querySelector('[role=menu]')?.remove(); document.body.append(this.el); }
+}
 
 export function createApp() {
   const files = new Map();
   const folders = new Set();
   const leaves = [];
+  const listeners = new Map();
+  const emit = (name, ...args) => (listeners.get(name) || []).forEach(fn => fn(...args));
   const app = {
     factories: new Map(),
     vault: {
       configDir: ".obsidian",
-      on() {},
+      on(name, fn) { listeners.set(name, [...(listeners.get(name) || []), fn]); },
+      getAbstractFileByPath(path) { return folders.has(path) ? new TFolder(path) : files.has(path) ? Object.assign(new TFile(), { path }) : null; },
+      async createFolder(path) { if (await this.adapter.exists(path)) throw new Error('Already exists'); await this.adapter.mkdir(path); const folder = new TFolder(path); emit('create', folder); return folder; },
       adapter: {
+        getFullPath(path) { return '/test-vault/' + path; },
         async exists(path) { return files.has(path) || folders.has(path); },
         async read(path) { if (!files.has(path)) throw new Error("Missing " + path); return files.get(path); },
         async write(path, source) { files.set(path, source); },
+        async stat(path) { return files.has(path) ? { type: 'file', size: files.get(path).length ?? files.get(path).byteLength } : folders.has(path) ? { type: 'folder', size: 0 } : null; },
+        async readBinary(path) { const value = files.get(path); if (value === undefined) throw new Error('Missing ' + path); return typeof value === 'string' ? new TextEncoder().encode(value).buffer : value; },
+        async writeBinary(path, bytes) { files.set(path, bytes); },
+        async rename(path, next) {
+          if (await this.exists(next)) throw new Error('Already exists');
+          for (const [key, value] of [...files]) if (key === path || key.startsWith(path + '/')) { files.set(next + key.slice(path.length), value); files.delete(key); }
+          for (const key of [...folders]) if (key === path || key.startsWith(path + '/')) { folders.add(next + key.slice(path.length)); folders.delete(key); }
+        },
         async mkdir(path) { folders.add(path); },
         async list(path) {
           const direct = (candidate) => candidate.startsWith(path + "/") && !candidate.slice(path.length + 1).includes("/");
@@ -107,5 +141,8 @@ export function createApp() {
       detachLeavesOfType() {},
     },
   };
+  Object.setPrototypeOf(app.vault.adapter, FileSystemAdapter.prototype);
+  app.openedFolders = [];
+  window.require = (name) => { if (name !== 'electron') throw new Error(name); return { shell: { openPath: async (path) => { app.openedFolders.push(path); return app.openError || ''; } } }; };
   return app;
 }

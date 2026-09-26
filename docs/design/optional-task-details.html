@@ -69,6 +69,10 @@
     .open-card { display:block; text-align:left; min-width:0; flex:1; padding:0; min-height:24px; border-radius:2px; font-weight:650; font-size:15px; line-height:1.6; overflow-wrap:anywhere; }
     .open-card:hover { background:transparent; color:var(--blue); }
     .card-menu { width:24px; min-height:24px; margin:0; color:var(--muted); }
+    .card-folder { width:24px; min-height:24px; padding:0; flex:none; color:var(--muted); }
+    .card-heading:has(.card-folder) { gap:6px; }
+    .card:not(.expanded) { cursor:pointer; }
+    @media(max-width:760px) { .card-folder { width:44px; min-height:44px; } }
     .latest { color:var(--muted); font-size:12px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; flex-shrink:0; margin-top:4px; }
     .card-footer { display:flex; flex-direction:column; gap:4px; padding-top:8px; margin-top:auto; }
     .card-meta { display:flex; gap:12px; align-items:center; justify-content:space-between; color:var(--muted); font-size:11px; }
@@ -98,7 +102,7 @@
     .add-todo { display:flex; align-items:center; margin-top:6px; gap:6px; }
     .add-todo input { width:100%; min-width:0; font-size:12px; padding:5px 9px; border-color:var(--line); }
     .add-todo button { min-height:30px; padding:5px 10px; flex:none; border-color:var(--line); }
-    .optional-actions { display:flex; gap:4px; flex-wrap:wrap; margin:7px 0; }
+    .optional-actions { display:flex; gap:4px; flex-wrap:wrap; margin:8px 0 0; }
     .optional-actions:empty { display:none; }
     .optional-actions button { color:var(--muted); font-size:11px; padding:4px 6px; min-height:29px; }
     .optional-actions svg { width:14px; height:14px; }
@@ -221,6 +225,7 @@
   <script>
     const TODAY='2026-09-26';
     const paths={plus:'M12 5v14M5 12h14',calendar:'M8 3v4m8-4v4M4 10h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z',checklist:'m3 6 1 1 2-2m3 1h12M3 12l1 1 2-2m3 1h12M3 18l1 1 2-2m3 1h12',more:'M5 12h.01M12 12h.01M19 12h.01',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',edit:'m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15v5Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',arrow:'m9 5 7 7-7 7',check:'m5 12 4 4 10-10',clock:'M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'};
+    paths.folder='M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v2M3 7h6l2 3h11l-3 10H4L2 7Z';
     const icon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${name==='more'?'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>':`<path d="${paths[name]||paths.plus}"/>`}</svg>`;
     const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const $=s=>document.querySelector(s);
@@ -263,7 +268,7 @@
       if(focus){const el=document.getElementById(focus);el?.focus({preventScroll:true});if(cursor!=null&&el?.tagName==='TEXTAREA')el.setSelectionRange(cursor,cursor);}
     }
     function card(t){const open=expanded===t.id;const done=t.status!=='active';return `<article class="card ${open?'expanded':''}" data-task="${t.id}"><div class="card-inner">
-      <div class="card-heading"><button class="open-card" id="open-${t.id}" data-action="open" data-task="${t.id}" aria-expanded="${open}">${esc(t.title)}</button><button class="icon card-menu" data-action="menu" data-task="${t.id}" aria-label="任务操作：${esc(t.title)}">${icon('more')}</button></div>
+      <div class="card-heading"><button class="open-card" id="open-${t.id}" data-action="open" data-task="${t.id}" aria-expanded="${open}">${esc(t.title)}</button>${t.folder?`<button class="icon card-folder" data-action="folder" data-task="${t.id}" aria-label="打开文件夹：${esc(t.title)}" title="打开任务文件夹">${icon('folder')}</button>`:''}<button class="icon card-menu" data-action="menu" data-task="${t.id}" aria-label="任务操作：${esc(t.title)}">${icon('more')}</button></div>
       <p class="latest" title="${esc(t.latest)}">${esc(t.latest)}</p><footer class="card-footer">
       ${(t.todos.length||t.due||done)?`<div class="optional-summary">${t.todos.length?`<button class="pill ${t.todos.every(i=>i.done)?'complete':''}" data-action="expand-todos" data-task="${t.id}" aria-label="查看待办，已完成${count(t)}">${icon('checklist')}待办 ${count(t)}</button>`:''}${t.due?`<button class="pill ${dueClass(t)}" data-action="date" data-task="${t.id}" aria-label="修改截止日期，${shortDate(t.due)}">${icon('calendar')}${dueText(t)}</button>`:''}${done?'<span class="pill complete">已完成</span>':''}</div>`:''}
       <div class="card-meta"><div class="card-meta-group"><span>${esc(t.group)}</span>${t.quadrant.startsWith('重要')?'<span class="tag">重要</span>':''}${t.quadrant.includes('紧急')&&!t.quadrant.includes('不紧急')?'<span class="tag">紧急</span>':''}</div><time title="最近进展：${esc(t.updated)}">${esc(t.updated)}</time></div></footer>
@@ -282,16 +287,19 @@
     const dialogHead=title=>`<div class="dialog-head"><h2 id="editor-title">${title}</h2><button type="button" class="icon" data-close aria-label="关闭">×</button></div>`;
     function dateEditor(t){editingTask=t.id;showEditor(`${dialogHead('截止日期')}<p class="dialog-sub">${esc(t.title)}</p><form id="date-form"><label class="field"><span>选择日期</span><input id="due-input" name="due" type="date" value="${t.due||''}" required><small>可选。截止日当天结束后，未完成任务才会标记逾期。</small></label><div class="quick-dates"><button type="button" data-quick="${TODAY}">今天</button><button type="button" data-quick="2026-09-27">明天</button><button type="button" data-quick="2026-09-30">9月30日</button></div><div class="dialog-actions">${t.due?'<button type="button" class="clear danger" data-action="clear-date">清除日期</button>':''}<button type="button" data-close>取消</button><button class="primary">保存日期</button></div></form>`);}
     function setDate(t,value){if(t.due===value){closeEditor();return;}const old=t.due;t.due=value;event(t,'due_changed',value?(old?`截止日期：${shortDate(old)} → ${shortDate(value)}`:`将截止日期设为${shortDate(value)}`):`清除截止日期（原为${shortDate(old)}）`);closeEditor();render();notice(value?'截止日期已更新':'截止日期已清除',()=>{const current=t.due;t.due=old;event(t,'due_changed',old?`恢复截止日期为${shortDate(old)}`:`清除截止日期（原为${shortDate(current)}）`);render();});}
-    function showMenu(t){showEditor(`<h2 id="editor-title">${esc(t.title)}</h2>${t.status==='active'||t.todos.length?`<button data-action="expand-todos" data-task="${t.id}">${icon('checklist')}${t.todos.length?'查看待办清单':'添加待办'}</button>`:''}<button data-action="date" data-task="${t.id}">${icon('calendar')}${t.due?'修改截止日期':'设置截止日期'}</button><hr><button data-action="finish" data-task="${t.id}">${icon('check')}${t.status==='active'?'完成任务':'重新打开'}</button><button data-close>取消</button>`,'menu-dialog');}
+    function showMenu(t){showEditor(`<h2 id="editor-title">${esc(t.title)}</h2><button data-action="folder" data-task="${t.id}">${icon('folder')}${t.folder?'打开文件夹':'创建文件夹'}</button><hr>${t.status==='active'||t.todos.length?`<button data-action="expand-todos" data-task="${t.id}">${icon('checklist')}${t.todos.length?'查看待办清单':'添加待办'}</button>`:''}<button data-action="date" data-task="${t.id}">${icon('calendar')}${t.due?'修改截止日期':'设置截止日期'}</button><hr><button data-action="finish" data-task="${t.id}">${icon('check')}${t.status==='active'?'完成任务':'重新打开'}</button><button data-close>取消</button>`,'menu-dialog');}
     function finish(t,force=false){if(t.status!=='active'){t.status='active';event(t,'reopened','重新打开任务');closeEditor();render();notice('任务已重新打开');return;}const left=t.todos.filter(i=>!i.done).length;if(left&&!force){showEditor(`${dialogHead('还有待办未完成')}<p class="dialog-sub">${esc(t.title)}还有 ${left} 项待办。完成任务会保留当前清单状态。</p><div class="dialog-actions"><button data-close>返回处理</button><button class="primary" data-action="force-finish" data-task="${t.id}">仍然完成</button></div>`);return;}t.status='completed';event(t,'completed','完成任务');selected=t.id;expanded=null;closeEditor();$('#ended').open=true;render();notice('任务已完成');}
     function openNew(){showEditor(`${dialogHead('新建任务')}<p class="dialog-sub">先记下要推进的事，其他内容按需添加。</p><form id="new-form"><label class="field"><span>任务名称（必填）</span><input name="title" maxlength="100" required autofocus placeholder="例如：完成支付模块"></label><label class="field"><span>象限（必选）</span><select name="quadrant" required><option value="">选择重要程度与紧急程度</option><option>重要且紧急</option><option>重要不紧急</option><option>紧急不重要</option><option>不重要不紧急</option></select></label><label class="field"><span>分组</span><select name="group"><option>未分组</option><option>产品研发</option></select></label><div class="new-options"><button type="button" data-action="new-date">${icon('calendar')}设置截止日期</button><button type="button" data-action="new-todos">${icon('plus')}添加待办</button></div><div id="new-date-field" hidden><label class="field"><span>截止日期（可选）</span><input name="due" type="date"></label><button type="button" class="link" data-action="remove-new-date">移除日期</button></div><div id="new-todos-field" hidden><label class="field"><span>待办清单（可选）</span></label><div id="new-todo-rows"></div><button type="button" class="link" data-action="new-todo-row">+ 再加一项</button></div><div class="dialog-actions"><button type="button" data-close>取消</button><button class="primary">创建任务</button></div></form>`);}
     function addNewRow(){const id=uid();$('#new-todo-rows').insertAdjacentHTML('beforeend',`<div class="new-check-row"><label class="sr-only" for="new-${id}">待办内容</label><input id="new-${id}" name="new-todo" maxlength="200" placeholder="下一步要做的事"><button type="button" data-action="remove-new-todo" aria-label="移除此待办">${icon('trash')}</button></div>`);document.getElementById('new-'+id)?.focus();}
+    document.addEventListener('contextmenu',e=>{const card=e.target.closest('.card');if(!card||e.target.closest('input,textarea,[contenteditable]'))return;e.preventDefault();showMenu(task(card.dataset.task));});
+    document.addEventListener('keydown',e=>{if(e.key!=='ContextMenu'&&!(e.shiftKey&&e.key==='F10'))return;const card=e.target.closest('.card');if(!card||e.target.closest('input,textarea'))return;e.preventDefault();showMenu(task(card.dataset.task));});
     document.addEventListener('click',e=>{
       const close=e.target.closest('[data-close]');if(close){close.closest('dialog').close();return;}
       const quick=e.target.closest('[data-quick]');if(quick){$('#due-input').value=quick.dataset.quick;return;}
-      const btn=e.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action;const t=task(btn.dataset.task);const item=t?.todos.find(i=>i.id===btn.dataset.todo);
+      const btn=e.target.closest('[data-action]');if(!btn){const card=e.target.closest('.card');if(!card||e.target.closest('button,a,input,textarea,label,.card-content')||!getSelection().isCollapsed)return;if(expanded!==card.dataset.task||selected!==card.dataset.task){selected=expanded=card.dataset.task;render();}return;}const a=btn.dataset.action;const t=task(btn.dataset.task);const item=t?.todos.find(i=>i.id===btn.dataset.todo);
       if(a==='open'){selected=t.id;expanded=expanded===t.id?null:t.id;pendingTodo=null;render();if(innerWidth<=760)document.getElementById('open-'+t.id)?.scrollIntoView({block:'start'});}
       if(a==='menu')showMenu(t);
+      if(a==='folder'){const existed=t.folder;t.folder=true;closeEditor();render();notice(existed?'演示：在系统文件管理器中打开任务文件夹':'演示：创建并打开任务文件夹；原型不会写入磁盘');}
       if(a==='date')dateEditor(t);
       if(a==='clear-date')setDate(task(editingTask),null);
       if(a==='expand-todos'){closeEditor();selected=t.id;expanded=t.id;pendingTodo=t.id;render();document.getElementById('todo-input-'+t.id)?.focus({preventScroll:true});}

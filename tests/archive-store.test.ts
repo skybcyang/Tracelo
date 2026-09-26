@@ -26,6 +26,13 @@ class MemoryAdapter implements ArchiveAdapter {
     this.folders.add(path);
   }
 
+  async stat(path: string) { return this.files.has(path) ? { type: "file" as const, size: this.files.get(path)!.length } : this.folders.has(path) ? { type: "folder" as const, size: 0 } : null; }
+  async rename(path: string, next: string) {
+    if (await this.exists(next)) throw new Error("exists");
+    for (const [key, value] of [...this.files]) if (key === path || key.startsWith(`${path}/`)) { this.files.set(next + key.slice(path.length), value); this.files.delete(key); }
+    for (const key of [...this.folders]) if (key === path || key.startsWith(`${path}/`)) { this.folders.add(next + key.slice(path.length)); this.folders.delete(key); }
+  }
+
   async list(path: string): Promise<{ files: string[]; folders: string[] }> {
     const prefix = path ? `${path}/` : "";
     const direct = (value: string) => value.startsWith(prefix) && !value.slice(prefix.length).includes("/");
@@ -70,7 +77,7 @@ describe("archive store", () => {
 
     expect(adapter.files.get("工作记录/任务/agent.md")).toBe("禁止直接修改");
     expect(adapter.files.has("工作记录/任务/_groups.md")).toBe(true);
-    expect(parseTaskMarkdown(adapter.files.get("工作记录/任务/task-1.md")!).id).toBe("task-1");
+    expect(parseTaskMarkdown(adapter.files.get(store.taskPath("task-1"))!).id).toBe("task-1");
     expect(parseTaskMarkdown(adapter.files.get(".plugin/backups/daily/2026-09-18/task-1.md")!).id).toBe("task-1");
   });
 
@@ -80,12 +87,12 @@ describe("archive store", () => {
     await store.initialize();
     await store.saveTask(makeTask(), new Date("2026-09-17T02:00:00.000Z"));
     adapter.files.set(".plugin/backups/daily/2026-09-18/task-1.md", "broken newest");
-    adapter.files.set("任务/task-1.md", "external edit");
+    adapter.files.set(store.taskPath("task-1"), "external edit");
 
     const recovered = await store.recoverTask("task-1", "external edit", new Date("2026-09-18T03:00:00.000Z"));
 
     expect(recovered.id).toBe("task-1");
-    expect(adapter.files.get("任务/task-1.md")).toContain("work-timeline-task:v1");
+    expect(adapter.files.get(store.taskPath("task-1"))).toContain("work-timeline-task:v1");
     expect([...adapter.files.keys()].some((path) => path.includes("external/2026-09-18") && path.endsWith("task-1.md"))).toBe(true);
   });
 

@@ -10,6 +10,7 @@ import {
   type WorkTask,
   isValidDay,
 } from "./domain";
+import { MATERIALS_DIRECTORY, safeSegment } from "./storage-names";
 
 export const DEFAULT_TASK_DIRECTORY = "工作记录/任务";
 export const AGENT_FILE = "agent.md";
@@ -157,7 +158,7 @@ export function assertTask(value: unknown): asserts value is WorkTask {
   if (!isRecord(value)
     || value.version !== 1
     || typeof value.id !== "string"
-    || !value.id
+    || !safeSegment(value.id)
     || typeof value.title !== "string"
     || !value.title.trim()
     || !["active", "completed", "closed"].includes(String(value.status))
@@ -165,6 +166,10 @@ export function assertTask(value: unknown): asserts value is WorkTask {
     || typeof value.groupName !== "string"
     || typeof value.important !== "boolean"
     || typeof value.urgent !== "boolean"
+    || (value.archiveName !== undefined && !safeSegment(value.archiveName))
+    || (value.materialFolder !== undefined && (typeof value.materialFolder !== "string"
+      || !value.materialFolder.startsWith(`${MATERIALS_DIRECTORY}/`)
+      || !safeSegment(value.materialFolder.slice(MATERIALS_DIRECTORY.length + 1))))
     || (value.dueDate !== undefined && (typeof value.dueDate !== "string" || !isValidDay(value.dueDate)))
     || (value.todos !== undefined && (!Array.isArray(value.todos)
       || !value.todos.length
