@@ -1,7 +1,7 @@
 import { assertTask, normalizePluginState, serializeGroupArchive, type PluginState } from "./archive";
 import { type ArchiveAdapter, ArchiveStore } from "./archive-store";
 import { isValidDay, pinTask, type GroupArchive, type WorkTask } from "./domain";
-import { canonicalPath, folderForTask, MATERIALS_DIRECTORY, safeSegment } from "./storage-names";
+import { assertTaskFolder, canonicalPath, folderForTask, MATERIALS_DIRECTORY, relocateTaskReferences, safeSegment } from "./storage-names";
 
 export const MAX_PACKAGE_BYTES = 100 * 1024 * 1024;
 export interface TransferAdapter extends ArchiveAdapter {
@@ -44,11 +44,13 @@ async function ensureFolder(adapter: ArchiveAdapter, path: string): Promise<void
   }
 }
 
-export async function exportBundle(adapter: TransferAdapter, tasks: WorkTask[], groups: GroupArchive, state: PluginState): Promise<TransferBundle> {
+export async function exportBundle(adapter: TransferAdapter, tasks: WorkTask[], groups: GroupArchive, state: PluginState, taskDirectory = "工作记录/任务"): Promise<TransferBundle> {
   const bundle: TransferBundle = { format: "tracelo", version: 1, exportedAt: new Date().toISOString(), tasks: structuredClone(tasks), groups: structuredClone(groups), state: structuredClone(state), materials: [] };
   let size = new TextEncoder().encode(JSON.stringify(bundle)).byteLength;
   for (const task of tasks) {
-    const root = folderForTask(task);
+    assertTaskFolder(task, taskDirectory);
+    // Old releases could create an unregistered material folder beside the task tree.
+    const root = task.materialFolder ? folderForTask(task) : `${MATERIALS_DIRECTORY}/${task.archiveName ?? task.id}`;
     const info = await adapter.stat(root);
     if (!info) {
       if (task.materialFolder) throw new Error(`材料目录缺失：${root}。请先找回目录再导出。`);
@@ -59,6 +61,7 @@ export async function exportBundle(adapter: TransferAdapter, tasks: WorkTask[], 
       bundle.materials.push({ taskId: task.id, path: path === root ? "" : path.slice(root.length + 1), type: "folder" });
       const listing = await adapter.list(path);
       for (const file of listing.files.sort()) {
+        if (file === `${root}/${task.archiveName ?? task.id}.md` && task.materialFolder === root) continue;
         const stat = await adapter.stat(file);
         size += Math.ceil((stat?.size ?? 0) / 3) * 4;
         if (size > MAX_PACKAGE_BYTES) throw new Error("导出包超过 100 MB，请先将大材料另行复制。");
@@ -122,7 +125,7 @@ export function planImport(bundle: TransferBundle, existing: WorkTask[], current
     if (sameName) mapping.set(group.id, sameName.id);
     else {
       const id = groups.groups.some(g => g.id === group.id) ? crypto.randomUUID() : group.id;
-      groups.groups.push({ id, name: group.name }); mapping.set(group.id, id);
+      groups.groups.push({ ...group, id }); mapping.set(group.id, id);
     }
   }
   for (const event of bundle.groups.events) {
@@ -151,21 +154,84 @@ interface ImportJournal {
   state: PluginState;
   staging: string;
   moves: Array<{ from: string; to: string }>;
+  // Absent only on journals produced by older releases. No mutations start until true.
+  backupSnapshotReady?: boolean;
+}
+
+async function copyVerifiedTree(adapter: TransferAdapter, from: string, to: string): Promise<void> {
+  if (!await adapter.exists(from)) return;
+  const info = await adapter.stat(from);
+  if (info?.type === "file") {
+    await ensureFolder(adapter, to.slice(0, to.lastIndexOf("/")));
+    const bytes = await adapter.readBinary(from);
+    await adapter.writeBinary(to, bytes);
+    if (await digest(await adapter.readBinary(to)) !== await digest(bytes)) throw new Error(`导入备份快照校验失败：${from}`);
+    return;
+  }
+  if (info?.type !== "folder") throw new Error(`导入备份快照源无效：${from}`);
+  await ensureFolder(adapter, to);
+  const listing = await adapter.list(from);
+  for (const path of [...listing.files, ...listing.folders]) await copyVerifiedTree(adapter, path, `${to}/${path.split("/").at(-1)!}`);
+}
+
+async function snapshotImportBackups(adapter: TransferAdapter, store: ArchiveStore, journal: ImportJournal): Promise<void> {
+  const daily = `${store.backupDirectory}/daily`;
+  const target = `${journal.staging}/previous-daily`;
+  await ensureFolder(adapter, target);
+  if (!await adapter.exists(daily)) return;
+  // Pruning is suspended for the transaction. Only these IDs and group backups can be changed.
+  for (const folder of (await adapter.list(daily)).folders) {
+    const day = folder.split("/").at(-1)!;
+    for (const relative of ["_groups.md", ...journal.taskIds.flatMap(id => [`${id}.md`, `attachments/${id}`])]) {
+      await copyVerifiedTree(adapter, `${folder}/${relative}`, `${target}/${day}/${relative}`);
+    }
+  }
+}
+
+async function restoreImportBackups(adapter: TransferAdapter, store: ArchiveStore, journal: ImportJournal): Promise<void> {
+  if (!journal.backupSnapshotReady) return;
+  const snapshot = `${journal.staging}/previous-daily`;
+  if (!await adapter.exists(snapshot)) throw new Error("导入前备份快照缺失，已保留恢复记录");
+  const daily = `${store.backupDirectory}/daily`;
+  if (await adapter.exists(daily)) for (const folder of (await adapter.list(daily)).folders) {
+    for (const relative of ["_groups.md", ...journal.taskIds.flatMap(id => [`${id}.md`, `attachments/${id}`])]) {
+      const path = `${folder}/${relative}`;
+      const info = await adapter.stat(path);
+      if (info?.type === "folder") await adapter.rmdir(path, true);
+      else if (info) await adapter.remove(path);
+    }
+  }
+  // Keep the snapshot until state restoration and journal removal both succeed. Re-entry is safe.
+  await copyVerifiedTree(adapter, snapshot, daily);
 }
 
 export async function recoverInterruptedImport(adapter: TransferAdapter, store: ArchiveStore,
+  saveState?: (state: PluginState) => Promise<void>): Promise<PluginState | null> {
+  const resumePruning = store.suspendBackupPruning();
+  try { return await recoverImport(adapter, store, saveState); }
+  finally { resumePruning(); }
+}
+
+async function recoverImport(adapter: TransferAdapter, store: ArchiveStore,
   saveState?: (state: PluginState) => Promise<void>): Promise<PluginState | null> {
   const path = `${store.backupDirectory}/pending-import.json`;
   if (!await adapter.exists(path)) return null;
   const journal: ImportJournal = JSON.parse(await adapter.read(path));
   const prefix = `${store.backupDirectory}/import-staging/`;
   if (!journal || journal.version !== 1 || !Array.isArray(journal.taskIds) || !journal.taskIds.every(safeSegment)
+    || (journal.backupSnapshotReady !== undefined && typeof journal.backupSnapshotReady !== "boolean")
     || typeof journal.staging !== "string" || !journal.staging.startsWith(prefix) || !safeSegment(journal.staging.slice(prefix.length))
     || !Array.isArray(journal.moves) || journal.moves.some(m => typeof m.from !== "string" || !m.from.startsWith(`${journal.staging}/`)
       || !journal.taskIds.includes(m.from.slice(journal.staging.length + 1)) || typeof m.to !== "string"
-      || !m.to.startsWith(`${MATERIALS_DIRECTORY}/`) || !safeSegment(m.to.slice(MATERIALS_DIRECTORY.length + 1)))) throw new Error("导入恢复记录无效，请检查迁移备份");
+      || ![MATERIALS_DIRECTORY, store.taskDirectory].some(root => m.to.startsWith(`${root}/`) && safeSegment(m.to.slice(root.length + 1))))) throw new Error("导入恢复记录无效，请检查迁移备份");
   serializeGroupArchive(journal.groups);
   const state = normalizePluginState(journal.state);
+  if (journal.backupSnapshotReady === false) {
+    // Interrupted snapshot preparation never changed the task tree or original backups.
+    await adapter.remove(path);
+    if (await adapter.exists(journal.staging)) await adapter.rmdir(journal.staging, true);
+    return state;
+  }
   const loaded = await store.loadTasksSafe();
   if (loaded.errors.some(e => journal.taskIds.includes(e.taskId))) throw new Error("导入中断后存在损坏的任务，已保留恢复记录");
   for (const move of [...journal.moves].reverse()) {
@@ -174,6 +240,7 @@ export async function recoverInterruptedImport(adapter: TransferAdapter, store: 
   }
   for (const task of loaded.tasks.filter(t => journal.taskIds.includes(t.id))) await store.removeImportedTask(task);
   await store.saveGroups(journal.groups);
+  await restoreImportBackups(adapter, store, journal);
   if (saveState) await saveState(state);
   await adapter.remove(path);
   // Staging contains only this import's copies. The original import package remains untouched.
@@ -183,13 +250,20 @@ export async function recoverInterruptedImport(adapter: TransferAdapter, store: 
 
 export async function importBundle(adapter: TransferAdapter, store: ArchiveStore, input: TransferBundle, existing: WorkTask[], groups: GroupArchive, state: PluginState,
   saveState?: (state: PluginState) => Promise<void>) {
+  const resumePruning = store.suspendBackupPruning();
+  try { return await commitImport(adapter, store, input, existing, groups, state, saveState); }
+  finally { resumePruning(); }
+}
+
+async function commitImport(adapter: TransferAdapter, store: ArchiveStore, input: TransferBundle, existing: WorkTask[], groups: GroupArchive, state: PluginState,
+  saveState?: (state: PluginState) => Promise<void>) {
   // Revalidate at commit, even if the UI already showed a preview.
   const bundle = await parseBundle(JSON.stringify(input));
   const plan = planImport(bundle, existing, groups);
   await store.backupLegacy({ tasks: existing, groups, state });
   const journalPath = `${store.backupDirectory}/pending-import.json`;
   if (await adapter.exists(journalPath)) throw new Error("上一次导入尚未恢复，请重新加载插件");
-  const journal: ImportJournal = { version: 1, taskIds: plan.tasks.map(t => t.id), groups, state, staging: `${store.backupDirectory}/import-staging/${crypto.randomUUID()}`, moves: [] };
+  const journal: ImportJournal = { version: 1, taskIds: plan.tasks.map(t => t.id), groups, state, staging: `${store.backupDirectory}/import-staging/${crypto.randomUUID()}`, moves: [], backupSnapshotReady: false };
   await ensureFolder(adapter, journal.staging);
   const persistJournal = async () => {
     const text = JSON.stringify(journal);
@@ -199,6 +273,9 @@ export async function importBundle(adapter: TransferAdapter, store: ArchiveStore
   await persistJournal();
   const nextState = structuredClone(state);
   try {
+    await snapshotImportBackups(adapter, store, journal);
+    journal.backupSnapshotReady = true;
+    await persistJournal();
     for (const task of plan.tasks) {
       const entries = plan.materials.filter(e => e.taskId === task.id);
       if (entries.length) {
@@ -215,18 +292,25 @@ export async function importBundle(adapter: TransferAdapter, store: ArchiveStore
       }
       await store.saveTask(task);
       if (entries.length) {
-        const root = folderForTask(task);
+        const root = store.taskFolderPath(task);
         if (await adapter.exists(root)) throw new Error(`材料目标已存在：${root}`);
-        await ensureFolder(adapter, MATERIALS_DIRECTORY);
+        await ensureFolder(adapter, store.taskDirectory);
         const move = { from: `${journal.staging}/${task.id}`, to: root };
         journal.moves.push(move); await persistJournal();
         await adapter.rename(move.from, move.to);
+        const original = bundle.tasks.find(t => t.id === task.id)!;
+        if (task.notes) task.notes = relocateTaskReferences(task.notes, original.materialFolder ?? `${MATERIALS_DIRECTORY}/${original.archiveName ?? original.id}`, root);
         task.materialFolder = root; await store.saveTask(task);
       }
       if (Object.hasOwn(bundle.state.drafts, task.id)) nextState.drafts[task.id] = bundle.state.drafts[task.id]!;
+      if (Object.hasOwn(bundle.state.noteDrafts, task.id)) nextState.noteDrafts[task.id] = bundle.state.noteDrafts[task.id]!;
       nextState.orders = pinTask(nextState.orders, task);
     }
-    if (!existing.length) nextState.viewMode = bundle.state.viewMode;
+    if (!existing.length) {
+      nextState.viewMode = bundle.state.viewMode;
+      nextState.boardZoom = bundle.state.boardZoom;
+      nextState.presentationMode = bundle.state.presentationMode;
+    }
     const importedIds = new Set(plan.tasks.map(t => t.id));
     for (const mode of ["group", "quadrant"] as const) {
       for (const [area, order] of Object.entries(bundle.state.orders[mode])) {

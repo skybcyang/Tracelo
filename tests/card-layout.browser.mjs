@@ -18,19 +18,6 @@ try {
       <div class="wt-card-meta"><span>未分组</span><span class="wt-tag">重要</span><span class="wt-card-time">9/18 20:50</span></div></footer>
       ${i === 0 ? `<section class="wt-card-todos"><h4>待办</h4>${Array.from({ length: 4 }, (_, j) => `<div class="wt-todo-row"><label class="wt-todo-label"><input type="checkbox"><span>${j === 2 ? '需要换行的待办内容。'.repeat(6) : '核对清单项目'}</span></label></div>`).join('')}</section><div class="wt-optional-actions"><button>添加待办</button></div><form class="wt-card-composer"><label>记录当前进展<textarea></textarea></label><div class="wt-composer-footer"><span class="wt-draft-state">草稿已自动保存</span><button class="mod-cta">记录进展</button></div></form>` : ''}
     </div></article>`).join("")}</div></div>`);
-  await page.evaluate(() => {
-    const observer = new ResizeObserver((entries) => {
-      for (const { target } of entries) {
-        const body = target;
-        const card = body.parentElement;
-        const style = getComputedStyle(card.parentElement);
-        const row = parseFloat(style.gridAutoRows);
-        const gap = parseFloat(style.rowGap);
-        card.style.gridRowEnd = `span ${Math.max(1, Math.ceil((body.scrollHeight + 2 + gap) / (row + gap)))}`;
-      }
-    });
-    document.querySelectorAll('.wt-card-body').forEach(body => observer.observe(body));
-  });
   for (const zoom of [1, 1.25, 1.5]) {
     for (const width of [1400, 735, 1100, 537, 900, 260, 1600, 808, 269]) {
       await page.evaluate(({ width, zoom }) => {
@@ -40,8 +27,8 @@ try {
       }, { width, zoom });
       await page.waitForFunction(({ width, zoom }) => {
         const cards = [...document.querySelectorAll('.wt-card')];
-        const fits = cards.every(card => card.getBoundingClientRect().height / zoom + 0.5 >= card.querySelector('.wt-card-body').scrollHeight + 2);
-        const compact = cards.every(card => card.getBoundingClientRect().height / zoom - card.querySelector('.wt-card-body').scrollHeight - 2 < 160);
+        const fits = cards.every(card => card.getBoundingClientRect().height / zoom + 1.5 >= card.querySelector('.wt-card-body').scrollHeight + 2);
+        const compact = cards.every(card => Math.abs(card.getBoundingClientRect().height / zoom - card.querySelector('.wt-card-body').scrollHeight - 2) < 1.5);
         return fits && compact;
       }, { width, zoom });
       const settled = await page.evaluate((zoom) => {
@@ -54,9 +41,9 @@ try {
         const expanded = cards[0];
         assert.ok(cards.every(c => Math.abs(c.width - expanded.width) < 0.1), `unequal widths: ${cards.map(c => c.width)}`);
         assert.ok(cards.every(c => c.width >= Math.min(width, 260) - 0.1 && c.right <= grid.right + 0.1), 'narrow or overflowing columns');
-        assert.ok(cards.every((c, i) => c.height + 0.5 >= content[i]), `card content clipped: ${cards.map((c, i) => `${i}:${c.height}/${content[i]}`).join(', ')}`);
-        assert.ok(cards.every(c => Math.abs((c.height + gap) / (148 + gap) - Math.round((c.height + gap) / (148 + gap))) < 0.02), 'card height not on integer grid');
-        assert.ok(cards.every((c, i) => c.height - content[i] < 160), 'card reserves more than the smallest whole-row height');
+        assert.ok(cards.every((c, i) => c.height + 1.5 >= content[i]), `card content clipped: ${cards.map((c, i) => `${i}:${c.height}/${content[i]}`).join(', ')}`);
+        assert.ok(cards.every((c, i) => Math.abs(c.height - content[i]) < 1.5), 'card reserves empty space');
+        assert.ok(cards.every((c, i) => i === 0 || c.top >= cards[i - 1].top), 'visual order differs from DOM order');
         if (width >= 529) {
           const beside = cards.filter(c => c.left > expanded.left + 1 && c.top < expanded.bottom);
           assert.ok(beside.length > 0, 'neighbor cards are not packed beside expanded card');

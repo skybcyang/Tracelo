@@ -63,25 +63,27 @@ describe("single visual baseline", () => {
     expect(html).not.toMatch(/\.precision \.selected \.composer\s*\{/s);
   });
 
-  it("packs later cards into the open space beside an expanded task", () => {
+  it("keeps row order stable beside an expanded task", () => {
     const main = readFileSync("src/main.ts", "utf8");
     const css = readFileSync("styles.css", "utf8");
 
-    expect(css).toMatch(/\.wt-card-grid\s*\{[^}]*grid-auto-flow:\s*row dense/s);
-    expect(css).toMatch(/\.wt-card-grid\s*\{[^}]*grid-auto-rows:\s*var\(--wt-card-height\)/s);
+    expect(css).toMatch(/\.wt-card-grid\s*\{[^}]*grid-auto-flow:\s*row;/s);
+    expect(css).toMatch(/\.wt-card-grid\s*\{[^}]*grid-auto-rows:\s*auto/s);
     expect(main).not.toContain("gridColumnStart");
     expect(main).not.toContain("gridRowStart");
+    expect(main).not.toContain("gridRowEnd");
     expect(main).toContain("ResizeObserver");
   });
 
-  it("sizes compact cards in whole rows without clipping progress or todo content", () => {
+  it("sizes cards naturally and limits collapsed summaries", () => {
     const css = readFileSync("styles.css", "utf8");
 
-    expect(css).toContain("--wt-card-height: 148px");
+    expect(css).not.toContain("--wt-card-height");
     expect(css).toContain("--wt-card-gap: 12px");
-    expect(css).toMatch(/\.wt-card-body\s*\{[^}]*min-height:\s*calc\(var\(--wt-card-height\) - 2px\)/s);
+    expect(css).toMatch(/\.wt-card-body\s*\{[^}]*min-height:\s*0/s);
     expect(css).not.toMatch(/\.wt-card\.is-expanded\s*\{[^}]*grid-row:\s*span 2/s);
-    expect(css).not.toContain("-webkit-line-clamp");
+    expect(css).toMatch(/\.wt-card:not\(\.is-expanded\) \.wt-card-latest\s*\{[^}]*-webkit-line-clamp:\s*3/s);
+    expect(css).not.toMatch(/\.wt-card-todos\s*\{[^}]*-webkit-line-clamp/s);
     expect(css).toMatch(/\.wt-card-grid\s*\{[^}]*gap:\s*var\(--wt-card-gap\)/s);
   });
 });

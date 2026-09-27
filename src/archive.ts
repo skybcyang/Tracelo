@@ -9,8 +9,9 @@ import {
   type WorkGroup,
   type WorkTask,
   isValidDay,
+  isTaskIcon,
 } from "./domain";
-import { MATERIALS_DIRECTORY, safeSegment } from "./storage-names";
+import { safeSegment } from "./storage-names";
 
 export const DEFAULT_TASK_DIRECTORY = "工作记录/任务";
 export const AGENT_FILE = "agent.md";
@@ -21,6 +22,9 @@ export interface PluginState {
   initialized: boolean;
   taskDirectory: string;
   drafts: Record<string, string>;
+  noteDrafts: Record<string, string>;
+  boardZoom: number;
+  presentationMode: boolean;
   orders: TaskOrders;
   viewMode: ViewMode;
   lastDailyBackup: string | null;
@@ -38,6 +42,9 @@ export function createDefaultState(): PluginState {
     initialized: false,
     taskDirectory: DEFAULT_TASK_DIRECTORY,
     drafts: {},
+    noteDrafts: {},
+    boardZoom: 100,
+    presentationMode: false,
     orders: { group: {}, quadrant: {} },
     viewMode: "group",
     lastDailyBackup: null,
@@ -73,6 +80,10 @@ export function normalizePluginState(value: unknown): PluginState {
     initialized: value.initialized === true,
     taskDirectory: taskDirectory || defaults.taskDirectory,
     drafts: stringRecord(value.drafts),
+    noteDrafts: stringRecord(value.noteDrafts),
+    boardZoom: typeof value.boardZoom === "number" && Number.isFinite(value.boardZoom)
+      ? Math.max(60, Math.min(120, Math.round(value.boardZoom / 5) * 5)) : 100,
+    presentationMode: value.presentationMode === true,
     orders: {
       group: orderRecord(orders.group),
       quadrant: orderRecord(orders.quadrant),
@@ -99,6 +110,8 @@ const EVENT_LABELS: Record<TaskEventKind, string> = {
   todo_removed: "删除待办",
   todo_restored: "恢复待办",
   due_changed: "截止日期变更",
+  notes_changed: "备注变更",
+  icon_changed: "图标变更",
 };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -124,7 +137,8 @@ function taskBody(task: WorkTask): string {
   const timeline = task.events.map((entry) =>
     `- ${entry.at} · **${EVENT_LABELS[entry.kind]}** · ${inline(entry.text)}`,
   ).join("\n");
-  return `# ${inline(task.title)}\n\n${properties}${todos}\n\n## 时间线\n\n${timeline}\n`;
+  const notes = task.notes ? `\n\n## 备注\n\n${task.notes}` : "";
+  return `# ${inline(task.title)}\n\n${properties}${notes}${todos}\n\n## 时间线\n\n${timeline}\n`;
 }
 
 export function serializeTaskMarkdown(task: WorkTask): string {
@@ -137,6 +151,7 @@ function isEvent(value: unknown): value is TaskEvent {
   const kinds: TaskEventKind[] = [
     "created", "renamed", "progress", "completed", "closed", "reopened", "group_changed", "quadrant_changed",
     "todo_added", "todo_done", "todo_undone", "todo_edited", "todo_removed", "todo_restored", "due_changed",
+    "notes_changed", "icon_changed",
   ];
   return typeof value.id === "string"
     && kinds.includes(value.kind as TaskEventKind)
@@ -167,9 +182,10 @@ export function assertTask(value: unknown): asserts value is WorkTask {
     || typeof value.important !== "boolean"
     || typeof value.urgent !== "boolean"
     || (value.archiveName !== undefined && !safeSegment(value.archiveName))
+    || (value.notes !== undefined && typeof value.notes !== "string")
+    || (value.icon !== undefined && value.icon !== null && !isTaskIcon(value.icon))
     || (value.materialFolder !== undefined && (typeof value.materialFolder !== "string"
-      || !value.materialFolder.startsWith(`${MATERIALS_DIRECTORY}/`)
-      || !safeSegment(value.materialFolder.slice(MATERIALS_DIRECTORY.length + 1))))
+      || !value.materialFolder.split("/").every(safeSegment)))
     || (value.dueDate !== undefined && (typeof value.dueDate !== "string" || !isValidDay(value.dueDate)))
     || (value.todos !== undefined && (!Array.isArray(value.todos)
       || !value.todos.length
@@ -211,7 +227,8 @@ export function isTaskFile(path: string): boolean {
 
 function isGroup(value: unknown): value is WorkGroup {
   return isRecord(value) && typeof value.id === "string" && Boolean(value.id)
-    && typeof value.name === "string" && Boolean(value.name.trim());
+    && typeof value.name === "string" && Boolean(value.name.trim())
+    && (value.icon === undefined || isTaskIcon(value.icon));
 }
 
 function isGroupEvent(value: unknown): value is GroupEvent {

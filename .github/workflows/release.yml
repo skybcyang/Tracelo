@@ -21,9 +21,9 @@ jobs:
 
       - run: npm ci
 
-      - run: npm test
+      - run: npx playwright install --with-deps chromium
 
-      - run: npm run build
+      - run: npm run check
 
       - name: Publish GitHub Release assets
         env:
@@ -36,5 +36,5 @@ jobs:
             gh release create "$GITHUB_REF_NAME" \
               main.js manifest.json styles.css \
               --title "$GITHUB_REF_NAME" \
-              --generate-notes
+              --notes-file "docs/releases/$GITHUB_REF_NAME.md"
           fi

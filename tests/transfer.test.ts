@@ -34,19 +34,33 @@ it("round-trips full task history, binary materials, empty directories, groups a
   expect(result.tasks[0]?.events).toEqual(task.events);
   expect(result.groups).toEqual(groups);
   expect(result.state.drafts[task.id]).toBe("未提交内容");
-  expect(new Uint8Array(await destination.readBinary(`工作记录/材料/${result.tasks[0]!.archiveName}/截图.png`))).toEqual(new Uint8Array([0, 255, 128, 1]));
-  expect(await destination.exists(`工作记录/材料/${result.tasks[0]!.archiveName}/空目录`)).toBe(true);
+  expect(new Uint8Array(await destination.readBinary(`任务/${result.tasks[0]!.archiveName}/截图.png`))).toEqual(new Uint8Array([0, 255, 128, 1]));
+  expect(await destination.exists(`任务/${result.tasks[0]!.archiveName}/空目录`)).toBe(true);
   expect((await store.loadTasksSafe()).tasks).toHaveLength(1);
 });
 
 it("skips existing IDs and their materials; repeated imports are idempotent", async () => {
   const { bundle } = await example();
   const first = await importBundle(destination, store, bundle, [], { version: 1, groups: [], events: [] }, createDefaultState());
-  const path = `工作记录/材料/${first.tasks[0]!.archiveName}/截图.png`;
+  const path = `任务/${first.tasks[0]!.archiveName}/截图.png`;
   await destination.writeBinary(path, new Uint8Array([42]).buffer);
   const second = await importBundle(destination, store, bundle, first.tasks, first.groups, first.state);
   expect(second.imported).toBe(0); expect(second.skipped).toBe(1);
   expect(new Uint8Array(await destination.readBinary(path))).toEqual(new Uint8Array([42]));
+});
+
+it("exports colocated note images without duplicating the formal task and retains relative references on conflict", async () => {
+  const original = new ArchiveStore(source, "任务", ".plugin/backups", "规则"); await original.initialize();
+  const task = makeTask(); await original.saveTask(task);
+  const image = await original.saveNoteAttachment(task, "screenshot.png", new Uint8Array([10, 20]).buffer);
+  task.notes = `![screen](${image.path}) [absolute](<${task.materialFolder}/${image.path}>)`; await original.saveTask(task);
+  const bundle = await exportBundle(source, [task], groups, createDefaultState(), "任务");
+  expect(bundle.materials.filter(entry => entry.type === "file").map(entry => entry.path)).toEqual([image.path]);
+  await store.saveTask(makeTask("conflict"));
+  const result = await importBundle(destination, store, bundle, [makeTask("conflict")], groups, createDefaultState());
+  const imported = result.tasks.find(t => t.id === task.id)!;
+  expect(imported.notes).toBe(`![screen](${image.path}) [absolute](<${imported.materialFolder}/${image.path}>)`);
+  expect(new Uint8Array(await destination.readBinary(`${imported.materialFolder}/${image.path}`))).toEqual(new Uint8Array([10, 20]));
 });
 
 it("previews same-title task creation with suffixes and keeps local group identity on name match", async () => {
@@ -77,6 +91,12 @@ it("rejects malformed versions, duplicate IDs, traversal, invalid dates and tamp
   expect((await store.loadTasksSafe()).tasks).toHaveLength(0);
 });
 
+it("refuses to export materials from an unrelated vault folder", async () => {
+  const task = makeTask(); task.materialFolder = "Private/task-1";
+  await source.mkdir(task.materialFolder); await source.write(`${task.materialFolder}/private.txt`, "secret");
+  await expect(exportBundle(source, [task], groups, createDefaultState(), "任务")).rejects.toThrow("任务文件夹路径");
+});
+
 it("rolls back imported tasks and folders on material write failure while preserving existing data", async () => {
   const { bundle } = await example();
   const local = makeTask("local-task"); await store.saveTask(local); await store.saveGroups(groups);
@@ -94,6 +114,19 @@ it("restores the exported manual ordering when importing into an empty vault", a
   bundle.state.orders.group["group-1"] = ["task-1", "task-2"];
   const result = await importBundle(destination, store, bundle, [], { version: 1, groups: [], events: [] }, createDefaultState());
   expect(result.state.orders.group["group-1"]).toEqual(["task-1", "task-2"]);
+});
+
+it("preserves group icons, note drafts and board preferences when importing into an empty vault", async () => {
+  const { bundle } = await example();
+  bundle.groups.groups[0]!.icon = "code";
+  bundle.state.noteDrafts = { "task-1": "unsaved note" };
+  bundle.state.boardZoom = 115;
+  bundle.state.presentationMode = true;
+  const result = await importBundle(destination, store, bundle, [], { version: 1, groups: [], events: [] }, createDefaultState());
+  expect(result.groups.groups[0]!.icon).toBe("code");
+  expect(result.state.noteDrafts["task-1"]).toBe("unsaved note");
+  expect(result.state.boardZoom).toBe(115);
+  expect(result.state.presentationMode).toBe(true);
 });
 
 it("rolls back a process-interrupted import and restores original settings on startup", async () => {

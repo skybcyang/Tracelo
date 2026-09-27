@@ -25,6 +25,19 @@ export function setIcon(el, name) {
   svg.setAttribute("viewBox", "0 0 24 24");
   el.appendChild(svg);
 }
+export const getIconIds = () => ['circle-dot', 'layers', 'code', 'file-text', 'target'];
+export class MarkdownRenderer {
+  static async render(app, source, target) {
+    // Model the host's image DOM boundary; Markdown parsing itself belongs to Obsidian.
+    let offset = 0;
+    for (const match of source.matchAll(/!\[([^\]]*)\]\(<([^>]+)>\)/g)) {
+      target.append(document.createTextNode(source.slice(offset, match.index)));
+      target.createEl('img', { attr: { alt: match[1], src: match[2] } });
+      offset = match.index + match[0].length;
+    }
+    target.append(document.createTextNode(source.slice(offset)));
+  }
+}
 export class Plugin {
   constructor(app, manifest) { this.app = app; this.manifest = manifest; }
   async loadData() { return this.data ?? null; }
@@ -96,6 +109,7 @@ export function createApp() {
     factories: new Map(),
     vault: {
       configDir: ".obsidian",
+      read(file) { return this.adapter.read(file.path); },
       on(name, fn) { listeners.set(name, [...(listeners.get(name) || []), fn]); },
       getAbstractFileByPath(path) { return folders.has(path) ? new TFolder(path) : files.has(path) ? Object.assign(new TFile(), { path }) : null; },
       async createFolder(path) { if (await this.adapter.exists(path)) throw new Error('Already exists'); await this.adapter.mkdir(path); const folder = new TFolder(path); emit('create', folder); return folder; },
@@ -143,6 +157,7 @@ export function createApp() {
     },
   };
   Object.setPrototypeOf(app.vault.adapter, FileSystemAdapter.prototype);
+  app.emitVaultEvent = (name, path, oldPath) => emit(name, app.vault.getAbstractFileByPath(path) ?? Object.assign(new TFile(), { path }), oldPath);
   app.openedFolders = [];
   app.folderLaunches = [];
   window.require = (name) => {

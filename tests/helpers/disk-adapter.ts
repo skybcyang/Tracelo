@@ -10,6 +10,7 @@ export class DiskAdapter {
   async writeBinary(path: string, data: ArrayBuffer) { await fs.writeFile(join(this.root, path), new Uint8Array(data)); }
   async mkdir(path: string) { await fs.mkdir(join(this.root, path), { recursive: true }); }
   async rename(from: string, to: string) { if (await this.exists(to)) throw new Error("destination exists"); await fs.rename(join(this.root, from), join(this.root, to)); }
+  async copy(from: string, to: string) { await fs.copyFile(join(this.root, from), join(this.root, to), fs.constants.COPYFILE_EXCL); }
   async stat(path: string) { try { const s = await fs.stat(join(this.root, path)); return { type: s.isDirectory() ? "folder" as const : "file" as const, size: s.size }; } catch { return null; } }
   async list(path: string) { const entries = await fs.readdir(join(this.root, path), { withFileTypes: true }); return { files: entries.filter(e => e.isFile()).map(e => `${path}/${e.name}`), folders: entries.filter(e => e.isDirectory()).map(e => `${path}/${e.name}`) }; }
   async remove(path: string) { await fs.unlink(join(this.root, path)); }

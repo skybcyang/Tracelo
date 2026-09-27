@@ -14,7 +14,9 @@ export type TaskEventKind =
   | "todo_edited"
   | "todo_removed"
   | "todo_restored"
-  | "due_changed";
+  | "due_changed"
+  | "notes_changed"
+  | "icon_changed";
 export type ViewMode = "group" | "quadrant";
 export type QuadrantId =
   | "important_urgent"
@@ -52,6 +54,8 @@ export interface WorkTask {
   todos?: TaskTodo[];
   archiveName?: string;
   materialFolder?: string;
+  notes?: string;
+  icon?: string | null;
   events: TaskEvent[];
 }
 
@@ -64,6 +68,7 @@ export interface TaskTodo {
 export interface WorkGroup {
   id: string;
   name: string;
+  icon?: string;
 }
 
 export interface GroupEvent {
@@ -111,6 +116,7 @@ export interface CreateTaskInput {
   groupName: string;
   important?: boolean;
   urgent?: boolean;
+  notes?: string;
 }
 
 export const UNGROUPED_TASKS = "未分组";
@@ -188,7 +194,37 @@ export function createTask(
     important: input.important,
     urgent: input.urgent,
   };
-  return { version: 1, ...base, events: [event(base, "created", "创建任务", now, eventId)] };
+  return { version: 1, ...base, ...(input.notes ? { notes: input.notes } : {}), events: [event(base, "created", "创建任务", now, eventId)] };
+}
+
+export function setTaskNotes(task: WorkTask, notes: string, now: Date, eventId: string): WorkTask {
+  if ((task.notes ?? "") === notes) return task;
+  const changed = { ...task };
+  if (notes) changed.notes = notes;
+  else delete changed.notes;
+  return { ...changed, events: [...task.events, event(changed, "notes_changed", notes ? "更新任务备注" : "清空任务备注", now, eventId, {
+    from: task.notes ?? "", to: notes,
+  })] };
+}
+
+export function isTaskIcon(value: unknown): value is string {
+  return typeof value === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(value);
+}
+
+export function setTaskIcon(task: WorkTask, icon: string | null | undefined, now: Date, eventId: string): WorkTask {
+  if (icon !== null && icon !== undefined && !isTaskIcon(icon)) throw new Error("图标名称无效");
+  if (task.icon === icon) return task;
+  const changed = { ...task };
+  if (icon === undefined) delete changed.icon;
+  else changed.icon = icon;
+  return { ...changed, events: [...task.events, event(changed, "icon_changed", icon === null ? "隐藏任务图标" : icon === undefined ? "使用分组图标" : "更新任务图标", now, eventId, {
+    from: task.icon === undefined ? "inherit" : task.icon, to: icon === undefined ? "inherit" : icon,
+  })] };
+}
+
+export function taskIcon(task: WorkTask, groups: WorkGroup[]): string | null {
+  if (task.icon !== undefined) return task.icon;
+  return groups.find(group => group.id === task.groupId)?.icon ?? "circle-dot";
 }
 
 export function addProgress(task: WorkTask, text: string, now: Date, eventId: string): WorkTask {
@@ -456,6 +492,7 @@ export function searchTasks(tasks: WorkTask[], query: string): WorkTask[] {
   const needle = query.trim().toLocaleLowerCase("zh-CN");
   if (!needle) return tasks;
   return tasks.filter((task) => task.title.toLocaleLowerCase("zh-CN").includes(needle)
+    || (task.notes ?? "").toLocaleLowerCase("zh-CN").includes(needle)
     || task.events.some((entry) => entry.title.toLocaleLowerCase("zh-CN").includes(needle)
       || (entry.kind === "progress" && entry.text.toLocaleLowerCase("zh-CN").includes(needle))));
 }

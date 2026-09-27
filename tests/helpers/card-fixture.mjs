@@ -1,8 +1,10 @@
 import WorkTimelinePlugin from "../../src/main.ts";
 import { createApp, Platform } from "./obsidian-browser.mjs";
+import { serializeTaskMarkdown } from "../../src/archive.ts";
+import { createTask, setTaskNotes } from "../../src/domain.ts";
 
 const app = createApp();
-const plugin = new WorkTimelinePlugin(app, { id: "work-timeline", name: "Tracelo", version: "0.5.0" });
+const plugin = new WorkTimelinePlugin(app, { id: "work-timeline", name: "Tracelo", version: "0.6.0" });
 await plugin.onload();
 await plugin.addGroup("产品研发");
 const common = { groupId: plugin.groups[0].id, groupName: "产品研发", important: true, urgent: false, dueDate: null, todos: [], initialProgress: "" };
@@ -20,3 +22,10 @@ const long = await plugin.addTask({ ...common, title: "检查长内容", initial
 const dateOnly = await plugin.addTask({ ...common, title: "提交本周项目周报", dueDate: "2026-09-26", initialProgress: "已汇总本周交付与风险，今天发送最终版。只设置截止日期，不拆分待办。" });
 await plugin.activateView();
 window.cardFixture = { plugin, app, platform: Platform, ids: { payment, plain, long, dateOnly } };
+window.cardFixture.externalArchive = () => {
+  const now = new Date();
+  let task = createTask({ title: '外部快捷任务', groupId: null, groupName: '未分组', important: false, urgent: false }, now, crypto.randomUUID(), crypto.randomUUID());
+  task = setTaskNotes(task, '快捷备注', new Date(now.getTime() + 1), crypto.randomUUID());
+  task.archiveName = `${task.events[0].day} 外部快捷任务`;
+  return { task, source: serializeTaskMarkdown(task) };
+};
