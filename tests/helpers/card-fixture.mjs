@@ -2,7 +2,7 @@ import WorkTimelinePlugin from "../../src/main.ts";
 import { createApp } from "./obsidian-browser.mjs";
 
 const app = createApp();
-const plugin = new WorkTimelinePlugin(app, { id: "work-timeline", name: "Tracelo", version: "0.3.0" });
+const plugin = new WorkTimelinePlugin(app, { id: "work-timeline", name: "Tracelo", version: "0.4.0" });
 await plugin.onload();
 await plugin.addGroup("产品研发");
 const common = { groupId: plugin.groups[0].id, groupName: "产品研发", important: true, urgent: false, dueDate: null, todos: [], initialProgress: "" };

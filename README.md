@@ -25,6 +25,7 @@ Obsidian 单设备任务进展插件。左侧持续展示当前待办，右侧�
 
 ## 文档
 
+- [0.4.0 更新说明](docs/releases/0.4.0.md)：文件夹、自然语言命名、完整导入导出及升级说明
 - [需求与验收基线](docs/requirements.md)：业务规则、存储方案，以及卡片、文件夹、迁移与导入导出验收场景
 - [设计基线](docs/design/precision-chrome.html)：界面设计基线（参考图 `precision-chrome-refined.png`，由 `tests/design-baseline.test.ts` 守护）
 - [可选待办与截止日期](docs/design/optional-task-details.md)：交互规则与[独立原型](docs/design/optional-task-details.html)；原型不读取或保存 Obsidian 任务
@@ -64,4 +65,4 @@ styles.css
 
 从旧版本升级到 `0.3.0` 时，插件在首次加载旧任务后生成升级快照；任务 Markdown 继续使用兼容的 v1 协议。无需给既有任务补写待办或截止日期。
 
-当前开发版增加自然语言命名与导入导出，尚未发布新的 Release。升级后请通过插件操作任务改名；手动改名／编辑正式任务文件仍不受支持。任务或材料目录改名后，外部手工维护的路径链接需要相应更新。
+`0.4.0` 增加任务文件夹、自然语言命名与完整导入导出。升级时保留现有任务与插件数据，首次加载旧 UUID 存档会先备份再迁移名称。请通过插件操作任务改名；手动改名／编辑正式任务文件仍不受支持。任务或材料目录改名后，外部手工维护的路径链接需要相应更新。完整升级说明见 [0.4.0 更新说明](docs/releases/0.4.0.md)。
