@@ -5,6 +5,7 @@ HTMLElement.prototype.createEl = function (tag, options = {}) {
   if (options.cls) el.className = options.cls;
   if (options.text !== undefined) el.textContent = options.text;
   if (options.type) el.setAttribute("type", options.type);
+  if (options.value !== undefined) el.value = options.value;
   for (const [key, value] of Object.entries(options.attr || {})) el.setAttribute(key, value);
   this.appendChild(el);
   return el;
@@ -67,7 +68,7 @@ export class WorkspaceLeaf {}
 export class TFile {}
 export class TFolder { constructor(path) { this.path = path; } }
 export class FileSystemAdapter { getFullPath(path) { return '/test-vault/' + path; } }
-export const Platform = { isDesktopApp: true };
+export const Platform = { isDesktopApp: true, isWin: false };
 export class Setting {}
 export class Menu {
   constructor() { this.el = document.createElement('div'); this.el.setAttribute('role', 'menu'); }
@@ -143,6 +144,17 @@ export function createApp() {
   };
   Object.setPrototypeOf(app.vault.adapter, FileSystemAdapter.prototype);
   app.openedFolders = [];
-  window.require = (name) => { if (name !== 'electron') throw new Error(name); return { shell: { openPath: async (path) => { app.openedFolders.push(path); return app.openError || ''; } } }; };
+  app.folderLaunches = [];
+  window.require = (name) => {
+    if (name === 'node:child_process') return { spawn(file, args, options) {
+      app.folderLaunches.push({ file, args, options });
+      const handlers = {};
+      const child = { once(event, fn) { handlers[event] = fn; return child; }, unref() {} };
+      queueMicrotask(() => app.openError ? handlers.error?.(new Error(app.openError)) : handlers.spawn?.());
+      return child;
+    } };
+    if (name !== 'electron') throw new Error(name);
+    return { shell: { openPath: async (path) => { app.openedFolders.push(path); return app.openError || ''; } } };
+  };
   return app;
 }

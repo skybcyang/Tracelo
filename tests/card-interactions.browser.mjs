@@ -6,7 +6,7 @@ import { chromium } from "playwright";
 
 const bundle = await build({
   entryPoints: ["tests/helpers/card-fixture.mjs"], bundle: true, write: false, format: "esm",
-  external: ["electron"],
+  external: ["electron", "node:child_process"],
   alias: { obsidian: resolve("tests/helpers/obsidian-browser.mjs") },
 });
 const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL, headless: true });
@@ -29,6 +29,176 @@ try {
   async function check(name, run) {
     try { await run(); checks++; } catch (error) { failures.push(name + ": " + error.message); }
   }
+  await check('compact summaries show proportional progress without repeated labels', async () => {
+    const futureLabel = await page.evaluate(async id => {
+      const date = new Date(); date.setDate(date.getDate() + 7);
+      const day = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+      await window.cardFixture.plugin.setTaskDueDate(id, day);
+      return `${date.getMonth()+1}月${date.getDate()}日`;
+    }, ids.payment);
+    const summary = payment.getByRole('button', { name: '查看待办，已完成 2/4', exact: true });
+    assert.equal((await summary.textContent()).trim(), '2/4');
+    assert.equal(await summary.locator('.wt-progress-value').getAttribute('stroke-dasharray'), '50 100');
+    assert.equal(await payment.locator('.wt-card-properties').textContent(), '重要');
+    assert.equal(await payment.locator('.wt-due-chip').textContent(), futureLabel);
+    assert.match(await payment.locator('.wt-due-chip').getAttribute('aria-label'), /截止/);
+  });
+  await check('quadrant color has text context and cards omit duplicate priority labels', async () => {
+    await page.getByRole('button', { name: '四象限', exact: true }).click();
+    assert.equal(await payment.locator('.wt-card-properties').textContent(), '产品研发');
+    const colors = await page.locator('.wt-section-heading').evaluateAll(els => els.map(el => getComputedStyle(el).backgroundColor));
+    assert.equal(new Set(colors).size, 4);
+    assert.ok(colors.every(color => color !== 'rgba(0, 0, 0, 0)'));
+    await page.getByRole('button', { name: '分组', exact: true }).click();
+  });
+  await check('property history is disclosed in chronological position without losing events', async () => {
+    await payment.locator('.wt-card-open').click();
+    const expected = await page.evaluate(id => window.cardFixture.plugin.tasks.find(t => t.id === id).events.map(e => e.text), ids.payment);
+    assert.deepEqual(await page.locator('.wt-timeline-scroll .wt-event-text').allTextContents(), expected);
+    const details = page.locator('.wt-event-changes').first();
+    assert.equal(await details.count(), 1);
+    assert.equal(await details.getAttribute('open'), null);
+    await details.locator('summary').press('Enter');
+    assert.notEqual(await details.getAttribute('open'), null);
+    await payment.locator('.wt-card-open').click();
+    await page.getByRole('button', { name: '返回每日时间线', exact: true }).click();
+  });
+  await check('complete and empty progress rings track checklist state without replacing progress', async () => {
+    const latest = await payment.locator('.wt-card-latest').textContent();
+    await payment.locator('.wt-card-open').click();
+    for (let i = 0; i < 4; i++) await payment.locator('.wt-todo-check').nth(i).check();
+    assert.equal(await payment.locator('.wt-progress-value').getAttribute('stroke-dasharray'), '100 100');
+    assert.equal(await payment.locator('.wt-progress-chip.is-complete').textContent(), '4/4');
+    for (let i = 0; i < 4; i++) await payment.locator('.wt-todo-check').nth(i).uncheck();
+    assert.equal(await payment.locator('.wt-progress-value').getAttribute('stroke-dasharray'), '0 100');
+    assert.equal(await payment.locator('.wt-progress-chip.is-empty').textContent(), '0/4');
+    assert.equal(await payment.locator('.wt-card-latest').textContent(), latest);
+  });
+  await check('today and overdue styling clears for ended tasks and retains their context', async () => {
+    const today = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; });
+    await page.evaluate(({ id, today }) => window.cardFixture.plugin.setTaskDueDate(id, today), { id: ids.payment, today });
+    assert.equal(await payment.locator('.wt-due-chip.is-today').textContent(), '今天截止');
+    await page.evaluate(id => window.cardFixture.plugin.setTaskDueDate(id, '2020-01-01'), ids.payment);
+    assert.match(await payment.locator('.wt-due-chip.is-overdue').textContent(), /已逾期/);
+    await page.evaluate(id => window.cardFixture.plugin.finishTask(id), ids.payment);
+    await page.getByRole('button', { name: '四象限', exact: true }).click();
+    assert.equal(await payment.locator('.wt-due-chip.is-overdue, .wt-due-chip.is-today').count(), 0);
+    assert.equal(await payment.locator('.wt-card-properties').textContent(), '产品研发重要已完成');
+    await page.evaluate(id => window.cardFixture.plugin.setTaskDueDate(id, null), ids.dateOnly);
+    assert.equal(await card(ids.dateOnly).locator('.wt-due-chip').count(), 0);
+  });
+  await page.reload();
+  await page.waitForFunction(() => window.cardFixture);
+  Object.assign(ids, await page.evaluate(() => window.cardFixture.ids));
+  payment = card(ids.payment);
+  await check('each active section has a dashed base-grid creation card', async () => {
+    assert.equal(await page.locator('.wt-card-create').count(), 2);
+    assert.equal(await page.locator('.wt-ended-section .wt-card-create').count(), 0);
+    const tiles = await page.locator('.wt-card-create').evaluateAll(elements => elements.map(el => ({ h: el.getBoundingClientRect().height, border: getComputedStyle(el).borderStyle, tag: el.tagName })));
+    assert.ok(tiles.every(t => t.h === 148 && t.border === 'dashed' && t.tag === 'BUTTON'));
+  });
+  if (await page.locator('.wt-card-create').count()) {
+    await check('group creation carries context, cancels without saving and restores keyboard focus', async () => {
+      const tile = page.getByRole('button', { name: '在产品研发中新建任务', exact: true });
+      await tile.focus(); await tile.press('Enter');
+      assert.equal(await page.getByRole('combobox', { name: '任务分组' }).inputValue(), await page.evaluate(() => window.cardFixture.plugin.groups[0].id));
+      assert.equal(await page.locator('.wt-new-task-modal input[type=radio]:checked').count(), 0);
+      await page.getByRole('button', { name: '取消', exact: true }).click();
+      await settle();
+      assert.equal(await tile.evaluate(el => el === document.activeElement), true);
+      assert.equal(await page.evaluate(() => window.cardFixture.plugin.tasks.length), 4);
+      await page.getByRole('button', { name: '在未分组中新建任务', exact: true }).click();
+      assert.equal(await page.getByRole('combobox', { name: '任务分组' }).inputValue(), '');
+      await page.getByRole('button', { name: '取消', exact: true }).click();
+    });
+    await check('all four quadrant creation cards preselect their quadrant and create in it', async () => {
+      await page.getByRole('button', { name: '四象限', exact: true }).click();
+      assert.equal(await page.locator('.wt-card-create').count(), 4);
+      const areas = await page.locator('.wt-task-section').evaluateAll(els => els.map(el => el.dataset.area));
+      for (const area of areas) {
+        await page.locator(`[data-area="${area}"] .wt-card-create`).click();
+        assert.equal(await page.locator('.wt-new-task-modal input[type=radio]:checked').inputValue(), area);
+        await page.locator('.wt-modal-title').fill('象限入口 ' + area);
+        await page.getByRole('button', { name: '创建任务', exact: true }).click();
+        await page.locator('.wt-new-task-modal').waitFor({ state: 'detached' });
+        assert.equal(await page.locator(`[data-area="${area}"] .wt-card-title`).getByText('象限入口 ' + area, { exact: true }).count(), 1);
+      }
+    });
+    await check('group creation can override defaults and makes a search-hidden new task visible', async () => {
+      await page.getByRole('button', { name: '分组', exact: true }).click();
+      await page.getByRole('searchbox').fill('没有匹配的任务');
+      await page.getByRole('button', { name: '在产品研发中新建任务', exact: true }).click();
+      await page.locator('.wt-modal-title').fill('分组入口验证');
+      await page.getByRole('combobox', { name: '任务分组' }).selectOption('');
+      await page.locator('.wt-new-task-modal .wt-quadrant-option.is-important_urgent').click();
+      await page.getByRole('button', { name: '创建任务', exact: true }).click();
+      await page.locator('.wt-new-task-modal').waitFor({ state: 'detached' });
+      assert.equal(await page.getByRole('searchbox').inputValue(), '');
+      assert.equal(await page.locator('[data-area="ungrouped"] .wt-card.is-expanded .wt-card-title').textContent(), '分组入口验证');
+    });
+  }
+  await page.reload();
+  await page.waitForFunction(() => window.cardFixture);
+  Object.assign(ids, await page.evaluate(() => window.cardFixture.ids));
+  payment = card(ids.payment);
+  if (await page.locator('.wt-card-create').count()) {
+    await check('dropping onto a creation card moves a task without creating one', async () => {
+      const data = await page.evaluateHandle(id => { const data = new DataTransfer(); data.setData('text/plain', id); return data; }, ids.payment);
+      await page.locator('[data-area="ungrouped"] .wt-card-create').dispatchEvent('drop', { dataTransfer: data });
+      await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).groupId === null, ids.payment);
+      assert.equal(await page.locator('.wt-new-task-modal').count(), 0);
+      assert.equal(await page.evaluate(() => window.cardFixture.plugin.tasks.length), 4);
+      await data.dispose();
+    });
+    for (const mode of ['group', 'quadrant']) {
+      await page.evaluate(mode => window.cardFixture.plugin.setViewMode(mode), mode);
+      for (const theme of ['theme-light', 'theme-dark']) {
+        await page.evaluate(theme => { document.body.className = theme; }, theme);
+        if (mode === 'quadrant') await check(`${theme}: compact chrome and semantic text remain readable`, async () => {
+          await page.emulateMedia({ reducedMotion: 'reduce' });
+          await settle();
+          const contrast = await page.locator('.wt-view-switch button, .wt-new-task-button, .wt-section-heading h3, .wt-progress-chip, .wt-due-chip').evaluateAll(els => {
+            const context = document.createElement('canvas').getContext('2d');
+            function rgba(color) {
+              context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+              const data = [...context.getImageData(0, 0, 1, 1).data]; return [...data.slice(0,3).map(n => n / 255), data[3] / 255];
+            }
+            const blend = (fg, bg) => fg.slice(0,3).map((n,i) => n * fg[3] + bg[i] * (1-fg[3]));
+            const luminance = c => c.map(n => n <= .04045 ? n/12.92 : ((n+.055)/1.055)**2.4).reduce((sum,n,i) => sum + n * [.2126,.7152,.0722][i], 0);
+            return els.map(el => {
+              const parents = []; for (let p=el;p;p=p.parentElement) parents.unshift(p);
+              const bg = parents.reduce((c,p) => blend(rgba(getComputedStyle(p).backgroundColor), c), [1,1,1]);
+              const fg = blend(rgba(getComputedStyle(el).color), bg);
+              const a=luminance(fg), b=luminance(bg);
+              return { text: el.textContent, ratio: (Math.max(a,b)+.05)/(Math.min(a,b)+.05) };
+            });
+          });
+          assert.ok(contrast.every(item => item.ratio >= 4.5), JSON.stringify(contrast.filter(item => item.ratio < 4.5)));
+        });
+        for (const width of [1440, 760, 375]) {
+          await check(`${mode} ${theme} ${width}px: creation tiles preserve the base grid`, async () => {
+            await page.setViewportSize({ width, height: 1000 });
+            await page.emulateMedia({ reducedMotion: 'reduce' });
+            await settle();
+            const sizes = await page.locator('.wt-card-create').evaluateAll(els => els.map(el => {
+              const r = el.getBoundingClientRect(), grid = el.parentElement.getBoundingClientRect();
+              const other = el.parentElement.querySelector('.wt-card')?.getBoundingClientRect();
+              return { h: r.height, w: r.width, sw: el.scrollWidth, sh: el.scrollHeight, top: r.top - grid.top - 9, right: r.right, gridRight: grid.right, other: other?.width };
+            }));
+            assert.ok(sizes.every(s => s.h === 148 && s.sw <= s.w && s.sh <= s.h && s.right <= s.gridRight + 1));
+            assert.ok(sizes.every(s => Math.abs(s.top / 160 - Math.round(s.top / 160)) < .02));
+            assert.ok(sizes.every(s => s.other === undefined || Math.abs(s.other - s.w) < .1));
+            if (process.env.TRACELO_ARTIFACT_DIR && [1440, 375].includes(width)) await page.screenshot({ path: `${process.env.TRACELO_ARTIFACT_DIR}/create-${mode}-${theme}-${width}.png` });
+          });
+        }
+      }
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.reload();
+  await page.waitForFunction(() => window.cardFixture);
+  Object.assign(ids, await page.evaluate(() => window.cardFixture.ids));
+  payment = card(ids.payment);
   await check('two-line progress with a deadline fits two complete base rows', async () => {
     const weekly = card(ids.dateOnly);
     await weekly.locator('.wt-card-open').click();
@@ -176,6 +346,39 @@ try {
       await payment.click({ button: 'right' });
       assert.equal(await page.getByRole('menuitem', { name: '打开文件夹', exact: true }).count(), 1);
     });
+    await check('Windows folder access launches Explorer with the exact path as one argument', async () => {
+      const result = await page.evaluate(async id => {
+        const { plugin, app, platform } = window.cardFixture;
+        const fullPath = app.vault.adapter.getFullPath;
+        const before = app.openedFolders.length;
+        platform.isWin = true;
+        const path = "C:\\工作 资料\\O'Brien & 周报 (1)";
+        app.vault.adapter.getFullPath = () => path;
+        try { await plugin.accessTaskFolder(id); return { launch: app.folderLaunches.at(-1), before, after: app.openedFolders.length, path }; }
+        finally { platform.isWin = false; app.vault.adapter.getFullPath = fullPath; }
+      }, ids.payment);
+      assert.ok(result.launch, 'Windows must use the Explorer launch path');
+      assert.equal(result.launch.file, 'explorer.exe');
+      assert.deepEqual(result.launch.args, [result.path]);
+      assert.equal(result.launch.options.shell, false);
+      assert.equal(result.launch.options.windowsHide, false);
+      assert.equal(result.after, result.before);
+    });
+    await check('Windows launch failure leaves the folder intact and allows retry', async () => {
+      const result = await page.evaluate(async id => {
+        const { plugin, app, platform } = window.cardFixture;
+        platform.isWin = true; app.openError = '启动资源管理器失败';
+        let message;
+        try {
+          try { await plugin.accessTaskFolder(id); } catch (error) { message = error.message; }
+          app.openError = ''; await plugin.accessTaskFolder(id);
+          return { message, exists: plugin.hasTaskFolder(id), launches: app.folderLaunches.length };
+        } finally { platform.isWin = false; app.openError = ''; }
+      }, ids.payment);
+      assert.match(result.message, /启动资源管理器失败/);
+      assert.equal(result.exists, true);
+      assert.equal(result.launches, 3);
+    });
     await check('folder survives task rename and completion', async () => {
       await page.evaluate(async id => { const p = window.cardFixture.plugin; await p.renameTask(id, '支付模块改名'); await p.finishTask(id); }, ids.payment);
       await page.locator('.wt-ended-section summary').click();
@@ -306,8 +509,10 @@ try {
     assert.equal(await payment.getByRole("textbox", { name: "新增待办" }).count(), 1);
     assert.equal(await payment.getByRole("button", { name: "添加待办", exact: true }).count(), 1);
   });
-  await check("expanded accent is a short marker", async () => {
-    assert.equal(await payment.evaluate((el) => getComputedStyle(el, "::before").height), "28px");
+  await check("expanded card uses a quiet blue border and neutral surface", async () => {
+    const style = await payment.evaluate(el => ({ border: getComputedStyle(el).borderColor, bg: getComputedStyle(el).backgroundColor, peer: getComputedStyle(document.querySelector('.wt-card:not(.is-expanded)')).backgroundColor }));
+    assert.equal(style.border, 'rgb(36, 91, 231)');
+    assert.equal(style.bg, style.peer);
   });
   await payment.locator(".wt-card-open").click();
   await check("collapse removes expanded accent and tinted background", async () => {

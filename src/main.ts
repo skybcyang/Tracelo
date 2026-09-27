@@ -115,6 +115,23 @@ function dueLabel(task: WorkTask, today = dayKey(new Date())): string {
   return label;
 }
 
+function dueState(task: WorkTask, today = dayKey(new Date())): string {
+  if (!task.dueDate || task.status !== "active") return "";
+  return task.dueDate < today ? "is-overdue" : task.dueDate === today ? "is-today" : "";
+}
+
+function cardDueLabel(task: WorkTask): string {
+  const state = dueState(task);
+  if (state === "is-today") return "今天截止";
+  const date = task.dueDate!;
+  const short = `${Number(date.slice(5, 7))}月${Number(date.slice(8))}日`;
+  return state === "is-overdue" ? `${short} · 已逾期` : short;
+}
+
+function isPropertyEvent(event: TaskEvent): boolean {
+  return ["renamed", "group_changed", "quadrant_changed", "todo_added", "todo_done", "todo_undone", "todo_edited", "todo_removed", "todo_restored", "due_changed"].includes(event.kind);
+}
+
 function iconButton(container: HTMLElement, icon: string, label: string, cls = "wt-icon-button"): HTMLButtonElement {
   const button = container.createEl("button", {
     cls: `clickable-icon ${cls}`,
@@ -131,6 +148,11 @@ interface NewTaskValues extends CreateTaskInput {
   todos: string[];
 }
 
+interface NewTaskContext {
+  groupId?: string | null;
+  quadrant?: QuadrantId;
+}
+
 class NewTaskModal extends Modal {
   private quadrant: QuadrantId | null = null;
 
@@ -138,8 +160,11 @@ class NewTaskModal extends Modal {
     app: App,
     private readonly groups: WorkGroup[],
     private readonly submitTask: (values: NewTaskValues) => Promise<void>,
+    private readonly context: NewTaskContext = {},
+    private readonly returnFocus?: HTMLElement,
   ) {
     super(app);
+    this.quadrant = context.quadrant ?? null;
   }
 
   onOpen(): void {
@@ -159,6 +184,7 @@ class NewTaskModal extends Modal {
     const group = groupLabel.createEl("select", { attr: { "aria-label": "任务分组" } });
     group.createEl("option", { text: UNGROUPED_TASKS, value: "" });
     for (const item of this.groups) group.createEl("option", { text: item.name, value: item.id });
+    group.value = this.context.groupId ?? "";
 
     const quadrantField = form.createEl("fieldset", { cls: "wt-quadrant-picker", attr: { tabindex: "-1" } });
     const legend = quadrantField.createEl("legend");
@@ -167,6 +193,7 @@ class NewTaskModal extends Modal {
     for (const item of QUADRANTS) {
       const label = quadrantField.createEl("label", { cls: `wt-quadrant-option is-${item.id}` });
       const input = label.createEl("input", { type: "radio", attr: { name: "quadrant", value: item.id } });
+      input.checked = item.id === this.quadrant;
       label.createSpan({ cls: "wt-quadrant-marker", attr: { "aria-hidden": "true" } });
       label.createSpan({ text: item.name, cls: "wt-quadrant-name" });
       input.addEventListener("change", () => {
@@ -242,6 +269,9 @@ class NewTaskModal extends Modal {
 
   onClose(): void {
     this.contentEl.empty();
+    requestAnimationFrame(() => {
+      if (this.returnFocus?.isConnected) this.returnFocus.focus({ preventScroll: true });
+    });
   }
 }
 
@@ -511,6 +541,7 @@ class WorkTimelineView extends ItemView {
   private searchQuery = "";
   private addingTodoTaskId: string | null = null;
   private cardObserver: ResizeObserver | null = null;
+  private openHistoryChanges = new Set<string>();
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: WorkTimelinePlugin) {
     super(leaf);
@@ -536,13 +567,15 @@ class WorkTimelineView extends ItemView {
     this.render();
   }
 
-  openNewTask(): void {
+  openNewTask(context: NewTaskContext = {}, returnFocus?: HTMLElement): void {
     new NewTaskModal(this.app, this.plugin.groups, async (values) => {
       const id = await this.plugin.addTask(values);
       this.selectedTaskId = id;
       this.expandedTaskId = id;
+      this.searchQuery = "";
       this.render();
-    }).open();
+      requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${id}"] .wt-card-open`)?.focus());
+    }, context, returnFocus).open();
   }
 
   render(): void {
@@ -651,7 +684,7 @@ class WorkTimelineView extends ItemView {
   private renderSection(container: HTMLElement, section: TaskGroup): void {
     const area = section.id ?? "ungrouped";
     const wrapper = container.createEl("section", {
-      cls: "wt-task-section",
+      cls: `wt-task-section${this.plugin.state.viewMode === "quadrant" ? ` is-${area}` : ""}`,
       attr: { "data-area": area, "aria-label": section.name },
     });
     const heading = wrapper.createDiv({ cls: "wt-section-heading" });
@@ -666,8 +699,20 @@ class WorkTimelineView extends ItemView {
       const taskId = event.dataTransfer?.getData("text/plain");
       if (taskId) void this.plugin.dropTask(taskId, this.plugin.state.viewMode, area, null);
     });
-    if (!section.tasks.length) grid.createEl("p", { text: "拖动任务到这里", cls: "wt-empty" });
     for (const task of section.tasks) this.renderCard(grid, task, area);
+    const create = grid.createEl("button", {
+      cls: "wt-card-create",
+      attr: { type: "button", "aria-label": `在${section.name}中新建任务` },
+    });
+    setIcon(create.createSpan({ cls: "wt-card-create-icon", attr: { "aria-hidden": "true" } }), "plus");
+    create.createSpan({ text: "新建任务", cls: "wt-card-create-label" });
+    create.createSpan({ text: section.tasks.length
+      ? (this.plugin.state.viewMode === "group" ? "添加到此分组" : "添加到此象限")
+      : "也可拖动任务到这里", cls: "wt-card-create-hint" });
+    const context: NewTaskContext = this.plugin.state.viewMode === "group"
+      ? { groupId: section.id }
+      : { quadrant: QUADRANTS.find(item => item.id === section.id)!.id };
+    create.addEventListener("click", () => this.openNewTask(context, create));
   }
 
   private renderCard(container: HTMLElement, task: WorkTask, area: string): void {
@@ -705,10 +750,19 @@ class WorkTimelineView extends ItemView {
       const summary = footer.createDiv({ cls: "wt-card-summary" });
       if (task.todos?.length) {
         const count = task.todos.filter(({ done }) => done).length;
-        const todo = summary.createEl("button", { cls: "wt-summary-chip", attr: { type: "button", "aria-label": `查看待办，已完成 ${count}/${task.todos.length}` } });
-        setIcon(todo, "list-checks");
-        todo.querySelector("svg")?.setAttribute("aria-hidden", "true");
-        todo.createSpan({ text: `待办 ${count}/${task.todos.length}` });
+        const label = `查看待办，已完成 ${count}/${task.todos.length}`;
+        const todo = summary.createEl("button", { cls: `wt-summary-chip wt-progress-chip${count === task.todos.length ? " is-complete" : count === 0 ? " is-empty" : ""}`, attr: { type: "button", "aria-label": label, title: label } });
+        const ring = todo.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "svg");
+        ring.setAttribute("viewBox", "0 0 20 20");
+        ring.setAttribute("aria-hidden", "true");
+        for (const cls of ["wt-progress-track", "wt-progress-value"]) {
+          const circle = todo.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "circle");
+          for (const [key, value] of Object.entries({ cx: "10", cy: "10", r: "7", fill: "none", "stroke-width": "2.5", pathLength: "100", class: cls })) circle.setAttribute(key, value);
+          if (cls === "wt-progress-value") circle.setAttribute("stroke-dasharray", `${100 * count / task.todos.length} 100`);
+          ring.append(circle);
+        }
+        todo.append(ring);
+        todo.createSpan({ text: `${count}/${task.todos.length}` });
         todo.addEventListener("click", () => {
           this.selectedTaskId = task.id;
           this.expandedTaskId = task.id;
@@ -717,18 +771,20 @@ class WorkTimelineView extends ItemView {
         });
       }
       if (task.dueDate) {
-        const due = summary.createEl("button", { cls: `wt-summary-chip wt-due-chip${task.status === "active" && task.dueDate < dayKey(new Date()) ? " is-overdue" : ""}`, attr: { type: "button", "aria-label": `修改截止日期：${dueLabel(task)}` } });
+        const due = summary.createEl("button", { cls: `wt-summary-chip wt-due-chip ${dueState(task)}`, attr: { type: "button", "aria-label": `修改截止日期：${dueLabel(task)}`, title: dueLabel(task) } });
         setIcon(due, "calendar-days");
         due.querySelector("svg")?.setAttribute("aria-hidden", "true");
-        due.createSpan({ text: dueLabel(task) });
+        due.createSpan({ text: cardDueLabel(task) });
         due.addEventListener("click", () => this.openDueDate(task));
       }
     }
     const meta = footer.createDiv({ cls: "wt-card-meta" });
     const properties = meta.createDiv({ cls: "wt-card-properties" });
-    properties.createSpan({ text: task.groupName });
-    if (task.important) properties.createSpan({ text: "重要", cls: "wt-tag is-important" });
-    if (task.urgent) properties.createSpan({ text: "紧急", cls: "wt-tag is-urgent" });
+    if (this.plugin.state.viewMode === "quadrant" || isTaskEnded(task)) properties.createSpan({ text: task.groupName });
+    if ((this.plugin.state.viewMode === "group" || isTaskEnded(task)) && (task.important || task.urgent)) {
+      const priority = task.important && task.urgent ? "重要且紧急" : task.important ? "重要" : "紧急";
+      properties.createSpan({ text: priority, cls: `wt-tag is-${task.important && task.urgent ? "important-urgent" : task.important ? "important" : "urgent"}` });
+    }
     if (task.status !== "active") properties.createSpan({ text: task.status === "completed" ? "已完成" : "异常关闭", cls: `wt-status is-${task.status}` });
     const updated = task.events.at(-1)!;
     meta.createEl("time", { text: updated.day === dayKey(new Date()) ? formatTime(updated.at) : formatDateTime(updated.at), cls: "wt-card-time", attr: { datetime: updated.at } });
@@ -955,7 +1011,7 @@ class WorkTimelineView extends ItemView {
       title.createEl("h2", { text: task.title });
       title.createEl("p", { text: `${task.groupName} · ${quadrantName(task)}` });
       if (task.dueDate) {
-        const due = title.createDiv({ cls: "wt-task-due" });
+        const due = title.createDiv({ cls: `wt-task-due ${dueState(task)}` });
         due.createSpan({ text: dueLabel(task) });
         due.createEl("button", { text: "查看截止日", attr: { type: "button" } }).addEventListener("click", () => {
           this.selectedDay = task.dueDate!;
@@ -993,7 +1049,7 @@ class WorkTimelineView extends ItemView {
       const due = container.createEl("section", { cls: "wt-timeline-due", attr: { "aria-label": "当日截止" } });
       due.createEl("h3", { text: `当日截止 · ${dueTasks.length}` });
       for (const item of dueTasks) {
-        const row = due.createEl("button", { cls: "wt-due-row", attr: { type: "button" } });
+        const row = due.createEl("button", { cls: `wt-due-row ${dueState(item)}`, attr: { type: "button" } });
         row.createSpan({ text: item.title });
         row.createSpan({ text: item.status === "completed" ? "已完成" : item.status === "closed" ? "已关闭" : this.selectedDay < dayKey(new Date()) ? "已逾期" : "进行中" });
         row.addEventListener("click", () => { this.selectedTaskId = item.id; this.render(); });
@@ -1002,18 +1058,47 @@ class WorkTimelineView extends ItemView {
     const body = container.createDiv({ cls: "wt-timeline-scroll" });
     const entries = eventsForDay(this.plugin.tasks, this.selectedDay);
     if (!entries.length) body.createEl("p", { text: "这一天还没有记录", cls: "wt-empty" });
-    const list = body.createEl("ol", { cls: "wt-event-list" });
-    for (const entry of entries) this.renderEvent(list, entry.event, true, entry.taskId);
+    this.renderEventStream(body, entries, true);
     this.scrollTimeline(body);
   }
 
   private renderEvents(container: HTMLElement, events: TaskEvent[], showTask: boolean): void {
-    const list = container.createEl("ol", { cls: "wt-event-list" });
-    for (const event of events) this.renderEvent(list, event, showTask);
+    this.renderEventStream(container, events.map(event => ({ event })), showTask);
+  }
+
+  private renderEventStream(container: HTMLElement, entries: { event: TaskEvent; taskId?: string }[], showTask: boolean): void {
+    let list: HTMLElement | null = null;
+    let propertyRun: HTMLElement | null = null;
+    let summary: HTMLElement | null = null;
+    let count = 0;
+    for (const { event, taskId } of entries) {
+      if (isPropertyEvent(event)) {
+        if (!propertyRun) {
+          const key = `${showTask ? "day" : this.selectedTaskId}:${event.id}`;
+          const details = container.createEl("details", { cls: "wt-event-changes" });
+          details.open = this.openHistoryChanges.has(key);
+          details.addEventListener("toggle", () => {
+            if (!details.isConnected) return;
+            if (details.open) this.openHistoryChanges.add(key);
+            else this.openHistoryChanges.delete(key);
+          });
+          summary = details.createEl("summary");
+          propertyRun = details.createEl("ol", { cls: "wt-event-list" });
+          count = 0;
+        }
+        summary!.textContent = `${++count} 条属性变更`;
+        this.renderEvent(propertyRun, event, showTask, taskId);
+        list = null;
+      } else {
+        propertyRun = null;
+        list ??= container.createEl("ol", { cls: "wt-event-list" });
+        this.renderEvent(list, event, showTask, taskId);
+      }
+    }
   }
 
   private renderEvent(list: HTMLElement, event: TaskEvent, showTask: boolean, taskId?: string): void {
-    const muted = ["renamed", "group_changed", "quadrant_changed", "todo_added", "todo_edited", "todo_removed", "todo_restored", "due_changed"].includes(event.kind);
+    const muted = isPropertyEvent(event);
     const item = list.createEl("li", { cls: `is-${event.kind}${muted ? " is-muted" : ""}` });
     item.createEl("time", { text: formatTime(event.at), attr: { datetime: event.at } });
     const body = item.createDiv({ cls: "wt-event-body" });
@@ -1115,9 +1200,26 @@ export default class WorkTimelinePlugin extends Plugin {
         await this.persistTask(task);
         this.tasks = this.tasks.map(t => t.id === taskId ? task : t);
       }
-      const { shell } = require("electron") as { shell: { openPath(path: string): Promise<string> } };
-      const failure = await shell.openPath((this.app.vault.adapter as FileSystemAdapter).getFullPath(path));
-      if (failure) throw new Error(`文件夹已保留，但无法打开：${failure}`);
+      const fullPath = (this.app.vault.adapter as FileSystemAdapter).getFullPath(path);
+      try {
+        if (Platform.isWin) {
+          // Electron's renderer shell.openPath can leave Explorer behind Obsidian on Windows.
+          // Launch directly with a literal argument, never through cmd.exe or a shell string.
+          const { spawn } = require("node:child_process") as typeof import("node:child_process");
+          await new Promise<void>((resolve, reject) => {
+            const child = spawn("explorer.exe", [fullPath], { shell: false, windowsHide: false, stdio: "ignore" });
+            child.once("error", reject);
+            // Explorer may reuse an existing process; its exit code does not describe navigation.
+            child.once("spawn", () => { child.unref(); resolve(); });
+          });
+        } else {
+          const { shell } = require("electron") as { shell: { openPath(path: string): Promise<string> } };
+          const failure = await shell.openPath(fullPath);
+          if (failure) throw new Error(failure);
+        }
+      } catch (reason) {
+        throw new Error(`文件夹已保留，但无法打开：${reason instanceof Error ? reason.message : String(reason)}`);
+      }
     } finally {
       if (!hadFolder || !this.hasTaskFolder(taskId)) this.renderViews();
     }

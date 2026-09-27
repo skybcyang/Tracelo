@@ -10,7 +10,7 @@ describe("final plugin surface", () => {
   it("advances the plugin version so existing vaults receive an upgrade snapshot", () => {
     const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(manifest.version).toBe("0.4.0");
+    expect(manifest.version).toBe("0.5.0");
     expect(pkg.version).toBe(manifest.version);
   });
 
@@ -31,7 +31,7 @@ describe("final plugin surface", () => {
     ]) expect(main).toContain(token);
     expect(main).not.toContain("wt-create-form");
     expect(main).toMatch(/await this\.plugin\.recordProgress\(task\.id, input\.value\);\s+this\.expandedTaskId = null;\s+this\.render\(\);/);
-    expect(main).toMatch(/const id = await this\.plugin\.addTask\(values\);\s+this\.selectedTaskId = id;\s+this\.expandedTaskId = id;\s+this\.render\(\);/);
+    // Creation selection, expansion and search reset are exercised by card-interactions.browser.mjs.
     expect(main).toContain("taskRecorded(taskId: string)");
     expect(main).toContain("this.renderViews(taskId)");
   });
