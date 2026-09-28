@@ -29,9 +29,14 @@ internal sealed class CaptureSurface : UserControl {
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
             core.Settings.IsZoomControlEnabled = false;
+            var html = LoadHtml();
+            // NavigateToString reports its embedded data URI to NavigationStarting
+            // on newer runtimes, while the resulting document origin is about:blank.
+            var embeddedUri = "data:text/html;charset=utf-8;base64," + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(html));
             core.NavigationStarting += (_, e) => {
-                Diagnostics.Add("Navigation starting: " + e.Uri);
-                if (e.Uri != "about:blank") e.Cancel = true;
+                var allowed = e.Uri == "about:blank" || e.Uri == embeddedUri;
+                if (Diagnostics.Count < 30) Diagnostics.Add($"Navigation starting: embedded={e.Uri == embeddedUri}, allowed={allowed}");
+                if (!allowed) e.Cancel = true;
             };
             core.NavigationCompleted += (_, e) => Diagnostics.Add($"Navigation completed: {e.IsSuccess}, {e.WebErrorStatus}, source {core.Source}");
             core.NewWindowRequested += (_, e) => e.Handled = true;
@@ -51,7 +56,7 @@ internal sealed class CaptureSurface : UserControl {
                 } catch (JsonException) { /* Invalid messages never reach disk operations. */ }
             };
             await core.AddScriptToExecuteOnDocumentCreatedAsync("window.captureErrors = []; window.addEventListener('error', event => window.captureErrors.push(event.message)); window.chrome.webview.addEventListener('message', event => { if (window.capture) window.capture.update(event.data); });");
-            core.NavigateToString(LoadHtml());
+            core.NavigateToString(html);
         } catch (Exception error) {
             LoadError = error.Message; Browser.Visible = false;
             var help = new LinkLabel { Dock = DockStyle.Fill, Padding = new Padding(24), AutoSize = false,

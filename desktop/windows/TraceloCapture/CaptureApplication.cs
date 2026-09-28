@@ -32,6 +32,7 @@ internal sealed class CaptureApplication : ApplicationContext {
     private int hotkeyId;
     private bool saving;
     private bool dismissing;
+    private bool disposed;
     private string shortcutError = "";
     private int desiredHeight = 540;
     internal CaptureApplication(string settingsPath, bool smoke = false) {
@@ -168,8 +169,9 @@ internal sealed class CaptureApplication : ApplicationContext {
         ExitThread();
     }
     protected override void Dispose(bool disposing) {
-        if (disposing) {
-            if (hotkeyId != 0) Native.UnregisterHotKey(Window.Handle, hotkeyId);
+        if (disposing && !disposed) {
+            disposed = true;
+            if (hotkeyId != 0 && Window.IsHandleCreated && !Window.IsDisposed) Native.UnregisterHotKey(Window.Handle, hotkeyId);
             tray.Visible = false; tray.ContextMenuStrip?.Dispose(); tray.Dispose();
             Window.AllowClose = true; Window.Dispose(); icon.Dispose();
         }

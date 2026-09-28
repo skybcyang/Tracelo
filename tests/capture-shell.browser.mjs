@@ -19,7 +19,7 @@ try {
     await page.addInitScript(platform => {
       window.messages = [];
       const postMessage = value => window.messages.push(value);
-      if (platform === 'windows') window.chrome.webview = { postMessage };
+      if (platform === 'windows') { window.chrome ??= {}; window.chrome.webview = { postMessage }; }
       else window.webkit = { messageHandlers: { capture: { postMessage } } };
     }, platform);
     await page.goto('about:blank');
@@ -52,6 +52,8 @@ try {
     await details.press('End'); await details.press('Enter');
     assert.equal(await page.evaluate(() => window.messages.filter(m => m.action === 'submit').length), 0);
     await page.getByRole('button', { name: '添加待办', exact: true }).click();
+    assert.equal(await page.getByRole('textbox', { name: '待办内容', exact: true }).count(), 1,
+      JSON.stringify({ platform, errors, state: await page.evaluate(() => ({ draft: window.capture.getDraft(), active: document.activeElement?.outerHTML, messages: window.messages.slice(-3) })) }));
     await page.getByRole('textbox', { name: '待办内容', exact: true }).fill('验收完整任务');
     await page.getByRole('button', { name: '截止日期', exact: true }).click();
     await page.locator('input[type=date]').fill('2026-12-01');
