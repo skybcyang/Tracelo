@@ -18,11 +18,16 @@
 - 桌面浏览器回归分别模拟 macOS／Windows 桥接，覆盖全部字段、四象限、实际分组解析、组合输入、重复点击、失败重试、分组变化、草稿清空、配置错误及浅深色／窄窗口。
 - Swift 核心 8 项检查、Windows 核心 16 项检查通过；跨语言测试确认完整表单生成的存档能被原生宿主发布并由严格协议解析。
 - macOS Universal 打包通过，包含 arm64 与 x86_64。实际打包应用的 WebKit 检查使用临时目录提交完整任务，核对精确存档字节及重复请求的幂等性。下方截图由生产 WebKit 表单生成，已人工核对。
-- Windows 自包含发布构建通过，产物位于 `dist/windows-shared/`。当前机器为 macOS，未执行 Windows 原生窗口、托盘和全局快捷键验收。
+- Windows 自包含发布构建通过；发布预检补齐 Windows runner 上的真实 WebView2 窗口、完整任务写入、原生热键消息和快捷键冲突检查，修复记录及 CI 链接见 [发布验收](2026-09-28-release-080.md)。
 - 已将最新插件载入本机 Obsidian，并实际核对卡片时间对齐和完整新建表单；本机快捷程序也已加载新版。人工检查未创建或改动用户任务。
 - 完整用户入口矩阵、发现及修复见 [用户入口走查](2026-09-28-user-entry-review.md)。
 
-自动组合事件不替代真实中文输入法候选窗口验收。多屏、全屏、200% 系统缩放、读屏，以及 Windows 原生交互仍需对应环境验证。
+自动组合事件不替代真实中文输入法候选窗口验收。多屏、全屏、200% 系统缩放、读屏，以及 Windows 桌面人工交互仍需对应环境验证。
 
 ![生产 WebKit 完整表单：浅色](capture-shared-ui/light.png)
 ![生产 WebKit 完整表单：深色](capture-shared-ui/dark.png)
+
+Windows runner 上发布模式构建的真实 WebView2 表单截图（可选字段展开，因此正文区滚动，底部操作保持可见）：
+
+![Windows WebView2 完整表单：浅色](capture-shared-ui/windows-light.png)
+![Windows WebView2 完整表单：深色](capture-shared-ui/windows-dark.png)
