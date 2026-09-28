@@ -43,7 +43,9 @@ try {
     Test("configuration rejects symbolic links leaving vault", () => {
         var link = Path.Combine(root, "outside");
         try { Directory.CreateSymbolicLink(link, Path.GetTempPath()); }
-        catch (UnauthorizedAccessException) { Console.WriteLine("SKIP symlink creation requires OS permission"); return; }
+        catch (Exception error) when (error is UnauthorizedAccessException || error is IOException && (error.HResult & 0xffff) == 1314) {
+            Console.WriteLine("SKIP symlink creation requires Windows Developer Mode or Create symbolic links permission"); return;
+        }
         Reject(() => new CaptureConfiguration(root, "outside").Destination());
     });
     Test("atomic publish is idempotent and never overwrites another task", () => {
