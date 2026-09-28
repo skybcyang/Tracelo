@@ -20,12 +20,11 @@ try {
   const card = id => page.locator(`[data-task-id="${id}"]`);
   const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   async function check(name, run) { try { await run(); checks++; } catch (error) { failures.push(name + ': ' + error.stack); } }
-  await check('display settings preserve the live timeline, scroll and history expansion', async () => {
+  await check('display settings preserve the live timeline, scroll and complete history', async () => {
     await page.evaluate(async id => { for (let i=0; i<12; i++) await window.cardFixture.plugin.recordProgress(id, `时间线位置检查 ${i}`); }, ids.payment);
     await card(ids.payment).locator('.wt-card-open').click();
     await settle();
-    await page.locator('.wt-event-changes summary').first().click();
-    await settle();
+    assert.equal(await page.locator('.wt-timeline-scroll details').count(), 0);
     await page.evaluate(() => {
       const pane = document.querySelector('.wt-timeline-column');
       const scroll = pane.querySelector('.wt-timeline-scroll');

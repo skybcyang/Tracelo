@@ -235,8 +235,8 @@ try {
     await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).notes === '背景信息\nhttps://example.com', ids.payment);
     assert.equal(await payment.locator('.wt-card-latest').textContent(), before);
     assert.equal(await payment.locator('.wt-notes-preview').textContent(), '背景信息\nhttps://example.com');
-    assert.equal(await page.locator('.wt-event-changes .is-notes_changed').count(), 1);
-    assert.equal(await page.locator('.wt-event-changes .is-notes_changed').isVisible(), false);
+    assert.equal(await page.locator('.wt-event-list .is-notes_changed').count(), 1);
+    assert.equal(await page.locator('.wt-event-list .is-notes_changed').isVisible(), true);
   });
   await check('failed notes save keeps the draft and retry succeeds without progress changes', async () => {
     await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
@@ -362,22 +362,17 @@ try {
     assert.ok(colors.every(color => color !== 'rgba(0, 0, 0, 0)'));
     await page.getByRole('button', { name: '分组', exact: true }).click();
   });
-  await check('property history is disclosed in chronological position without losing events', async () => {
+  await check('property history stays visible in chronological position without losing events', async () => {
     await payment.locator('.wt-card-open').click();
-    // Card expansion restores focus on the next frame; finish that before moving
-    // keyboard focus to the timeline disclosure.
+    // Card expansion restores focus on the next frame.
     await settle();
     const expected = await page.evaluate(id => window.cardFixture.plugin.tasks.find(t => t.id === id).events.map(e => e.text), ids.payment);
     // Events recorded within the same millisecond may have a deterministic ID tie-break.
     assert.deepEqual((await page.locator('.wt-timeline-scroll .wt-event-text').allTextContents()).sort(), [...expected].sort());
     const timestamps = await page.locator('.wt-timeline-scroll time').evaluateAll(els => els.map(el => el.getAttribute('datetime')));
     assert.deepEqual(timestamps, [...timestamps].sort());
-    const details = page.locator('.wt-event-changes').first();
-    assert.equal(await details.count(), 1);
-    assert.equal(await details.getAttribute('open'), null);
-    await details.locator('summary').press('Enter');
-    await details.locator('.wt-event-list').waitFor({ state: 'visible' });
-    assert.notEqual(await details.getAttribute('open'), null);
+    assert.equal(await page.locator('.wt-timeline-scroll details').count(), 0);
+    assert.equal(await page.locator('.wt-event-list .is-muted:visible').count(), await page.locator('.wt-event-list .is-muted').count());
     await payment.locator('.wt-card-open').click();
     await page.getByRole('button', { name: '返回每日时间线', exact: true }).click();
   });

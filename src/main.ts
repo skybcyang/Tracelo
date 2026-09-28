@@ -558,6 +558,16 @@ class TransferModal extends Modal {
   }
 }
 
+interface TimelineReading {
+  key: string;
+  top: number;
+  nearBottom: boolean;
+  eventIds: Set<string>;
+  anchorId?: string;
+  anchorOffset: number;
+  pendingProgress: boolean;
+}
+
 class WorkTimelineView extends ItemView {
   private selectedDay = dayKey(new Date());
   private currentDay = this.selectedDay;
@@ -567,7 +577,6 @@ class WorkTimelineView extends ItemView {
   private addingTodoTaskId: string | null = null;
   private cardObserver: ResizeObserver | null = null;
   private masonryCleanups: Array<() => void> = [];
-  private openHistoryChanges = new Set<string>();
   private openCompletedTodos = new Set<string>();
   private editingNotes = new Set<string>();
   private uploadingNoteForms = new Map<string, HTMLFormElement>();
@@ -624,6 +633,7 @@ class WorkTimelineView extends ItemView {
     const endedOpen = root.querySelector<HTMLDetailsElement>(".wt-ended-section")?.open ?? false;
     const taskScrollTop = root.querySelector(".wt-task-column")?.scrollTop ?? 0;
     const layoutScrollTop = root.querySelector(".wt-layout")?.scrollTop ?? 0;
+    const timelineReading = existingShell ? undefined : this.captureTimelineReading();
     this.cardObserver?.disconnect();
     this.masonryCleanups.forEach(cleanup => cleanup());
     this.masonryCleanups = [];
@@ -656,7 +666,7 @@ class WorkTimelineView extends ItemView {
       }
     });
     tasks.querySelectorAll<HTMLElement>(".wt-card-body").forEach((body) => this.cardObserver?.observe(body));
-    if (!existingShell) this.renderTimeline(layout.createEl("aside", { cls: "wt-timeline-column" }));
+    if (!existingShell) this.renderTimeline(layout.createEl("aside", { cls: "wt-timeline-column" }), timelineReading);
     tasks.scrollTop = taskScrollTop;
     layout.scrollTop = layoutScrollTop;
   }
@@ -1243,7 +1253,7 @@ class WorkTimelineView extends ItemView {
     menu.showAtMouseEvent(event);
   }
 
-  private renderTimeline(container: HTMLElement): void {
+  private renderTimeline(container: HTMLElement, reading?: TimelineReading): void {
     const task = this.selectedTaskId ? this.plugin.tasks.find(({ id }) => id === this.selectedTaskId) : undefined;
     const header = container.createDiv({ cls: "wt-timeline-header" });
     if (task) {
@@ -1261,14 +1271,20 @@ class WorkTimelineView extends ItemView {
         });
       }
       const back = header.createEl("button", { text: "返回每日时间线", cls: "wt-back-button", attr: { type: "button" } });
-      back.addEventListener("click", () => { this.selectedTaskId = null; this.render(); });
-      const body = container.createDiv({ cls: "wt-timeline-scroll" });
+      back.addEventListener("click", () => {
+        this.selectedTaskId = null;
+        this.render();
+        this.contentEl.querySelector<HTMLInputElement>('.wt-date-controls input')?.focus({ preventScroll: true });
+      });
+      const body = container.createDiv({ cls: "wt-timeline-scroll", attr: { "data-timeline-key": `task:${task.id}`, tabindex: "-1", "aria-label": "任务历史" } });
+      const stream = body.createDiv({ cls: "wt-event-stream" });
       for (const section of eventsByDay(task.events)) {
-        const day = body.createEl("section", { cls: "wt-timeline-day" });
+        const day = stream.createEl("section", { cls: "wt-timeline-day" });
         day.createEl("h3", { text: formatDay(section.day) });
         this.renderEvents(day, section.events, false);
       }
-      this.scrollTimeline(body);
+      if (!task.events.length) body.createEl("p", { text: "这个任务还没有记录", cls: "wt-empty" });
+      this.restoreTimelineReading(body, reading);
       return;
     }
 
@@ -1276,15 +1292,31 @@ class WorkTimelineView extends ItemView {
     title.createSpan({ text: "每日时间线", cls: "wt-eyebrow" });
     title.createEl("h2", { text: formatDay(this.selectedDay) });
     const controls = header.createDiv({ cls: "wt-date-controls" });
+    const shiftDay = (delta: number, label: string): void => {
+      const date = new Date(`${this.selectedDay}T12:00:00`);
+      date.setDate(date.getDate() + delta);
+      this.selectedDay = dayKey(date);
+      this.render();
+      this.contentEl.querySelector<HTMLButtonElement>(`.wt-date-controls button[aria-label="${label}"]`)?.focus({ preventScroll: true });
+    };
+    iconButton(controls, "chevron-left", "前一天").addEventListener("click", () => shiftDay(-1, "前一天"));
     const date = controls.createEl("input", { type: "date", attr: { "aria-label": "选择时间线日期" } });
     date.value = this.selectedDay;
-    date.addEventListener("change", () => { if (date.value) { this.selectedDay = date.value; this.render(); } });
-    if (this.selectedDay !== dayKey(new Date())) {
-      controls.createEl("button", { text: "今天", attr: { type: "button" } }).addEventListener("click", () => {
-        this.selectedDay = dayKey(new Date());
+    date.addEventListener("change", () => {
+      if (date.value) {
+        this.selectedDay = date.value;
         this.render();
-      });
-    }
+        this.contentEl.querySelector<HTMLInputElement>('.wt-date-controls input')?.focus({ preventScroll: true });
+      }
+    });
+    iconButton(controls, "chevron-right", "后一天").addEventListener("click", () => shiftDay(1, "后一天"));
+    const today = controls.createEl("button", { text: "今天", attr: { type: "button", "aria-label": "今天" } });
+    today.disabled = this.selectedDay === dayKey(new Date());
+    today.addEventListener("click", () => {
+      this.selectedDay = dayKey(new Date());
+      this.render();
+      this.contentEl.querySelector<HTMLInputElement>('.wt-date-controls input')?.focus({ preventScroll: true });
+    });
     const dueTasks = dueTasksForDay(this.plugin.tasks, this.selectedDay);
     if (dueTasks.length) {
       const due = container.createEl("section", { cls: "wt-timeline-due", attr: { "aria-label": "当日截止" } });
@@ -1296,11 +1328,11 @@ class WorkTimelineView extends ItemView {
         row.addEventListener("click", () => { this.selectedTaskId = item.id; this.render(); });
       }
     }
-    const body = container.createDiv({ cls: "wt-timeline-scroll" });
+    const body = container.createDiv({ cls: "wt-timeline-scroll", attr: { "data-timeline-key": `day:${this.selectedDay}`, tabindex: "-1", "aria-label": "每日记录" } });
     const entries = eventsForDay(this.plugin.tasks, this.selectedDay);
     if (!entries.length) body.createEl("p", { text: "这一天还没有记录", cls: "wt-empty" });
-    this.renderEventStream(body, entries, true);
-    this.scrollTimeline(body);
+    this.renderEventStream(body.createDiv({ cls: "wt-event-stream" }), entries, true);
+    this.restoreTimelineReading(body, reading);
   }
 
   private renderEvents(container: HTMLElement, events: TaskEvent[], showTask: boolean): void {
@@ -1308,51 +1340,81 @@ class WorkTimelineView extends ItemView {
   }
 
   private renderEventStream(container: HTMLElement, entries: { event: TaskEvent; taskId?: string }[], showTask: boolean): void {
-    let list: HTMLElement | null = null;
-    let propertyRun: HTMLElement | null = null;
-    let summary: HTMLElement | null = null;
-    let count = 0;
+    const list = container.createEl("ol", { cls: "wt-event-list" });
     for (const { event, taskId } of entries) {
-      if (isPropertyEvent(event)) {
-        if (!propertyRun) {
-          const key = `${showTask ? "day" : this.selectedTaskId}:${event.id}`;
-          const details = container.createEl("details", { cls: "wt-event-changes" });
-          details.open = this.openHistoryChanges.has(key);
-          details.addEventListener("toggle", () => {
-            if (!details.isConnected) return;
-            if (details.open) this.openHistoryChanges.add(key);
-            else this.openHistoryChanges.delete(key);
-          });
-          summary = details.createEl("summary");
-          propertyRun = details.createEl("ol", { cls: "wt-event-list" });
-          count = 0;
-        }
-        summary!.textContent = `${++count} 条属性变更`;
-        this.renderEvent(propertyRun, event, showTask, taskId);
-        list = null;
-      } else {
-        propertyRun = null;
-        list ??= container.createEl("ol", { cls: "wt-event-list" });
-        this.renderEvent(list, event, showTask, taskId);
-      }
+      this.renderEvent(list, event, showTask, taskId);
     }
   }
 
   private renderEvent(list: HTMLElement, event: TaskEvent, showTask: boolean, taskId?: string): void {
     const muted = isPropertyEvent(event);
-    const item = list.createEl("li", { cls: `is-${event.kind}${muted ? " is-muted" : ""}` });
-    item.createEl("time", { text: formatTime(event.at), attr: { datetime: event.at } });
+    const item = list.createEl("li", { cls: `is-${event.kind}${muted ? " is-muted" : ""}`, attr: { "data-event-id": event.id } });
+    if (event.kind === "completed") {
+      const mark = item.createSpan({ cls: "wt-event-completed", attr: { "aria-hidden": "true" } });
+      setIcon(mark, "check");
+    }
     const body = item.createDiv({ cls: "wt-event-body" });
-    body.createSpan({ text: EVENT_LABELS[event.kind], cls: "wt-event-kind" });
+    const meta = body.createDiv({ cls: "wt-event-meta" });
+    meta.createEl("time", { text: formatTime(event.at), attr: { datetime: event.at } });
+    meta.createSpan({ text: EVENT_LABELS[event.kind], cls: "wt-event-kind" });
     if (showTask && taskId) {
       const link = body.createEl("button", { text: event.title, cls: "wt-event-task", attr: { type: "button" } });
-      link.addEventListener("click", () => { this.selectedTaskId = taskId; this.render(); });
+      link.addEventListener("click", () => {
+        this.selectedTaskId = taskId;
+        this.render();
+        this.contentEl.querySelector<HTMLButtonElement>('.wt-back-button')?.focus({ preventScroll: true });
+      });
     }
     body.createEl("p", { text: event.text, cls: "wt-event-text" });
   }
 
-  private scrollTimeline(body: HTMLElement): void {
-    requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
+  private captureTimelineReading(): TimelineReading | undefined {
+    const body = this.contentEl.querySelector<HTMLElement>(".wt-timeline-scroll");
+    if (!body) return undefined;
+    const items = Array.from(body.querySelectorAll<HTMLElement>("[data-event-id]"));
+    const top = body.getBoundingClientRect().top;
+    const anchor = items.find(item => item.getBoundingClientRect().bottom > top);
+    return {
+      key: body.dataset.timelineKey ?? "",
+      top: body.scrollTop,
+      nearBottom: body.scrollHeight - body.clientHeight - body.scrollTop <= 48,
+      eventIds: new Set(items.map(item => item.dataset.eventId!)),
+      anchorId: anchor?.dataset.eventId,
+      anchorOffset: anchor ? anchor.getBoundingClientRect().top - top : 0,
+      pendingProgress: !!body.parentElement?.querySelector(".wt-new-progress"),
+    };
+  }
+
+  private restoreTimelineReading(body: HTMLElement, reading?: TimelineReading): void {
+    // Read the previous DOM before replacement, then restore synchronously so a
+    // later animation frame cannot override a user's scroll or another render.
+    if (!reading || reading.key !== body.dataset.timelineKey) {
+      body.scrollTop = body.scrollHeight;
+      return;
+    }
+    const items = Array.from(body.querySelectorAll<HTMLElement>("[data-event-id]"));
+    const newProgress = items.some(item => item.classList.contains("is-progress") && !reading.eventIds.has(item.dataset.eventId!));
+    if (newProgress && reading.nearBottom) {
+      body.scrollTop = body.scrollHeight;
+      return;
+    }
+    const anchor = items.find(item => item.dataset.eventId === reading.anchorId);
+    body.scrollTop = anchor
+      ? anchor.getBoundingClientRect().top - body.getBoundingClientRect().top - reading.anchorOffset
+      : reading.top;
+    if (!reading.nearBottom && (newProgress || reading.pendingProgress)) {
+      const button = body.parentElement!.createEl("button", { cls: "wt-new-progress", attr: { type: "button", "aria-label": "有新进展" } });
+      button.createSpan({ text: "有新进展", attr: { role: "status" } });
+      setIcon(button.createSpan({ attr: { "aria-hidden": "true" } }), "arrow-down");
+      button.addEventListener("click", () => {
+        body.focus({ preventScroll: true });
+        body.scrollTop = body.scrollHeight;
+        button.remove();
+      });
+      body.addEventListener("scroll", () => {
+        if (body.scrollHeight - body.clientHeight - body.scrollTop <= 48) button.remove();
+      }, { passive: true });
+    }
   }
 }
 
