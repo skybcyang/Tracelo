@@ -2,39 +2,113 @@ name: Release
 
 on:
   push:
-    tags:
-      - "*"
+    tags: ["[0-9]*"]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  plugin:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - run: npm ci
-
       - run: npx playwright install --with-deps chromium
-
       - run: npm run check
+      - name: Check version and package plugin
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          test "$VERSION" = "$(node -p "require('./package.json').version")"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$VERSION" = "$GITHUB_REF_NAME"; fi
+          mkdir -p dist
+          zip -j "dist/Tracelo-$VERSION-obsidian.zip" main.js manifest.json styles.css
+          cp main.js manifest.json styles.css dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin
+          path: |
+            dist/*.zip
+            dist/main.js
+            dist/manifest.json
+            dist/styles.css
+          if-no-files-found: error
 
-      - name: Publish GitHub Release assets
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run tests/desktop-archive.test.ts
+      - run: swift run --package-path desktop CaptureCoreTests
+      - run: bash desktop/package-macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*-macos-universal.zip
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: dotnet run --project desktop/windows/CaptureCore.Tests
+      - run: npx vitest run desktop/windows/archive-compat.test.ts
+      - run: dotnet publish desktop/windows/TraceloCapture/TraceloCapture.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist/windows
+      - name: Verify Windows application and package
+        shell: pwsh
+        run: |
+          $process = Start-Process ./dist/windows/TraceloCapture.exe -ArgumentList '--smoke-test',"$env:RUNNER_TEMP/tracelo-smoke" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Windows smoke test failed' }
+          $version = (Get-Content manifest.json | ConvertFrom-Json).version
+          Copy-Item desktop/windows/README.md dist/windows/README.md
+          Compress-Archive -Path dist/windows/* -DestinationPath "dist/Tracelo-Capture-$version-windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-smoke-evidence
+          path: ${{ runner.temp }}/tracelo-smoke/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*-windows-x64.zip
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [plugin, macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: '*'
+          merge-multiple: true
+      - name: Publish verified release with checksums
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" \
-              main.js manifest.json styles.css --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              main.js manifest.json styles.css \
-              --title "$GITHUB_REF_NAME" \
-              --notes-file "docs/releases/$GITHUB_REF_NAME.md"
-          fi
+          cd release-assets
+          mkdir -p evidence
+          find . -maxdepth 1 -type f \( -name '*smoke*' \) -exec mv {} evidence/ \;
+          sha256sum *.zip main.js manifest.json styles.css > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" *.zip main.js manifest.json styles.css SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --title "Tracelo $GITHUB_REF_NAME" --notes-file "../docs/releases/$GITHUB_REF_NAME.md"

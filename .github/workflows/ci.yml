@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/**']
   pull_request:
     branches: [main]
 
@@ -35,3 +35,29 @@ jobs:
       - run: npx vitest run tests/desktop-archive.test.ts
       - run: swift run --package-path desktop CaptureCoreTests
       - run: swift build --package-path desktop -c release
+
+  windows-core:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: dotnet run --project desktop/windows/CaptureCore.Tests
+      - run: npx vitest run desktop/windows/archive-compat.test.ts
+      - run: dotnet publish desktop/windows/TraceloCapture/TraceloCapture.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist/windows
+      - name: Smoke test packaged Windows app
+        shell: pwsh
+        run: |
+          $process = Start-Process ./dist/windows/TraceloCapture.exe -ArgumentList '--smoke-test',"$env:RUNNER_TEMP/tracelo-smoke" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Windows smoke test failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-smoke-evidence
+          path: ${{ runner.temp }}/tracelo-smoke/*
