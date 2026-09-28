@@ -1153,11 +1153,7 @@
   border: 1px solid #b7c3d3;
   border-radius: 10px;
   box-shadow: 0 28px 80px rgba(27, 43, 70, 0.26), 0 3px 12px rgba(31, 48, 76, 0.12), inset 0 1px #fff;
-  background:
-    linear-gradient(90deg, rgba(80, 105, 140, 0.025) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(80, 105, 140, 0.022) 1px, transparent 1px),
-    rgba(246, 249, 253, 0.94);
-  background-size: 42px 42px;
+  background: #f6f9fd;
   color: var(--wt-text);
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
@@ -1175,6 +1171,8 @@
 }
 
 .theme-dark .wt-modal {
+  color-scheme: dark;
+  --wt-red: #f08b87;
   --wt-text: #edf2fb;
   --wt-muted: #a8b3c5;
   --wt-faint: #7f8a9c;
@@ -1184,17 +1182,13 @@
   --wt-control-border: #4a5870;
   border-color: #47546a;
   box-shadow: 0 30px 84px rgba(0, 0, 0, 0.46), 0 3px 14px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(90deg, rgba(133, 154, 188, 0.035) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(133, 154, 188, 0.03) 1px, transparent 1px),
-    rgba(24, 30, 41, 0.96);
-  background-size: 42px 42px;
+  background: #181e29;
 }
 
 .wt-modal .modal-title {
   margin: 0 34px 18px 0;
   color: var(--wt-text);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 720;
   line-height: 1.25;
   letter-spacing: 0;
@@ -1485,7 +1479,7 @@
 
 .wt-modal .wt-primary-action {
   border: 1px solid #1b4fd1;
-  box-shadow: 0 8px 18px rgba(36, 91, 231, 0.2), inset 0 1px rgba(255, 255, 255, 0.24);
+  box-shadow: none;
   background-color: var(--wt-accent);
   background-image: none;
   color: #fff;
@@ -1505,7 +1499,7 @@
 .wt-modal .wt-primary-action:hover {
   border-color: #1542b6;
   background-color: var(--wt-accent-strong);
-  box-shadow: 0 10px 22px rgba(36, 91, 231, 0.26), inset 0 1px rgba(255, 255, 255, 0.22);
+  box-shadow: none;
 }
 
 .theme-dark .wt-modal .wt-secondary-action,
@@ -1739,6 +1733,50 @@
   .wt-group-add {
     grid-template-columns: minmax(0, 1fr) auto;
   }
+}
+
+/* Compact creation keeps its actions outside the only scrolling region. */
+.wt-modal.wt-new-task-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  background: #f6f9fd;
+}
+.theme-dark .wt-modal.wt-new-task-modal { background: #181e29; }
+.wt-new-task-modal .modal-title { flex: none; font-size: 18px; margin-bottom: 12px; }
+.wt-new-task-modal .modal-content { display: flex; min-height: 0; max-height: none; overflow: hidden; padding: 0; }
+.wt-new-task-modal .wt-modal-form { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; gap: 0; }
+.wt-new-task-body { display: grid; gap: 12px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 3px 4px 16px; scroll-padding: 8px; }
+.wt-new-task-modal [hidden] { display: none; }
+.wt-new-draft-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wt-new-draft-status, .wt-new-shortcut { color: var(--wt-muted); font-size: 12px; }
+.wt-new-task-modal button.wt-new-clear { padding: 0 4px; background: transparent; box-shadow: none; color: var(--wt-muted); font-size: 12px; }
+.wt-new-task-modal .wt-field-label, .wt-new-task-modal .wt-optional { font-size: 12px; }
+.wt-new-task-modal .wt-optional { color: var(--wt-muted); }
+.wt-new-properties { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.wt-new-task-modal .wt-field { min-width: 0; }
+.wt-new-task-modal .wt-modal-form :is(input, select, textarea) { width: 100%; min-width: 0; box-shadow: none; }
+.wt-new-task-modal .wt-modal-form :is(input, textarea)::placeholder { color: var(--wt-muted); }
+.wt-new-task-modal .wt-modal-title { min-height: 44px; font-size: 16px; }
+.wt-new-task-modal textarea { min-height: 64px; max-height: 160px; font-size: 15px; }
+.wt-new-task-modal select { min-height: 36px; padding: 6px 10px; }
+.wt-new-task-modal .wt-new-optional { display: flex; flex-wrap: wrap; gap: 8px; }
+.wt-new-task-modal .wt-new-optional button { min-height: 32px; padding: 0 10px; box-shadow: none; }
+.wt-new-todo-section { display: grid; gap: 8px; }
+.wt-new-todo-section > button { justify-self: start; }
+.wt-new-task-footer { flex: none; padding-top: 12px; border-top: 1px solid var(--wt-line); }
+.wt-new-task-footer .wt-form-error { font-size: 12px; margin: 0 0 8px; max-height: 64px; overflow-y: auto; overflow-wrap: anywhere; }
+.wt-new-task-footer .wt-form-error:empty { display: none; }
+.wt-new-task-footer .wt-modal-actions { position: static; border: 0; padding: 0; }
+.wt-new-shortcut { margin-right: auto; }
+.wt-new-task-modal .wt-primary-action { box-shadow: none; }
+@media (max-width: 460px) {
+  .wt-modal.wt-new-task-modal { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 16px 12px; }
+  .wt-new-properties { grid-template-columns: minmax(0, 1fr); }
+  .wt-new-task-modal .wt-new-optional button, .wt-new-task-modal .wt-secondary-action, .wt-new-task-modal .wt-primary-action { min-height: 44px; }
+  .wt-new-shortcut { font-size: 11px; }
 }
 
 .wt-transfer-section {

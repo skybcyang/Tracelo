@@ -33,7 +33,7 @@ export class IconPickerModal extends Modal {
     const status = this.contentEl.createEl('p', { cls: 'wt-icon-result-count', attr: { role: 'status' } });
     const error = this.contentEl.createEl('p', { cls: 'wt-form-error', attr: { role: 'alert' } });
     const footer = this.contentEl.createDiv({ cls: 'wt-modal-actions' });
-    footer.createEl('button', { text: '取消', attr: { type: 'button' } }).onclick = () => this.close();
+    footer.createEl('button', { text: '取消', cls: 'wt-secondary-action', attr: { type: 'button' } }).onclick = () => this.close();
     const select = async (icon: string | null | undefined) => {
       if (this.saving) return;
       this.saving = true;

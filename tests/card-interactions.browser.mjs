@@ -325,7 +325,7 @@ try {
   await check('top-level creation needs only a title and defaults to ungrouped, neither important nor urgent', async () => {
     await page.getByRole('button', { name: '新建任务', exact: true }).click();
     assert.equal(await page.getByRole('combobox', { name: '任务分组' }).inputValue(), '');
-    assert.equal(await page.locator('.wt-new-task-modal input[value="not_important_not_urgent"]').isChecked(), true);
+    assert.equal(await page.getByRole('combobox', { name: '任务象限', exact: true }).inputValue(), 'not_important_not_urgent');
     await page.locator('.wt-modal-title').fill('默认分类任务');
     await page.getByRole('button', { name: '创建任务', exact: true }).click();
     await page.locator('.wt-new-task-modal').waitFor({ state: 'detached' });
@@ -420,7 +420,7 @@ try {
       const tile = page.getByRole('button', { name: '在产品研发中新建任务', exact: true });
       await tile.focus(); await tile.press('Enter');
       assert.equal(await page.getByRole('combobox', { name: '任务分组' }).inputValue(), await page.evaluate(() => window.cardFixture.plugin.groups[0].id));
-      assert.equal(await page.locator('.wt-new-task-modal input[value="not_important_not_urgent"]').isChecked(), true);
+      assert.equal(await page.getByRole('combobox', { name: '任务象限', exact: true }).inputValue(), 'not_important_not_urgent');
       await page.getByRole('button', { name: '取消', exact: true }).click();
       await settle();
       assert.equal(await tile.evaluate(el => el === document.activeElement), true);
@@ -435,7 +435,7 @@ try {
       const areas = await page.locator('.wt-task-section').evaluateAll(els => els.map(el => el.dataset.area));
       for (const area of areas) {
         await page.locator(`[data-area="${area}"] .wt-card-create`).click();
-        assert.equal(await page.locator('.wt-new-task-modal input[type=radio]:checked').inputValue(), area);
+        assert.equal(await page.getByRole('combobox', { name: '任务象限', exact: true }).inputValue(), area);
         await page.locator('.wt-modal-title').fill('象限入口 ' + area);
         await page.getByRole('button', { name: '创建任务', exact: true }).click();
         await page.locator('.wt-new-task-modal').waitFor({ state: 'detached' });
@@ -448,7 +448,7 @@ try {
       await page.getByRole('button', { name: '在产品研发中新建任务', exact: true }).click();
       await page.locator('.wt-modal-title').fill('分组入口验证');
       await page.getByRole('combobox', { name: '任务分组' }).selectOption('');
-      await page.locator('.wt-new-task-modal .wt-quadrant-option.is-important_urgent').click();
+      await page.getByRole('combobox', { name: '任务象限', exact: true }).selectOption('important_urgent');
       await page.getByRole('button', { name: '创建任务', exact: true }).click();
       await page.locator('.wt-new-task-modal').waitFor({ state: 'detached' });
       assert.equal(await page.getByRole('searchbox').inputValue(), '');

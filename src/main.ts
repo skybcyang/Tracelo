@@ -161,8 +161,24 @@ interface NewTaskContext {
   quadrant?: QuadrantId;
 }
 
+interface NewTaskDraft {
+  title: string;
+  notes: string;
+  groupId: string;
+  quadrant: QuadrantId;
+  todos: string[];
+  dueDate: string;
+  initialProgress: string;
+  expanded: { todos: boolean; due: boolean; progress: boolean };
+}
+
+// A draft belongs to this vault session, never another App or a persisted archive.
+const newTaskDrafts = new WeakMap<App, NewTaskDraft>();
+
 class NewTaskModal extends Modal {
-  private quadrant: QuadrantId | null = null;
+  private submitting = false;
+  private completed = false;
+  private saveDraft?: () => void;
 
   constructor(
     app: App,
@@ -172,117 +188,186 @@ class NewTaskModal extends Modal {
     private readonly returnFocus?: HTMLElement,
   ) {
     super(app);
-    this.quadrant = context.quadrant ?? "not_important_not_urgent";
   }
 
   onOpen(): void {
     this.setTitle("新建任务");
     this.modalEl.addClass("wt-modal");
     this.modalEl.addClass("wt-new-task-modal");
+    const draft = newTaskDrafts.get(this.app);
+    const expanded = { todos: false, due: false, progress: false, ...draft?.expanded };
     const form = this.contentEl.createEl("form", { cls: "wt-modal-form" });
-    const titleLabel = form.createEl("label", { cls: "wt-field wt-title-field" });
+    const body = form.createDiv({ cls: "wt-new-task-body" });
+    const draftRow = body.createDiv({ cls: "wt-new-draft-row" });
+    const draftStatus = draftRow.createSpan({ cls: "wt-new-draft-status", attr: { role: "status" } });
+    draftStatus.setText(draft ? "已恢复草稿" : "关闭后保留本次草稿");
+    const clearDraft = draftRow.createEl("button", { text: "清空草稿", cls: "wt-new-clear", attr: { type: "button" } });
+    const titleLabel = body.createEl("label", { cls: "wt-field wt-title-field" });
     titleLabel.createSpan({ text: "任务名称", cls: "wt-field-label" });
     const title = titleLabel.createEl("input", {
       type: "text",
       cls: "wt-modal-title",
       attr: { placeholder: "例如：验证自动备份", maxlength: "160", required: "" },
     });
-    const detailsLabel = form.createEl("label", { cls: "wt-field" });
+    title.value = draft?.title ?? "";
+    const detailsLabel = body.createEl("label", { cls: "wt-field" });
     const detailsHeading = detailsLabel.createSpan({ cls: "wt-field-heading" });
     detailsHeading.createSpan({ text: "详情", cls: "wt-field-label" });
     detailsHeading.createSpan({ text: "可选", cls: "wt-optional" });
     const details = detailsLabel.createEl("textarea", {
-      attr: { rows: "4", "aria-label": "任务详情", placeholder: "任务目标、具体要求或参考资料，支持 Markdown" },
+      attr: { rows: "2", "aria-label": "任务详情", placeholder: "补充目标、要求或参考资料，支持 Markdown" },
     });
-    const groupLabel = form.createEl("label", { cls: "wt-field" });
+    details.value = draft?.notes ?? "";
+    const properties = body.createDiv({ cls: "wt-new-properties" });
+    const groupLabel = properties.createEl("label", { cls: "wt-field" });
     groupLabel.createSpan({ text: "任务分组", cls: "wt-field-label" });
     const group = groupLabel.createEl("select", { attr: { "aria-label": "任务分组" } });
     group.createEl("option", { text: UNGROUPED_TASKS, value: "" });
     for (const item of this.groups) group.createEl("option", { text: item.name, value: item.id });
-    group.value = this.context.groupId ?? "";
-
-    const quadrantField = form.createEl("fieldset", { cls: "wt-quadrant-picker", attr: { tabindex: "-1" } });
-    const legend = quadrantField.createEl("legend");
-    legend.createSpan({ text: "任务象限", cls: "wt-field-label" });
+    group.value = draft?.groupId ?? this.context.groupId ?? "";
+    if (!group.value) group.value = "";
+    const quadrantField = properties.createEl("label", { cls: "wt-field" });
+    quadrantField.createSpan({ text: "任务象限", cls: "wt-field-label" });
+    const quadrant = quadrantField.createEl("select", { attr: { "aria-label": "任务象限" } });
     for (const item of QUADRANTS) {
-      const label = quadrantField.createEl("label", { cls: `wt-quadrant-option is-${item.id}` });
-      const input = label.createEl("input", { type: "radio", attr: { name: "quadrant", value: item.id } });
-      input.checked = item.id === this.quadrant;
-      label.createSpan({ cls: "wt-quadrant-marker", attr: { "aria-hidden": "true" } });
-      label.createSpan({ text: item.name, cls: "wt-quadrant-name" });
-      input.addEventListener("change", () => {
-        this.quadrant = item.id;
-        quadrantField.removeClass("has-error");
-        error.setText("");
-      });
+      quadrant.createEl("option", { text: item.name, value: item.id });
     }
+    quadrant.value = draft?.quadrant ?? this.context.quadrant ?? "not_important_not_urgent";
 
-    const optional = form.createDiv({ cls: "wt-new-optional" });
-    const todoButton = optional.createEl("button", { text: "添加待办", cls: "wt-secondary-action", attr: { type: "button" } });
-    const todoList = form.createDiv({ cls: "wt-new-todos" });
-    todoButton.addEventListener("click", () => {
+    const optional = body.createDiv({ cls: "wt-new-optional" });
+    const todoButton = optional.createEl("button", { cls: "wt-secondary-action", attr: { type: "button" } });
+    const todoSection = body.createDiv({ cls: "wt-new-todo-section" });
+    const todoList = todoSection.createDiv({ cls: "wt-new-todos" });
+    const addTodoRow = (value = "") => {
       const row = todoList.createDiv({ cls: "wt-new-todo-row" });
       const field = row.createEl("input", { type: "text", attr: { "aria-label": "待办内容", placeholder: "待办内容", maxlength: "160" } });
-      iconButton(row, "x", "移除待办").addEventListener("click", () => row.remove());
-      field.focus();
-    });
-    const dateButton = optional.createEl("button", { text: "设置截止日期", cls: "wt-secondary-action", attr: { type: "button" } });
-    const dueField = form.createEl("label", { cls: "wt-field wt-new-due" });
-    dueField.hidden = true;
+      field.value = value;
+      iconButton(row, "x", "移除待办").addEventListener("click", () => { row.remove(); refresh(); todoButton.focus(); });
+      return field;
+    };
+    for (const value of draft?.todos ?? []) addTodoRow(value);
+    todoSection.createEl("button", { text: "再加一条", cls: "wt-secondary-action", attr: { type: "button" } })
+      .addEventListener("click", () => { const field = addTodoRow(); refresh(); field.focus(); });
+    const dateButton = optional.createEl("button", { cls: "wt-secondary-action", attr: { type: "button" } });
+    const dueField = body.createEl("label", { cls: "wt-field wt-new-due" });
     dueField.createSpan({ text: "截止日期", cls: "wt-field-label" });
     const due = dueField.createEl("input", { type: "date" });
-    dateButton.addEventListener("click", () => { dueField.hidden = false; due.focus(); });
-    const progressLabel = form.createEl("label", { cls: "wt-field" });
+    due.value = draft?.dueDate ?? "";
+    const progressButton = optional.createEl("button", { cls: "wt-secondary-action", attr: { type: "button" } });
+    const progressLabel = body.createEl("label", { cls: "wt-field" });
     const progressHeading = progressLabel.createSpan({ cls: "wt-field-heading" });
     progressHeading.createSpan({ text: "初始进展", cls: "wt-field-label" });
     progressHeading.createSpan({ text: "可选", cls: "wt-optional" });
     const progress = progressLabel.createEl("textarea", {
-      attr: { rows: "3", maxlength: "2000", placeholder: "例如：已完成需求梳理，准备开始实现" },
+      attr: { rows: "3", "aria-label": "初始进展", maxlength: "2000", placeholder: "例如：已完成需求梳理，准备开始实现" },
     });
-    const error = form.createEl("p", { cls: "wt-form-error", attr: { role: "alert" } });
-    const actions = form.createDiv({ cls: "wt-modal-actions" });
+    progress.value = draft?.initialProgress ?? "";
+    const footer = form.createDiv({ cls: "wt-new-task-footer" });
+    const error = footer.createEl("p", { cls: "wt-form-error", attr: { role: "alert" } });
+    const actions = footer.createDiv({ cls: "wt-modal-actions" });
+    actions.createSpan({ cls: "wt-new-shortcut", text: Platform.isWin ? "Ctrl Enter 创建" : "⌘ Enter 创建" });
     const cancel = actions.createEl("button", { text: "取消", cls: "wt-secondary-action", attr: { type: "button" } });
     const submit = actions.createEl("button", { cls: "wt-primary-action", attr: { type: "submit" } });
     setIcon(submit, "plus");
     const submitLabel = submit.createSpan({ text: "创建任务" });
+    const refresh = () => {
+      const count = [...todoList.querySelectorAll<HTMLInputElement>("input")].filter(field => field.value.trim()).length;
+      todoButton.setText(count ? `待办 · ${count}` : "添加待办");
+      dateButton.setText(due.value ? `截止 · ${due.value}` : "截止日期");
+      progressButton.setText(progress.value.trim() ? "初始进展 · 已填写" : "初始进展");
+      for (const [button, panel, open] of [[todoButton, todoSection, expanded.todos], [dateButton, dueField, expanded.due], [progressButton, progressLabel, expanded.progress]] as const) {
+        panel.hidden = !open;
+        button.setAttr("aria-expanded", String(open));
+      }
+      submit.disabled = this.submitting || !title.value.trim();
+    };
+    this.saveDraft = () => {
+      const value: NewTaskDraft = {
+        title: title.value, notes: details.value, groupId: group.value, quadrant: quadrant.value as QuadrantId,
+        todos: [...todoList.querySelectorAll<HTMLInputElement>("input")].map(field => field.value),
+        dueDate: due.value, initialProgress: progress.value, expanded: { ...expanded },
+      };
+      if (value.title || value.notes || value.todos.some(Boolean) || value.dueDate || value.initialProgress) newTaskDrafts.set(this.app, value);
+      else newTaskDrafts.delete(this.app);
+    };
+    todoButton.addEventListener("click", () => {
+      expanded.todos = !expanded.todos;
+      if (expanded.todos && !todoList.childElementCount) addTodoRow();
+      refresh();
+      if (expanded.todos) todoList.querySelector("input")?.focus();
+    });
+    dateButton.addEventListener("click", () => { expanded.due = !expanded.due; refresh(); if (expanded.due) due.focus(); });
+    progressButton.addEventListener("click", () => { expanded.progress = !expanded.progress; refresh(); if (expanded.progress) progress.focus(); });
+    clearDraft.addEventListener("click", () => {
+      title.value = details.value = due.value = progress.value = "";
+      group.value = this.context.groupId ?? "";
+      quadrant.value = this.context.quadrant ?? "not_important_not_urgent";
+      todoList.empty();
+      expanded.todos = expanded.due = expanded.progress = false;
+      newTaskDrafts.delete(this.app);
+      draftStatus.setText("草稿已清空");
+      error.setText("");
+      refresh(); title.focus();
+    });
+    form.addEventListener("input", refresh);
+    form.addEventListener("change", refresh);
+    let composing = false;
+    form.addEventListener("compositionstart", () => { composing = true; });
+    form.addEventListener("compositionend", () => { composing = false; });
+    form.addEventListener("keydown", event => {
+      if (event.key === "Enter" && (composing || event.isComposing || event.keyCode === 229)) { event.preventDefault(); return; }
+      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); form.requestSubmit(); }
+    });
     cancel.addEventListener("click", () => this.close());
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!this.quadrant) {
-        error.setText("请选择任务象限");
-        quadrantField.addClass("has-error");
-        quadrantField.focus();
-        return;
-      }
-      const quadrant = QUADRANTS.find(({ id }) => id === this.quadrant)!;
+      if (this.submitting || composing || !title.value.trim()) return;
+      const selectedQuadrant = QUADRANTS.find(({ id }) => id === quadrant.value)!;
       const selectedGroup = this.groups.find(({ id }) => id === group.value);
+      this.submitting = true;
+      this.saveDraft?.();
+      body.inert = true;
+      cancel.disabled = true;
       submit.disabled = true;
       submit.setAttr("aria-busy", "true");
       submitLabel.setText("创建中…");
+      error.setText("");
       try {
         await this.submitTask({
           title: title.value,
           notes: details.value,
           groupId: selectedGroup?.id ?? null,
           groupName: selectedGroup?.name ?? UNGROUPED_TASKS,
-          important: quadrant.important,
-          urgent: quadrant.urgent,
+          important: selectedQuadrant.important,
+          urgent: selectedQuadrant.urgent,
           initialProgress: progress.value,
           dueDate: due.value || null,
           todos: [...todoList.querySelectorAll<HTMLInputElement>("input")].map((field) => field.value.trim()).filter(Boolean),
         });
+        this.completed = true;
+        this.submitting = false;
+        newTaskDrafts.delete(this.app);
         this.close();
       } catch (reason) {
-        submit.disabled = false;
+        this.submitting = false;
+        body.inert = false;
+        cancel.disabled = false;
         submit.setAttr("aria-busy", "false");
         submitLabel.setText("创建任务");
         error.setText(reason instanceof Error ? reason.message : "无法创建任务");
+        refresh();
       }
     });
+    refresh();
     requestAnimationFrame(() => title.focus());
   }
 
+  close(): void {
+    if (!this.submitting) super.close();
+  }
+
   onClose(): void {
+    if (!this.completed) this.saveDraft?.();
     this.contentEl.empty();
     requestAnimationFrame(() => {
       if (this.returnFocus?.isConnected) this.returnFocus.focus({ preventScroll: true });
@@ -364,7 +449,7 @@ class DueDateModal extends Modal {
     input.value = this.current ?? "";
     const shortcuts = form.createDiv({ cls: "wt-date-shortcuts" });
     for (const [label, offset] of [["今天", 0], ["明天", 1]] as const) {
-      shortcuts.createEl("button", { text: label, attr: { type: "button" } }).addEventListener("click", () => {
+      shortcuts.createEl("button", { text: label, cls: "wt-secondary-action", attr: { type: "button" } }).addEventListener("click", () => {
         const date = new Date();
         date.setDate(date.getDate() + offset);
         input.value = dayKey(date);
@@ -691,7 +776,7 @@ class WorkTimelineView extends ItemView {
     const create = actions.createEl("button", { cls: "wt-new-task-button", attr: { type: "button" } });
     setIcon(create, "plus");
     create.createSpan({ text: "新建任务" });
-    create.addEventListener("click", () => this.openNewTask());
+    create.addEventListener("click", () => this.openNewTask({}, create));
   }
 
   private renderTasks(container: HTMLElement): void {
@@ -996,6 +1081,7 @@ class WorkTimelineView extends ItemView {
           if (!(event.target instanceof HTMLImageElement)) return;
           event.preventDefault(); event.stopPropagation();
           const modal = new Modal(this.app);
+          modal.modalEl.addClass("wt-modal");
           modal.setTitle("详情图片");
           const image = modal.contentEl.createEl("img", { attr: { src: event.target.src, alt: event.target.alt || "详情图片" } });
           image.style.cssText = "max-width:100%;max-height:80vh;object-fit:contain";
