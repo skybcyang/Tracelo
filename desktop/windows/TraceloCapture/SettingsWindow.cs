@@ -27,8 +27,8 @@ internal sealed class SettingsWindow : Form {
         };
         layout.Controls.Add(vaultRow); layout.Controls.Add(Label("任务目录（相对于 vault）")); layout.Controls.Add(directory);
         layout.Controls.Add(Label("全局快捷键（点击后按 Ctrl / Alt 组合键）")); layout.Controls.Add(shortcut);
-        layout.Controls.Add(new Label { Text = "目录须已存在，并与插件设置一致。新任务默认为未分组、不重要、不紧急。", Dock = DockStyle.Fill, ForeColor = Theme.Muted });
-        var error = new Label { Dock = DockStyle.Fill, ForeColor = Theme.Error, AccessibleName = "设置错误" }; layout.Controls.Add(error);
+        layout.Controls.Add(new Label { Text = "目录须已存在，并与插件设置一致。新任务默认为未分组、不重要、不紧急。", Dock = DockStyle.Fill, ForeColor = Theme.Muted, Tag = "muted" });
+        var error = new Label { Dock = DockStyle.Fill, ForeColor = Theme.Error, Tag = "error", AccessibleName = "设置错误" }; layout.Controls.Add(error);
         shortcut.KeyDown += (_, e) => {
             e.SuppressKeyPress = true;
             if (e.KeyCode is Keys.ControlKey or Keys.ShiftKey or Keys.Menu or Keys.LWin or Keys.RWin) return;
@@ -46,6 +46,7 @@ internal sealed class SettingsWindow : Form {
         };
         cancel.Click += (_, _) => Close(); CancelButton = cancel;
         buttons.Controls.Add(save); buttons.Controls.Add(cancel); layout.Controls.Add(buttons); Controls.Add(layout);
+        Theme.Refresh(this);
     }
     private static Label Label(string text) => new() { Text = text, Dock = DockStyle.Fill, AutoSize = true };
     private string ShortcutLabel() => ((modifiers & 2) != 0 ? "Ctrl + " : "") + ((modifiers & 1) != 0 ? "Alt + " : "")

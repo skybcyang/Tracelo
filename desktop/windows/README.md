@@ -12,6 +12,8 @@ Windows 10 / 11 x64 原生托盘工具，使用 .NET WinForms。Release 提供�
 
 新任务为未分组、不重要、不紧急，仅生成一次 `created` 事件，详情不会转成进展。文件先完整写入临时文件并刷新，再以不覆盖方式发布；同名不同内容会报错并保留输入。保存失败、快捷键冲突及未配置位置都有明确的文字反馈。
 
+窗口遵循 Windows 应用浅色／深色偏好与高对比度系统颜色，支持每显示器 DPI 缩放，并将捕获窗口限制在当前屏幕的可用区域内。
+
 设置与草稿保存在 `%LOCALAPPDATA%\Tracelo\Capture\settings.json`。关闭窗口不退出托盘进程；从托盘退出也保留草稿。应用不自动修改开机启动，也不访问网络。发行包若未签名，Windows 可能显示来源确认提示。
 
 ## 构建与检查
@@ -45,7 +47,7 @@ if ($result.ExitCode -ne 0) { throw 'Native smoke test failed' }
 Get-Content C:\tracelo-smoke\smoke-result.txt
 ```
 
-Smoke test 只使用指定输出目录下新建的临时 vault 和偏好文件，完成后清理测试数据。它检查真实 WinForms 窗口与焦点、热键消息处理、实际热键注册冲突、模拟 IME 消息的提交保护、Esc/重启草稿恢复、成功创建及失败保留，并生成 `capture-smoke.png` 和 `settings-smoke.png`。它不替代真实中文输入法选词、多屏及其他应用焦点恢复的人工作业验收。
+Smoke test 只使用指定输出目录下新建的临时 vault 和偏好文件，完成后清理测试数据。它检查真实 WinForms 窗口与焦点、屏幕边界、热键消息处理、实际热键注册冲突、模拟 IME 消息的提交保护、Esc/重启草稿恢复、成功创建及失败保留，并生成 `capture-smoke.png`、`settings-smoke.png` 及对应的 `*-dark-smoke.png` 浅／深色界面截图。它不替代真实中文输入法选词、多屏及其他应用焦点恢复的人工作业验收。
 
 ## 验证边界
 
