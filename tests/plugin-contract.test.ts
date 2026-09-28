@@ -54,7 +54,7 @@ describe("final plugin surface", () => {
       "wt-new-task-modal",
       "wt-group-manager-modal",
       "wt-field-label",
-      "wt-quadrant-marker",
+      "wt-new-properties",
       "wt-primary-action",
       "创建中…",
     ]) expect(main).toContain(token);
@@ -71,7 +71,8 @@ describe("final plugin surface", () => {
     ]) expect(styles).toContain(token);
 
     expect(styles).toContain("input:not([type=\"radio\"])");
-    expect(styles).not.toContain(".wt-modal-form :is(input, select, textarea)");
+    // The compact creator has no radios; its input sizing remains locally scoped.
+    expect(styles).toContain(".wt-new-task-modal .wt-modal-form :is(input, select, textarea)");
   });
 
   it("offers optional card details and due-day navigation without a required feature switch", () => {
