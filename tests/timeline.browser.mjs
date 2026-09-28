@@ -90,6 +90,26 @@ try {
     await page.getByRole('button', { name: '返回每日时间线', exact: true }).waitFor();
     assert.equal(await pane.locator('.wt-event-task').count(), 0);
   });
+  await check('bottom reading follows newly created tasks but not property-only updates', async () => {
+    await seed(Array.from({ length: 20 }, () => 'progress'), false);
+    await page.clock.setFixedTime(new Date('2026-09-28T12:00:00.000Z'));
+    for (let i = 0; i < 6; i++) {
+      await page.evaluate(async i => {
+        await window.cardFixture.plugin.addTask({ title: `新任务 ${i}`, groupId: null, groupName: '未分组', important: false, urgent: false, todos: [], initialProgress: '', dueDate: null });
+      }, i);
+      await settle();
+      assert.ok(await pane.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop < 2), `creation ${i} should follow to latest record`);
+    }
+    const top = await pane.evaluate(el => el.scrollTop);
+    await page.evaluate(view => {
+      const { plugin, app, ids } = window.cardFixture;
+      const task = plugin.tasks.find(t => t.id === ids.payment);
+      task.events.push({ ...task.events.at(-1), id: 'bottom-property', kind: 'renamed', text: '属性变更保留位置', at: '2026-09-28T13:00:00.000Z', day: '2026-09-28' });
+      app.workspace.getLeavesOfType(view)[0].view.render();
+    }, view);
+    await settle();
+    assert.equal(await pane.evaluate(el => el.scrollTop), top);
+  });
   await check('old-record reading survives rerenders, property updates and incoming progress', async () => {
     await seed(Array.from({ length: 32 }, (_, i) => i % 3 ? 'progress' : 'todo_added'));
     assert.ok(await pane.evaluate(el => el.scrollTop > 100), 'first entry opens at latest records');
