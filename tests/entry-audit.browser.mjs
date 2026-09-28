@@ -141,7 +141,7 @@ try {
     await page.getByRole('button', { name: '下移分组', exact: true }).first().click();
     await page.locator('.notice').filter({ hasText: '分组排序失败' }).waitFor();
   });
-  for (const label of ['四象限', '展示模式', '缩小看板']) {
+  for (const label of ['四象限', '缩小看板']) {
     await check(`${label} reports a failed setting write`, async () => {
       await page.evaluate(() => { window.cardFixture.plugin.saveData = async () => { throw new Error('显示设置失败'); }; });
       await page.getByRole('button', { name: label, exact: true }).click();

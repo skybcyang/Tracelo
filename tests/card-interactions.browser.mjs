@@ -158,9 +158,9 @@ try {
     assert.equal(await payment.getByRole('button', { name: '编辑标题：完成支付模块', exact: true }).count(), 0);
     assert.equal(await payment.locator('.wt-card-heading-actions button').count(), 1);
   });
-  await check('board controls offer independent zoom and presentation mode', async () => {
+  await check('board controls retain zoom without presentation mode', async () => {
     assert.equal(await page.getByRole('button', { name: '缩小看板', exact: true }).count(), 1);
-    assert.equal(await page.getByRole('button', { name: '展示模式', exact: true }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: '展示模式', exact: true }).count(), 0);
   });
   await check('view settings fit the top bar across narrow and dark layouts', async () => {
     try {
@@ -213,22 +213,20 @@ try {
       assert.equal(await reset.textContent(), '100%');
     } finally { await page.evaluate(() => window.cardFixture.plugin.setBoardZoom(100)); }
   });
-  await check('presentation exposes all information but only the clicked card editor', async () => {
-    await page.getByRole('button', { name: '展示模式', exact: true }).click();
-    assert.equal(await page.locator('.wt-card.is-expanded').count(), 4);
+  await check('only the clicked card expands and zoom preserves its draft', async () => {
+    assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
     assert.equal(await page.locator('.wt-card-composer').count(), 0);
     await payment.locator('.wt-card-latest').click();
     await settle();
     assert.equal(await page.locator('.wt-card-composer').count(), 1);
-    assert.equal(await payment.locator('textarea').evaluate(el => el === document.activeElement), true);
-    await payment.locator('.wt-card-composer textarea').fill('保留展示草稿');
+    assert.equal(await page.locator('.wt-card.is-expanded').count(), 1);
+    await payment.locator('.wt-card-composer textarea').fill('保留进展草稿');
     await page.getByRole('button', { name: '缩小看板', exact: true }).click();
     assert.equal(await page.evaluate(() => window.cardFixture.plugin.state.boardZoom), 95);
-    assert.equal(await payment.locator('.wt-card-composer textarea').inputValue(), '保留展示草稿');
+    assert.equal(await payment.locator('.wt-card-composer textarea').inputValue(), '保留进展草稿');
     await payment.getByRole('button', { name: '关闭进展输入', exact: true }).click();
     assert.equal(await page.locator('.wt-card-composer').count(), 0);
-    assert.equal(await page.locator('.wt-card.is-expanded').count(), 4);
-    await page.getByRole('button', { name: '展示模式', exact: true }).click();
+    assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
     await page.getByRole('button', { name: '恢复看板缩放为100%', exact: true }).click();
   });
   await check('notes save separately and unsaved text survives switching cards', async () => {
@@ -312,7 +310,7 @@ try {
     assert.equal(result.task.notes, result.before.notes);
     assert.match(result.task.materialFolder, /^迁移后的任务\//);
     assert.match(result.source, /图片之前/);
-    assert.equal(result.draft, '保留展示草稿');
+    assert.equal(result.draft, '保留进展草稿');
   });
   await check('external create and atomic rename events ingest and deduplicate cards', async () => {
     const id = await page.evaluate(async () => {
@@ -449,10 +447,10 @@ try {
         assert.equal(await page.locator(`[data-area="${area}"] .wt-card-title`).getByText('象限入口 ' + area, { exact: true }).count(), 1);
       }
     });
-    await check('group creation can override defaults and makes a search-hidden new task visible', async () => {
+    await check('header creation can override defaults and makes a search-hidden new task visible', async () => {
       await page.getByRole('button', { name: '分组', exact: true }).click();
       await page.getByRole('searchbox').fill('没有匹配的任务');
-      await page.getByRole('button', { name: '在产品研发中新建任务', exact: true }).click();
+      await page.getByRole('button', { name: '新建任务', exact: true }).click();
       await page.locator('.wt-modal-title').fill('分组入口验证');
       await page.getByRole('combobox', { name: '任务分组' }).selectOption('');
       await page.locator('.wt-quadrant-option.is-important_urgent').click();
@@ -956,7 +954,6 @@ try {
       const groupId = plugin.tasks.find(task => task.id === id).groupId;
       plugin.state.orders.group[groupId] = [id, ...(plugin.state.orders.group[groupId] ?? []).filter(taskId => taskId !== id)];
       await plugin.setBoardZoom(100);
-      await plugin.setPresentationMode(true);
     }, ids.payment);
     for (const theme of ['theme-light', 'theme-dark']) {
       await page.evaluate(theme => { document.body.className = theme; }, theme);

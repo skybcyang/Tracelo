@@ -1,15 +1,15 @@
 # Tracelo 桌面快捷创建
 
-0.8.0 的插件、macOS 和 Windows 快捷窗口共用 `src/new-task-form.ts`：任务名称、详情、分组、重要／紧急四象限、待办、截止日期、初始进展及草稿采用同一表单和任务生成逻辑。名称与详情独立填写，象限使用四项直接可见的 2×2 选择区。macOS 使用系统 WebKit，Windows 使用 WebView2。截图与验证见[完整快捷创建](../docs/validation/2026-09-28-capture-shared-ui.md)。
+0.9.0 的插件、macOS 和 Windows 快捷窗口共用 `src/new-task-form.ts`：任务名称、详情、分组、重要／紧急四象限、待办、截止日期、初始进展及草稿采用同一表单和任务生成逻辑。名称与详情独立填写，象限使用四项直接可见的 2×2 选择区。macOS 使用系统 WebKit，Windows 使用 WebView2。截图与验证见[完整快捷创建](../docs/validation/2026-09-28-capture-shared-ui.md)。
 
-0.8.0 提供 macOS Universal `.app` 压缩包和 Windows x64 自包含 `.exe` 压缩包，均与同版 Obsidian 插件配套使用。macOS 仅作本地 ad-hoc 签名，尚无开发者签名／公证；Windows 尚无代码签名。系统可能提示发布者未经验证。实际输入法选词、多屏和焦点恢复仍需实机复核，自动协议／输入策略测试不等同于全部系统交互验收。
+0.9.0 提供 macOS Universal `.app` 压缩包和 Windows x64 自包含 `.exe` 压缩包，均与同版 Obsidian 插件配套使用。macOS 仅作本地 ad-hoc 签名，尚无开发者签名／公证；Windows 尚无代码签名。系统可能提示发布者未经验证。实际输入法选词、多屏和焦点恢复仍需实机复核，自动协议／输入策略测试不等同于全部系统交互验收。
 
 ## 下载与安装
 
 从 [GitHub Releases](https://github.com/skybcyang/Tracelo/releases/latest) 下载对应平台的 ZIP，并核对 `SHA256SUMS.txt`。
 
-- **macOS 13+（Intel / Apple Silicon）**：解压 `Tracelo-Capture-0.8.0-macos-universal.zip`，将 `Tracelo Capture.app` 放入应用程序目录并打开。通过菜单栏图标进入设置。应用不会自动注册开机启动。
-- **Windows 10/11 x64**：解压 `Tracelo-Capture-0.8.0-windows-x64.zip`，运行 `TraceloCapture.exe`；无需另装 .NET，需安装 WebView2 Evergreen Runtime。通过托盘菜单进入设置，详见 [Windows 使用与开发](windows/README.md)。
+- **macOS 13+（Intel / Apple Silicon）**：解压 `Tracelo-Capture-0.9.0-macos-universal.zip`，将 `Tracelo Capture.app` 放入应用程序目录并打开。通过菜单栏图标进入设置。应用不会自动注册开机启动。
+- **Windows 10/11 x64**：解压 `Tracelo-Capture-0.9.0-windows-x64.zip`，运行 `TraceloCapture.exe`；无需另装 .NET，需安装 WebView2 Evergreen Runtime。通过托盘菜单进入设置，详见 [Windows 使用与开发](windows/README.md)。
 
 选择 vault 后，填写插件设置中的实际任务相对目录。目录须存在；快捷工具只新增任务，不修改原有任务与插件状态。两个系统默认使用 Control+Alt/Option+Space，可在设置中更改。
 

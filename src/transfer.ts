@@ -310,7 +310,6 @@ async function commitImport(adapter: TransferAdapter, store: ArchiveStore, input
       nextState.viewMode = bundle.state.viewMode;
       nextState.boardZoom = bundle.state.boardZoom;
       nextState.cardLayout = bundle.state.cardLayout;
-      nextState.presentationMode = bundle.state.presentationMode;
     }
     const importedIds = new Set(plan.tasks.map(t => t.id));
     for (const mode of ["group", "quadrant"] as const) {

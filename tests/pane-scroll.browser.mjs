@@ -9,7 +9,7 @@ try {
     * { box-sizing: border-box } body { margin: 0; font: 14px Arial }
     #host { height: 640px; margin-top: 80px; }
     ${readFileSync("styles.css", "utf8")}
-  </style><div id="host"><div class="work-timeline-view"><div class="wt-shell">
+  </style><div id="host"><div class="work-timeline-view"><div class="wt-shell" data-pane="tasks">
     <header class="wt-header"><div>Tracelo</div><div class="wt-view-switch">分组 / 四象限</div><button>新建任务</button></header>
     <div class="wt-layout"><main class="wt-task-column"><div class="wt-card-grid">
       ${Array.from({ length: 100 }, (_, i) => `<article class="wt-card">任务 ${i}</article>`).join("")}
@@ -56,7 +56,7 @@ try {
   for (const width of [800, 390, 1600]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.evaluate(() => {
-      document.querySelector('.wt-layout').scrollTop = 100000;
+      document.querySelector('.wt-shell').dataset.pane = 'history';
     });
     const state = await page.evaluate(() => {
       const root = document.querySelector('.work-timeline-view');
@@ -67,7 +67,11 @@ try {
     });
     assert.equal(state.overflow, false, `horizontal overflow at ${width}`);
     assert.ok(state.timelineBottom <= state.hostBottom + 1, `timeline inaccessible at ${width}`);
-    if (width <= 900) assert.ok(state.scrolled > 0, 'stacked layout cannot scroll');
+    if (width <= 900) {
+      assert.equal(state.scrolled, 0, 'pane layout must not scroll as a whole');
+      assert.equal(await page.locator('.wt-task-column').isVisible(), false);
+      assert.equal(await page.locator('.wt-timeline-column').isVisible(), true);
+    }
   }
   console.log('Independent wheel scrolling, fixed headings, boundary containment, and narrow layouts passed.');
 } finally { await browser.close(); }

@@ -84,16 +84,18 @@ try {
     assert.equal(await card(ids.payment).locator('.wt-todo-check:visible').count(), 4);
     assert.equal(await card(ids.payment).locator('.wt-card-composer').count(), 0);
   });
-  for (const mode of ['group', 'quadrant']) for (const dark of [false, true]) for (const width of [390, 900, 1920]) for (const zoom of [60, 100, 120]) for (const presenting of [false, true]) {
-    await check(`content fits ${mode} ${dark ? 'dark' : 'light'} ${width}px ${zoom}% presentation=${presenting}`, async () => {
+  for (const mode of ['group', 'quadrant']) for (const dark of [false, true]) for (const width of [390, 900, 1920]) for (const zoom of [60, 100, 120]) for (const expanded of [false, true]) {
+    await check(`content fits ${mode} ${dark ? 'dark' : 'light'} ${width}px ${zoom}% expanded=${expanded}`, async () => {
       await page.setViewportSize({ width, height: 1000 });
-      await page.evaluate(async ({ mode, dark, zoom, presenting }) => {
+      await page.evaluate(async ({ mode, dark, zoom }) => {
         document.body.classList.toggle('theme-dark', dark);
         const { plugin } = window.cardFixture;
         await plugin.setViewMode(mode);
         await plugin.setBoardZoom(zoom);
-        await plugin.setPresentationMode(presenting);
-      }, { mode, dark, zoom, presenting });
+      }, { mode, dark, zoom });
+      if ((await card(ids.many).locator('.wt-card-open').getAttribute('aria-expanded') === 'true') !== expanded) {
+        await card(ids.many).locator('.wt-card-open').click();
+      }
       await settle();
       const layout = await page.locator('.wt-board').evaluate(board => {
         const cards = [...board.querySelectorAll('.wt-card')];
@@ -103,7 +105,7 @@ try {
       for (let i=0; i<layout.length; i++) for (let j=i+1; j<layout.length; j++) {
         const a=layout[i], b=layout[j]; assert.ok(a.right <= b.x + 1 || b.right <= a.x + 1 || a.bottom <= b.y + 1 || b.bottom <= a.y + 1, 'overlapping cards');
       }
-      if (presenting) assert.equal(await card(ids.many).locator('.wt-todo-check:visible').count(), 5);
+      assert.equal(await card(ids.many).locator('.wt-todo-check:visible').count(), expanded ? 5 : 3);
     });
   }
   assert.deepEqual(errors, []);

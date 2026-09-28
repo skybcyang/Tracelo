@@ -230,6 +230,22 @@
   overflow: hidden;
 }
 
+.wt-pane-switch { display: none; }
+.wt-search-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0; color: var(--wt-muted); font-size: 12px; }
+.wt-search-summary button { flex-shrink: 0; min-height: 36px; }
+.wt-search-empty { padding: 28px 18px; border: 1px dashed var(--wt-line); border-radius: 10px; overflow-wrap: anywhere; }
+.wt-search-empty h3 { font-size: 16px; }
+.wt-search-empty p { color: var(--wt-muted); line-height: 1.7; }
+.wt-search-result { margin: 14px 0; padding: 16px; border: 1px solid var(--wt-line); border-radius: 10px; background: var(--wt-card); overflow-wrap: anywhere; }
+.wt-search-result h3 { margin: 0; font-size: 16px; }
+.wt-search-result-meta, .wt-search-source { color: var(--wt-muted); font-size: 12px; }
+.work-timeline-view .wt-search-match { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; height: auto; min-height: 44px; margin-top: 10px; padding: 10px 12px; text-align: left; white-space: normal; background: var(--wt-soft); box-shadow: none; border: 1px solid transparent; color: var(--wt-text); }
+.work-timeline-view .wt-search-match:hover { border-color: var(--wt-accent); }
+.wt-search-excerpt { font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
+.wt-search-more summary { padding-top: 14px; color: var(--wt-accent-strong); cursor: pointer; }
+.work-timeline-view mark { background: color-mix(in srgb, var(--wt-accent) 18%, var(--wt-card)); color: var(--wt-text); font-weight: 650; border-radius: 2px; }
+.wt-search-match:focus-visible, .wt-event-list .is-search-target:focus, .wt-pane-switch button:focus-visible { outline: 2px solid var(--wt-accent); outline-offset: 2px; }
+
 .wt-task-column {
   min-width: 0;
   min-height: 0;
@@ -469,10 +485,6 @@
 .work-timeline-view .wt-board-controls .wt-icon-button { width: 30px; padding: 0; }
 .work-timeline-view .wt-board-controls .wt-zoom-reset { width: 56px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--wt-text); }
 .work-timeline-view .wt-board-controls button:hover:not(:disabled) { background: var(--wt-card); color: var(--wt-accent-strong); }
-.work-timeline-view .wt-board-controls .wt-presentation-toggle { gap: 6px; }
-.wt-presentation-toggle svg { display: block; width: 16px; height: 16px; }
-.work-timeline-view .wt-board-controls .wt-presentation-toggle:hover,
-.work-timeline-view .wt-board-controls button[aria-pressed="true"] { background: var(--wt-soft); color: var(--wt-accent-strong); }
 .work-timeline-view .wt-board-controls button:disabled { opacity: .4; cursor: default; }
 @media (pointer: coarse) {
   .work-timeline-view .wt-board-controls button { height: 44px; min-height: 44px; min-width: 44px; }
@@ -1103,6 +1115,17 @@
   min-width: 0;
 }
 
+.wt-event-list li.is-progress .wt-event-body,
+.wt-event-list li.is-completed .wt-event-body {
+  padding: 10px 12px;
+  border-left: 3px solid var(--wt-accent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--wt-accent) 5%, var(--wt-card));
+}
+.wt-event-list li.is-completed .wt-event-body { border-left-color: var(--wt-green); background: color-mix(in srgb, var(--wt-green) 7%, var(--wt-card)); }
+.wt-event-list li.is-progress .wt-event-kind { color: var(--wt-accent-strong); font-weight: 650; }
+.wt-event-list li.is-completed .wt-event-kind { color: var(--wt-green); font-weight: 650; }
+
 .wt-event-kind {
   color: inherit;
   font-size: inherit;
@@ -1642,15 +1665,18 @@
 
   .wt-layout {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: max-content 560px;
-    align-content: start;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .wt-task-column {
-    overflow: visible;
+    overflow-y: auto;
   }
+
+  .wt-pane-switch { display: flex; flex: 0 0 auto; gap: 6px; padding: 6px 14px; border-bottom: 1px solid var(--wt-line); }
+  .work-timeline-view .wt-pane-switch button { flex: 1; min-height: 40px; background: transparent; color: var(--wt-muted); box-shadow: none; }
+  .work-timeline-view .wt-pane-switch button[aria-pressed="true"] { background: var(--wt-soft); color: var(--wt-accent-strong); font-weight: 650; }
+  .wt-shell[data-pane="tasks"] .wt-timeline-column,
+  .wt-shell[data-pane="history"] .wt-task-column { display: none; }
 
   .wt-timeline-column {
     border-top: 1px solid var(--wt-line);

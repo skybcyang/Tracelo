@@ -33,7 +33,7 @@ try {
       window.timelineObserver = new MutationObserver(records => window.preservedTimeline.changes += records.length);
       window.timelineObserver.observe(pane, { subtree: true, childList: true, attributes: true, characterData: true });
     });
-    for (const name of ['展示模式', '展示模式', '缩小看板', '恢复看板缩放为100%', '四象限', '分组']) {
+    for (const name of ['缩小看板', '恢复看板缩放为100%', '四象限', '分组']) {
       await page.getByRole('button', { name, exact: true }).click();
       await settle();
       const state = await page.evaluate(() => {
@@ -48,7 +48,8 @@ try {
     await page.evaluate(async id => {
       const plugin = window.cardFixture.plugin;
       await plugin.saveTaskNotes(id, '第一段详情\n\n' + '完整长详情。'.repeat(100) + '\n\n最后一段详情');
-      await plugin.setPresentationMode(false);
+      // Direct fixture writes need the same refresh the notes editor performs.
+      await plugin.setBoardZoom(plugin.state.boardZoom);
     }, ids.plain);
     const preview = card(ids.plain).locator('.wt-notes-preview');
     assert.equal(await card(ids.plain).locator('.wt-card-composer').count(), 0);
@@ -94,7 +95,7 @@ try {
     const image = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="960"><rect width="160" height="960" fill="steelblue"/></svg>').toString('base64');
     await page.evaluate(async ({ id, image }) => {
       await window.cardFixture.plugin.saveTaskNotes(id, `图片之前\n![长截图](<${image}>)\n图片之后`);
-      await window.cardFixture.plugin.setPresentationMode(false);
+      await window.cardFixture.plugin.setBoardZoom(window.cardFixture.plugin.state.boardZoom);
     }, { id: ids.dateOnly, image });
     const picture = card(ids.dateOnly).locator('.wt-notes-preview img');
     await picture.evaluate(img => img.decode());

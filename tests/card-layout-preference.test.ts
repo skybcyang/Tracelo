@@ -9,12 +9,13 @@ describe("card layout preference", () => {
     }
   });
 
-  it("preserves either layout independently of view and presentation preferences", () => {
+  it("preserves either layout and zoom while dropping legacy presentation preferences", () => {
     for (const cardLayout of ["aligned", "masonry"]) {
       const state = normalizePluginState({ cardLayout, viewMode: "quadrant", presentationMode: true, boardZoom: 80 });
       expect(normalizePluginState(JSON.parse(JSON.stringify(state)))).toMatchObject({
-        cardLayout, viewMode: "quadrant", presentationMode: true, boardZoom: 80,
+        cardLayout, viewMode: "quadrant", boardZoom: 80,
       });
+      expect(state).not.toHaveProperty('presentationMode');
     }
   });
 });

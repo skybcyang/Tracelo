@@ -67,8 +67,11 @@ describe("extended v1 archive", () => {
   });
 
   it("normalizes independent board preferences and preserves notes drafts", () => {
-    expect(createDefaultState()).toMatchObject({ boardZoom: 100, presentationMode: false, noteDrafts: {} });
-    expect(normalizePluginState({ boardZoom: 81, presentationMode: true, noteDrafts: { one: "草稿", two: 2 } })).toMatchObject({ boardZoom: 80, presentationMode: true, noteDrafts: { one: "草稿" } });
+    expect(createDefaultState()).toMatchObject({ boardZoom: 100, noteDrafts: {} });
+    expect(createDefaultState()).not.toHaveProperty('presentationMode');
+    const legacy = normalizePluginState({ boardZoom: 81, presentationMode: true, noteDrafts: { one: "草稿", two: 2 } });
+    expect(legacy).toMatchObject({ boardZoom: 80, noteDrafts: { one: "草稿" } });
+    expect(legacy).not.toHaveProperty('presentationMode');
     expect(normalizePluginState({ boardZoom: 500 }).boardZoom).toBe(120);
     expect(normalizePluginState({ boardZoom: 20 }).boardZoom).toBe(60);
     expect(normalizePluginState({ boardZoom: NaN }).boardZoom).toBe(100);

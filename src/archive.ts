@@ -25,7 +25,6 @@ export interface PluginState {
   noteDrafts: Record<string, string>;
   boardZoom: number;
   cardLayout: "aligned" | "masonry";
-  presentationMode: boolean;
   orders: TaskOrders;
   viewMode: ViewMode;
   lastDailyBackup: string | null;
@@ -46,7 +45,6 @@ export function createDefaultState(): PluginState {
     noteDrafts: {},
     boardZoom: 100,
     cardLayout: "aligned",
-    presentationMode: false,
     orders: { group: {}, quadrant: {} },
     viewMode: "group",
     lastDailyBackup: null,
@@ -85,7 +83,6 @@ export function normalizePluginState(value: unknown): PluginState {
     noteDrafts: stringRecord(value.noteDrafts),
     boardZoom: typeof value.boardZoom === "number" && Number.isFinite(value.boardZoom)
       ? Math.max(60, Math.min(120, Math.round(value.boardZoom / 5) * 5)) : 100,
-    presentationMode: value.presentationMode === true,
     cardLayout: value.cardLayout === "masonry" ? "masonry" : "aligned",
     orders: {
       group: orderRecord(orders.group),

@@ -145,7 +145,7 @@ try {
     }
   }
   await page.setViewportSize({ width: 1680, height: 1000 });
-  await page.evaluate(async () => { await window.cardFixture.plugin.setViewMode('group'); await window.cardFixture.plugin.setBoardZoom(100); await window.cardFixture.plugin.setPresentationMode(true); });
+  await page.evaluate(async () => { await window.cardFixture.plugin.setViewMode('group'); await window.cardFixture.plugin.setBoardZoom(100); });
   await settle();
   verifyPacked(await metrics());
   checks++;

@@ -58,7 +58,6 @@ try {
   });
 
   await check('failed progress retains text; retry saves once with static success feedback', async ids => {
-    await page.getByRole('button', { name: '展示模式', exact: true }).click();
     const item = card(ids.payment), before = await task(ids.payment);
     await item.locator('.wt-card-open').click();
     const input = item.locator('.wt-card-composer textarea');
@@ -79,14 +78,13 @@ try {
     const after = await task(ids.payment);
     assert.equal(after.events.filter(e => e.kind === 'progress').length, before.events.filter(e => e.kind === 'progress').length + 1);
     assert.equal(await item.locator('.wt-card-composer').count(), 0);
-    assert.equal(await page.locator('.wt-card.is-expanded').count(), 4);
+    assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
     assert.equal(await page.locator('.wt-card').first().getAttribute('data-task-id'), ids.payment);
     assert.equal(await item.evaluate(el => getComputedStyle(el).transitionDuration), '0s');
     await item.getByRole('status').waitFor({ state: 'detached', timeout: 5000 });
   });
 
   await check('Escape protects composition, then closes with draft and title focus retained', async ids => {
-    await page.getByRole('button', { name: '展示模式', exact: true }).click();
     const item = card(ids.payment);
     await item.locator('.wt-card-open').press('Enter');
     const input = item.locator('.wt-card-composer textarea');
@@ -97,7 +95,7 @@ try {
     await settle();
     assert.equal(await input.count(), 0);
     assert.equal(await item.locator('.wt-card-open').evaluate(el => el === document.activeElement), true);
-    assert.equal(await page.locator('.wt-card.is-expanded').count(), 4);
+    assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
     await item.locator('.wt-card-open').press('Enter');
     assert.equal(await input.inputValue(), '键盘关闭仍保留草稿');
     await item.getByRole('button', { name: '关闭进展输入', exact: true }).click();

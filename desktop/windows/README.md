@@ -42,7 +42,7 @@ npx vitest run desktop/windows/archive-compat.test.ts
 Windows PowerShell 一次执行核心测试、发布和原生 smoke test：
 
 ```powershell
-./desktop/windows/scripts/verify.ps1 -OutputDirectory ./dist/windows-verification -Version 0.8.0
+./desktop/windows/scripts/verify.ps1 -OutputDirectory ./dist/windows-verification -Version 0.9.0
 ```
 
 单独测试已发布可执行文件：

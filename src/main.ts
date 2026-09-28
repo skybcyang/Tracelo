@@ -18,6 +18,7 @@ import {
 } from "obsidian";
 
 import { AGENT_RULE } from "./agent-rule";
+import { findTaskMatches, searchExcerpt, type TaskMatch } from "./search";
 import { IconPickerModal, availableIconIds } from "./icon-picker";
 import { mountMasonryColumns } from "./card-layout";
 import { mountNewTaskForm, buildNewTask, type NewTaskValues, type NewTaskContext, type NewTaskDraft } from "./new-task-form";
@@ -494,6 +495,10 @@ class WorkTimelineView extends ItemView {
   private selectedTaskId: string | null = null;
   private expandedTaskId: string | null = null;
   private searchQuery = "";
+  private narrowPane: 'tasks' | 'history' = 'tasks';
+  private taskScrollTop = 0;
+  private hiddenTimelineReading?: TimelineReading;
+  private searchTarget?: { eventId: string; query: string };
   private addingTodoTaskId: string | null = null;
   private cardObserver: ResizeObserver | null = null;
   private masonryCleanups: Array<() => void> = [];
@@ -542,6 +547,8 @@ class WorkTimelineView extends ItemView {
       this.selectedTaskId = id;
       this.expandedTaskId = id;
       this.searchQuery = "";
+      this.searchTarget = undefined;
+      this.narrowPane = 'tasks';
       this.render();
       requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${id}"] .wt-card-open`)?.focus());
     }, context, returnFocus).open();
@@ -551,7 +558,8 @@ class WorkTimelineView extends ItemView {
     const root = this.contentEl;
     const existingShell = displayOnly ? root.querySelector<HTMLElement>(".wt-shell") : null;
     const endedOpen = root.querySelector<HTMLDetailsElement>(".wt-ended-section")?.open ?? false;
-    const taskScrollTop = root.querySelector(".wt-task-column")?.scrollTop ?? 0;
+    const taskPane = root.querySelector<HTMLElement>(".wt-task-column");
+    const taskScrollTop = taskPane?.clientHeight ? taskPane.scrollTop : this.taskScrollTop;
     const layoutScrollTop = root.querySelector(".wt-layout")?.scrollTop ?? 0;
     const timelineReading = existingShell ? undefined : this.captureTimelineReading();
     this.cardObserver?.disconnect();
@@ -560,11 +568,19 @@ class WorkTimelineView extends ItemView {
     if (!existingShell) root.empty();
     root.addClass("work-timeline-view");
     const shell = existingShell ?? root.createDiv({ cls: "wt-shell" });
+    shell.dataset.pane = this.narrowPane;
     shell.inert = this.plugin.storageBusy;
     shell.setAttr("aria-busy", String(this.plugin.storageBusy));
     const header = shell.querySelector<HTMLElement>(".wt-header");
     header?.empty();
     this.renderHeader(shell, header ?? undefined);
+    if (!existingShell) {
+      const switcher = shell.createDiv({ cls: 'wt-pane-switch', attr: { role: 'group', 'aria-label': '任务与历史' } });
+      for (const [pane, label, accessible] of [['tasks', '任务', '返回任务'], ['history', '历史', '查看历史']] as const) {
+        const button = switcher.createEl('button', { text: label, attr: { type: 'button', 'aria-label': accessible, 'aria-pressed': String(this.narrowPane === pane), 'data-pane': pane } });
+        button.onclick = () => this.showPane(pane);
+      }
+    }
     const layout = shell.querySelector<HTMLElement>(".wt-layout") ?? shell.createDiv({ cls: "wt-layout" });
     const tasks = layout.querySelector<HTMLElement>(".wt-task-column") ?? layout.createEl("main", { cls: "wt-task-column" });
     tasks.empty();
@@ -589,6 +605,22 @@ class WorkTimelineView extends ItemView {
     if (!existingShell) this.renderTimeline(layout.createEl("aside", { cls: "wt-timeline-column" }), timelineReading);
     tasks.scrollTop = taskScrollTop;
     layout.scrollTop = layoutScrollTop;
+  }
+
+  private showPane(pane: 'tasks' | 'history'): void {
+    const tasks = this.contentEl.querySelector<HTMLElement>('.wt-task-column');
+    if (tasks?.clientHeight) this.taskScrollTop = tasks.scrollTop;
+    const reading = this.captureTimelineReading();
+    this.narrowPane = pane;
+    const shell = this.contentEl.querySelector<HTMLElement>('.wt-shell');
+    if (shell) shell.dataset.pane = pane;
+    shell?.querySelectorAll<HTMLElement>('.wt-pane-switch button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.pane === pane)));
+    if (tasks) tasks.scrollTop = this.taskScrollTop;
+    const timeline = this.contentEl.querySelector<HTMLElement>('.wt-timeline-scroll');
+    if (timeline?.clientHeight) {
+      timeline.parentElement?.querySelector('.wt-new-progress')?.remove();
+      this.restoreTimelineReading(timeline, reading);
+    } else this.hiddenTimelineReading = reading;
   }
 
   private renderHeader(shell: HTMLElement, existingHeader?: HTMLElement): void {
@@ -618,7 +650,7 @@ class WorkTimelineView extends ItemView {
     const actions = header.createDiv({ cls: "wt-header-actions" });
     iconButton(actions, "archive", "导入与导出").addEventListener("click", () => this.plugin.openTransfer());
     iconButton(actions, "folders", "管理分组").addEventListener("click", () => new GroupManagerModal(this.app, this.plugin).open());
-    const create = actions.createEl("button", { cls: "wt-new-task-button", attr: { type: "button" } });
+    const create = actions.createEl("button", { cls: "wt-new-task-button", attr: { type: "button", "aria-label": "新建任务" } });
     setIcon(create, "plus");
     create.createSpan({ text: "新建任务" });
     create.addEventListener("click", () => this.openNewTask({}, create));
@@ -635,16 +667,31 @@ class WorkTimelineView extends ItemView {
       attr: { placeholder: "搜索任务和进展", "aria-label": "搜索任务和进展" },
     });
     input.value = this.searchQuery;
-    input.addEventListener("input", () => {
+    let composing = false;
+    const updateSearch = () => {
+      if (composing || !input.isConnected || this.searchQuery === input.value) return;
       this.searchQuery = input.value;
+      this.searchTarget = undefined;
       const cursor = input.selectionStart ?? input.value.length;
       this.render();
-      requestAnimationFrame(() => {
-        const next = this.contentEl.querySelector<HTMLInputElement>(".wt-search input");
-        next?.focus();
-        next?.setSelectionRange(cursor, cursor);
-      });
+      const next = this.contentEl.querySelector<HTMLInputElement>(".wt-search input");
+      next?.focus();
+      next?.setSelectionRange(cursor, cursor);
+    };
+    // Replacing the input while the IME owns it cancels candidate selection.
+    input.addEventListener('compositionstart', () => { composing = true; });
+    input.addEventListener('compositionend', () => {
+      composing = false;
+      updateSearch();
     });
+    input.addEventListener("input", event => {
+      if (!(event as InputEvent).isComposing) updateSearch();
+    });
+
+    if (this.searchQuery.trim()) {
+      this.renderSearchResults(container);
+      return;
+    }
 
     const matches = searchTasks(this.plugin.tasks, this.searchQuery);
     const sections = this.plugin.state.viewMode === "group"
@@ -667,15 +714,83 @@ class WorkTimelineView extends ItemView {
     for (const task of ended) this.renderCard(endedGrid, task, "ended");
   }
 
+  private clearSearch(): void {
+    this.searchQuery = '';
+    this.searchTarget = undefined;
+    this.render();
+    this.contentEl.querySelector<HTMLInputElement>('.wt-search input')?.focus();
+  }
+
+  private renderSearchResults(container: HTMLElement): void {
+    const results = this.plugin.tasks.map(task => ({ task, matches: findTaskMatches(task, this.searchQuery) })).filter(result => result.matches.length);
+    const summary = container.createDiv({ cls: 'wt-search-summary' });
+    summary.createSpan({ text: `${results.length} 个任务匹配 · 包含已结束任务`, attr: { role: 'status' } });
+    summary.createEl('button', { text: '清除搜索', attr: { type: 'button' } }).onclick = () => this.clearSearch();
+    if (!results.length) {
+      const empty = container.createDiv({ cls: 'wt-search-empty', attr: { role: 'status' } });
+      empty.createEl('h3', { text: `未找到“${this.searchQuery.trim()}”的相关记录` });
+      empty.createEl('p', { text: '已搜索全部任务的当前名称、详情、历史名称和进展。试试更短的关键词，或清除搜索查看全部任务。' });
+    }
+    for (const { task, matches } of results) {
+      const result = container.createEl('section', { cls: 'wt-search-result' });
+      result.createEl('h3', { text: task.title });
+      result.createEl('p', { cls: 'wt-search-result-meta', text: `${task.groupName} · ${task.status === 'active' ? '进行中' : task.status === 'completed' ? '已完成' : '异常关闭'} · ${matches.length} 处匹配` });
+      let extra: HTMLElement | undefined;
+      matches.forEach((match, index) => {
+        if (index === 3) {
+          extra = result.createEl('details', { cls: 'wt-search-more' });
+          extra.createEl('summary', { text: `显示其余 ${matches.length - 3} 处匹配` });
+        }
+        const button = (extra ?? result).createEl('button', { cls: 'wt-search-match', attr: { type: 'button' } });
+        const label = { title: '当前名称', notes: '当前详情', progress: '进展', 'historical-title': '历史名称' }[match.source];
+        button.createSpan({ cls: 'wt-search-source', text: `${label}${match.day ? ` · ${match.day}` : ''} · ${match.eventId ? '查看原记录' : '查看任务'}` });
+        this.renderSearchText(button.createSpan({ cls: 'wt-search-excerpt' }), match.text);
+        button.onclick = () => this.openSearchMatch(task, match);
+      });
+    }
+  }
+
+  private renderSearchText(container: HTMLElement, text: string): void {
+    const excerpt = searchExcerpt(text, this.searchQuery);
+    container.append(excerpt.before);
+    if (excerpt.match) container.createEl('mark', { text: excerpt.match });
+    container.append(excerpt.after);
+  }
+
+  private openSearchMatch(task: WorkTask, match: TaskMatch): void {
+    this.selectedTaskId = task.id;
+    if (!match.eventId) {
+      this.expandedTaskId = task.id;
+      this.searchQuery = '';
+      this.searchTarget = undefined;
+      this.narrowPane = 'tasks';
+      this.render();
+      const ended = this.contentEl.querySelector<HTMLDetailsElement>('.wt-ended-section');
+      if (ended && isTaskEnded(task)) ended.open = true;
+      const card = Array.from(this.contentEl.querySelectorAll<HTMLElement>('.wt-card')).find(el => el.dataset.taskId === task.id);
+      const target = card?.querySelector<HTMLElement>(match.source === 'notes' ? '.wt-notes-preview' : '.wt-card-open');
+      if (target) {
+        if (match.source === 'notes') target.tabIndex = -1;
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ block: 'nearest' });
+      }
+      return;
+    }
+    this.searchTarget = { eventId: match.eventId, query: this.searchQuery };
+    this.showPane('history');
+    this.render();
+    const target = Array.from(this.contentEl.querySelectorAll<HTMLElement>('[data-event-id]')).find(el => el.dataset.eventId === match.eventId);
+    const body = target?.closest<HTMLElement>('.wt-timeline-scroll');
+    if (target && body) {
+      target.tabIndex = -1;
+      target.classList.add('is-search-target');
+      target.focus({ preventScroll: true });
+      body.scrollTop += target.getBoundingClientRect().top - body.getBoundingClientRect().top - 12;
+    }
+  }
+
   private renderBoardControls(shell: HTMLElement): void {
     const controls = shell.createDiv({ cls: "wt-board-controls" });
-    const presentation = controls.createEl("button", { cls: "wt-presentation-toggle", attr: { type: "button", "aria-pressed": String(this.plugin.state.presentationMode) } });
-    setIcon(presentation.createSpan({ attr: { "aria-hidden": "true" } }), "panel-top");
-    presentation.createSpan({ text: "展示模式" });
-    presentation.onclick = () => void runWithNotice(async () => {
-      await this.plugin.setPresentationMode(!this.plugin.state.presentationMode);
-      this.contentEl.querySelector<HTMLButtonElement>(".wt-presentation-toggle")?.focus({ preventScroll: true });
-    });
     const group = controls.createDiv({ cls: "wt-zoom-controls", attr: { role: "group", "aria-label": "看板缩放" } });
     group.createSpan({ text: "看板缩放", cls: "wt-zoom-label", attr: { "aria-hidden": "true" } });
     const stepper = group.createDiv({ cls: "wt-zoom-stepper" });
@@ -737,9 +852,9 @@ class WorkTimelineView extends ItemView {
   private renderCard(container: HTMLElement, task: WorkTask, area: string): void {
     const selected = this.selectedTaskId === task.id;
     const editing = this.expandedTaskId === task.id;
-    const expanded = editing || this.plugin.state.presentationMode;
+    const expanded = editing;
     const card = container.createEl("article", {
-      cls: `wt-card${selected ? " is-selected" : ""}${isTaskEnded(task) ? " is-ended" : ""}${expanded ? " is-expanded" : ""}${this.plugin.state.presentationMode ? " is-presenting" : ""}${editing ? " is-editing" : ""}`,
+      cls: `wt-card${selected ? " is-selected" : ""}${isTaskEnded(task) ? " is-ended" : ""}${expanded ? " is-expanded" : ""}${editing ? " is-editing" : ""}`,
       attr: { "data-task-id": task.id, draggable: String(task.status === "active") },
     });
     const body = card.createDiv({ cls: "wt-card-body" });
@@ -814,7 +929,7 @@ class WorkTimelineView extends ItemView {
       this.expandedTaskId = editing ? null : task.id;
       if (expanded) this.addingTodoTaskId = null;
       this.render();
-      this.focusCard(task.id, this.plugin.state.presentationMode && !editing);
+      this.focusCard(task.id);
     });
     if (!expanded) {
       const more = meta.createEl('button', { text: '展开完整内容', cls: 'wt-read-more', attr: { type: 'button' } });
@@ -831,9 +946,9 @@ class WorkTimelineView extends ItemView {
       const selection = card.ownerDocument.getSelection();
       if (selection && !selection.isCollapsed && card.contains(selection.anchorNode)) return;
       this.selectedTaskId = task.id;
-      this.expandedTaskId = this.plugin.state.presentationMode ? task.id : editing ? null : task.id;
+      this.expandedTaskId = editing ? null : task.id;
       this.render();
-      this.focusCard(task.id, this.plugin.state.presentationMode);
+      this.focusCard(task.id);
     });
     card.addEventListener("contextmenu", (event) => {
       if ((event.target as Element).closest("input, textarea, [contenteditable]")) return;
@@ -1292,12 +1407,23 @@ class WorkTimelineView extends ItemView {
         this.contentEl.querySelector<HTMLButtonElement>('.wt-back-button')?.focus({ preventScroll: true });
       });
     }
-    body.createEl("p", { text: event.text, cls: "wt-event-text" });
+    const text = body.createEl("p", { cls: "wt-event-text" });
+    if (this.searchTarget?.eventId === event.id) {
+      const value = event.kind === 'progress' ? event.text : `${event.title} · ${event.text}`;
+      const query = this.searchTarget.query.trim();
+      const start = value.toLocaleLowerCase('zh-CN').indexOf(query.toLocaleLowerCase('zh-CN'));
+      if (start >= 0) {
+        text.append(value.slice(0, start));
+        text.createEl('mark', { text: value.slice(start, start + query.length) });
+        text.append(value.slice(start + query.length));
+      } else text.setText(value);
+    } else text.setText(event.text);
   }
 
   private captureTimelineReading(): TimelineReading | undefined {
     const body = this.contentEl.querySelector<HTMLElement>(".wt-timeline-scroll");
     if (!body) return undefined;
+    if (!body.clientHeight) return this.hiddenTimelineReading;
     const items = Array.from(body.querySelectorAll<HTMLElement>("[data-event-id]"));
     const top = body.getBoundingClientRect().top;
     const anchor = items.find(item => item.getBoundingClientRect().bottom > top);
@@ -1313,6 +1439,10 @@ class WorkTimelineView extends ItemView {
   }
 
   private restoreTimelineReading(body: HTMLElement, reading?: TimelineReading): void {
+    if (!body.clientHeight) {
+      this.hiddenTimelineReading = reading;
+      return;
+    }
     // Read the previous DOM before replacement, then restore synchronously so a
     // later animation frame cannot override a user's scroll or another render.
     if (!reading || reading.key !== body.dataset.timelineKey) {
@@ -1327,7 +1457,7 @@ class WorkTimelineView extends ItemView {
     }
     const anchor = items.find(item => item.dataset.eventId === reading.anchorId);
     body.scrollTop = anchor
-      ? anchor.getBoundingClientRect().top - body.getBoundingClientRect().top - reading.anchorOffset
+      ? body.scrollTop + anchor.getBoundingClientRect().top - body.getBoundingClientRect().top - reading.anchorOffset
       : reading.top;
     if (!reading.nearBottom && (newActivity || reading.pendingProgress)) {
       const button = body.parentElement!.createEl("button", { cls: "wt-new-progress", attr: { type: "button", "aria-label": "有新进展" } });
@@ -1638,11 +1768,6 @@ export default class WorkTimelinePlugin extends Plugin {
 
   async setBoardZoom(value: number): Promise<void> {
     this.state.boardZoom = Math.min(120, Math.max(60, Math.round(value / 5) * 5));
-    await this.persistState(); this.renderViews(undefined, true);
-  }
-
-  async setPresentationMode(value: boolean): Promise<void> {
-    this.state.presentationMode = value;
     await this.persistState(); this.renderViews(undefined, true);
   }
 
