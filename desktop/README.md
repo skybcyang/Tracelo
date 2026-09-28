@@ -1,6 +1,17 @@
-# Tracelo macOS 快捷创建
+# Tracelo 桌面快捷创建
 
-0.6.0 随源码提供的实验性工具，尚无签名／公证安装包。Release 构建、4 项核心测试、跨语言协议与真实插件文件接入已通过；原生窗口自动验收连接超时，快捷键、实际输入法、多屏和焦点恢复仍待实机验证，以下输入行为为实现目标而非全部已验收结论。
+0.7.0 提供 macOS Universal `.app` 压缩包和 Windows x64 自包含 `.exe` 压缩包，均与同版 Obsidian 插件配套使用。macOS 仅作本地 ad-hoc 签名，尚无开发者签名／公证；Windows 尚无代码签名。系统可能提示发布者未经验证。实际输入法选词、多屏和焦点恢复仍需实机复核，自动协议／输入策略测试不等同于全部系统交互验收。
+
+## 下载与安装
+
+从 [GitHub Releases](https://github.com/skybcyang/Tracelo/releases/latest) 下载对应平台的 ZIP，并核对 `SHA256SUMS.txt`。
+
+- **macOS 13+（Intel / Apple Silicon）**：解压 `Tracelo-Capture-0.7.0-macos-universal.zip`，将 `Tracelo Capture.app` 放入应用程序目录并打开。通过菜单栏图标进入设置。应用不会自动注册开机启动。
+- **Windows 10/11 x64**：解压 `Tracelo-Capture-0.7.0-windows-x64.zip`，运行 `TraceloCapture.exe`；无需另装 .NET。通过托盘菜单进入设置，详见 [Windows 使用与开发](windows/README.md)。
+
+选择 vault 后，填写插件设置中的实际任务相对目录。目录须存在；快捷工具只新增任务，不修改原有任务与插件状态。两个系统默认使用 Control+Alt/Option+Space，可在设置中更改。
+
+## macOS 实现
 
 独立的 Swift / AppKit 菜单栏工具，macOS 13+，无第三方依赖。参考本地 Eureka 的 NSPanel、鼠标所在屏幕定位和 Carbon 全局快捷键模式；不复制其存档格式，不启动 HTTP 服务，也不要求 Obsidian 正在运行。
 
@@ -29,7 +40,7 @@ desktop/.build/release/TraceloCapture
 
 `CaptureCore` 与 `src/archive.ts` 使用同一 v1 协议，包含 JSON 注释、属性、可选 `## 详情` 和时间线。详情位于属性之后、待办之前。JSON 使用两个空格缩进，Unicode 和斜线保持原样，转义遵循 `JSON.stringify`；无详情时不写字段或正文区。
 
-当前工作区将产品名称“备注”调整为“详情”（尚未发布）。内部字段仍为 `notes`，插件继续严格兼容旧 `## 备注` 存档；使用本工作区原生工具时，应搭配同一工作区构建的插件，已发布的 0.6.0 插件尚不支持新的正文标题。
+0.7.0 将产品名称“备注”调整为“详情”。内部字段仍为 `notes`，插件继续严格兼容旧 `## 备注` 存档；应搭配 0.7.0 或更新插件，0.6.0 插件不支持新的正文标题。
 
 文件名为唯一任务 UUID 加 `.md`，省略 `archiveName`，因此解析后使用任务 ID 作为合法归档名称。工具仅新增文件，不修改任何已有任务、分组档案、插件状态或材料。配置拒绝 `..`、绝对任务路径及解析符号链接后逃出 vault 的路径。
 
@@ -40,11 +51,12 @@ desktop/.build/release/TraceloCapture
 ```sh
 swift run --package-path desktop CaptureCoreTests
 npx vitest run tests/desktop-archive.test.ts
+bash desktop/package-macos.sh
 ```
 
 原生测试不依赖 XCTest（仅安装 Command Line Tools 的环境也可运行），覆盖多行拆分、空标题、IME/Shift/Enter/Esc 输入策略、目录边界、原子不覆盖和相同请求重试。跨语言测试实际编译 Swift fixture，生成只有标题、中文/图片详情、Unicode/控制字符转义三类样例；由 TypeScript 严格解析并重新序列化，逐字节比较。仅 macOS 执行该跨语言测试。
 
-构建与上述自动测试不启动菜单栏程序，不写入真实 vault。
+核心与协议测试不写入真实 vault。打包脚本同时构建 arm64/x86_64，合并 Universal 应用并验证签名与应用启动；启动检查只构造界面并退出，不注册快捷键或创建任务。
 
 ## 需要交互验收的项目
 

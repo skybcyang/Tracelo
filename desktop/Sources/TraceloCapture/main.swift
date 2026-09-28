@@ -190,6 +190,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate, NS
         }
         panel.makeKeyAndOrderFront(nil)
         refreshEditor()
+        if let screen = panel.screen {
+            let bounds = screen.visibleFrame
+            panel.setFrameOrigin(NSPoint(x: bounds.midX - panel.frame.width / 2, y: bounds.midY - panel.frame.height / 2))
+        }
         if !editor.string.isEmpty { hint.stringValue = "已恢复草稿"; hint.textColor = .secondaryLabelColor }
         NSApp.activate(ignoringOtherApps: true)
         panel.makeFirstResponder(editor)
