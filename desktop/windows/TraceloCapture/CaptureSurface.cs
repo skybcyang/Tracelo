@@ -10,6 +10,7 @@ internal sealed class CaptureSurface : UserControl {
     internal event Action<string, JsonElement>? Action;
     internal bool Ready { get; private set; }
     internal string? LoadError { get; private set; }
+    internal readonly List<string> Diagnostics = new();
     private readonly Dictionary<string, object?> pending = new();
     private readonly string profileDirectory;
     private bool started;
@@ -28,13 +29,18 @@ internal sealed class CaptureSurface : UserControl {
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
             core.Settings.IsZoomControlEnabled = false;
-            core.NavigationStarting += (_, e) => { if (e.Uri != "about:blank") e.Cancel = true; };
+            core.NavigationStarting += (_, e) => {
+                Diagnostics.Add("Navigation starting: " + e.Uri);
+                if (e.Uri != "about:blank") e.Cancel = true;
+            };
+            core.NavigationCompleted += (_, e) => Diagnostics.Add($"Navigation completed: {e.IsSuccess}, {e.WebErrorStatus}, source {core.Source}");
             core.NewWindowRequested += (_, e) => e.Handled = true;
             core.PermissionRequested += (_, e) => e.State = CoreWebView2PermissionState.Deny;
             core.DownloadStarting += (_, e) => e.Cancel = true;
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
             core.WebResourceRequested += (_, e) => e.Response = environment.CreateWebResourceResponse(Stream.Null, 403, "Blocked", "");
             core.WebMessageReceived += (_, e) => {
+                if (!Ready && Diagnostics.Count < 30) Diagnostics.Add("Message source: " + e.Source);
                 if (e.Source != "about:blank" || e.WebMessageAsJson.Length > 3 * 1024 * 1024) return;
                 try {
                     using var document = JsonDocument.Parse(e.WebMessageAsJson);
@@ -44,7 +50,7 @@ internal sealed class CaptureSurface : UserControl {
                     Action?.Invoke(name.GetString()!, message);
                 } catch (JsonException) { /* Invalid messages never reach disk operations. */ }
             };
-            await core.AddScriptToExecuteOnDocumentCreatedAsync("window.chrome.webview.addEventListener('message', event => { if (window.capture) window.capture.update(event.data); });");
+            await core.AddScriptToExecuteOnDocumentCreatedAsync("window.captureErrors = []; window.addEventListener('error', event => window.captureErrors.push(event.message)); window.chrome.webview.addEventListener('message', event => { if (window.capture) window.capture.update(event.data); });");
             core.NavigateToString(LoadHtml());
         } catch (Exception error) {
             LoadError = error.Message; Browser.Visible = false;

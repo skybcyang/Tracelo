@@ -97,7 +97,14 @@ internal static class SmokeTest {
                     settings.Close(); app.Dismiss();
                     await WaitFor(() => Task.FromResult(!app.Window.Visible), "native dismiss did not snapshot the final draft");
                     exitCode = 0;
-                } catch (Exception error) { log.Add(error.ToString()); }
+                } catch (Exception error) {
+                    log.Add(error.ToString());
+                    log.AddRange(app.Window.Surface.Diagnostics);
+                    try {
+                        log.Add(await app.Window.Surface.EvaluateAsync("JSON.stringify({url:location.href,ready:document.readyState,body:document.body.innerText,shared:typeof TraceloCreateTask,capture:typeof window.capture,errors:window.captureErrors})"));
+                        await app.Window.Surface.SnapshotAsync(Path.Combine(outputDirectory, "failed-smoke.png"));
+                    } catch (Exception diagnosticError) { log.Add(diagnosticError.ToString()); }
+                }
                 finally { Application.ExitThread(); }
             });
             Application.Run(app);
