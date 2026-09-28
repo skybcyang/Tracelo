@@ -44,13 +44,16 @@ describe("task context independent of progress", () => {
 describe("extended v1 archive", () => {
   it("round trips notes and icons, checks their readable projection, and accepts old tasks", () => {
     const old = base();
-    expect(serializeTaskMarkdown(old)).not.toContain("## 备注");
+    expect(serializeTaskMarkdown(old)).not.toContain("## 详情");
     expect(parseTaskMarkdown(serializeTaskMarkdown(old))).toEqual(old);
     const task = setTaskIcon(setTaskNotes(old, "前文\n![图](capture.png)\n后文", at(2), "notes"), null, at(3), "icon");
     const source = serializeTaskMarkdown(task);
-    expect(source).toContain("## 备注\n\n前文\n![图](capture.png)\n后文\n\n## 时间线");
+    expect(source).toContain("## 详情\n\n前文\n![图](capture.png)\n后文\n\n## 时间线");
     expect(parseTaskMarkdown(source)).toEqual(task);
-    expect(() => parseTaskMarkdown(source.replace("## 备注\n\n前文", "## 备注\n\n改写"))).toThrow();
+    expect(() => parseTaskMarkdown(source.replace("## 详情\n\n前文", "## 详情\n\n改写"))).toThrow();
+    const legacy = source.replace('## 详情', '## 备注').replaceAll('**详情变更**', '**备注变更**');
+    expect(parseTaskMarkdown(legacy)).toEqual(task);
+    expect(() => parseTaskMarkdown(legacy.replace('## 备注\n\n前文', '## 备注\n\n改写'))).toThrow();
     for (const invalid of [{ notes: 42 }, { icon: "" }, { icon: "../bad" }, { materialFolder: "任务/../other" }]) {
       expect(() => serializeTaskMarkdown({ ...old, ...invalid } as never)).toThrow();
     }

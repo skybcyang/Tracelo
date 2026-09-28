@@ -25,7 +25,8 @@ export function setIcon(el, name) {
   svg.setAttribute("viewBox", "0 0 24 24");
   el.appendChild(svg);
 }
-export const getIconIds = () => ['circle-dot', 'layers', 'code', 'file-text', 'target'];
+// Obsidian lists built-in IDs with the lucide- prefix, while setIcon accepts short names.
+export const getIconIds = () => ['circle-dot', 'layers', 'code', 'file-text', 'target'].map(id => `lucide-${id}`);
 export class MarkdownRenderer {
   static async render(app, source, target) {
     // Model the host's image DOM boundary; Markdown parsing itself belongs to Obsidian.
@@ -45,7 +46,7 @@ export class Plugin {
   registerView(type, factory) { this.app.factories.set(type, factory); }
   addRibbonIcon() {}
   addCommand() {}
-  addSettingTab() {}
+  addSettingTab(tab) { (this.settingTabs ??= []).push(tab); }
   registerEvent() {}
 }
 export class ItemView {
@@ -68,21 +69,50 @@ export class Modal {
     this.contentEl = this.modalEl.createDiv({ cls: "modal-content" });
   }
   setTitle(title) { this.titleEl.textContent = title; }
-  open() { document.body.append(this.containerEl); this.onOpen(); }
+  open() { document.body.append(this.containerEl); this.onOpen?.(); }
   close() { this.onClose?.(); this.containerEl.remove(); }
 }
 export class Notice {
   constructor(text) { this.messageEl = document.body.createDiv({ cls: "notice", text }); }
   hide() { this.messageEl.remove(); }
 }
-export class PluginSettingTab { constructor(app) { this.app = app; } }
+export class PluginSettingTab { constructor(app) { this.app = app; this.containerEl = document.createElement('div'); } }
 export class App {}
 export class WorkspaceLeaf {}
 export class TFile {}
 export class TFolder { constructor(path) { this.path = path; } }
 export class FileSystemAdapter { getFullPath(path) { return '/test-vault/' + path; } }
 export const Platform = { isDesktopApp: true, isWin: false };
-export class Setting {}
+export class Setting {
+  constructor(container) {
+    this.settingEl = container.createDiv({ cls: 'setting-item' });
+    this.nameEl = this.settingEl.createDiv({ cls: 'setting-item-name' });
+    this.descEl = this.settingEl.createDiv({ cls: 'setting-item-description' });
+    this.controlEl = this.settingEl.createDiv({ cls: 'setting-item-control' });
+  }
+  setName(value) { this.nameEl.textContent = value; return this; }
+  setDesc(value) { this.descEl.textContent = value; return this; }
+  addText(build) {
+    const input = this.controlEl.createEl('input');
+    const component = { setValue(value) { input.value = value; return this; }, onChange(callback) { input.oninput = () => callback(input.value); return this; } };
+    build(component); return this;
+  }
+  addButton(build) {
+    const button = this.controlEl.createEl('button');
+    const component = { setButtonText(value) { button.textContent = value; return this; }, onClick(callback) { button.onclick = callback; return this; } };
+    build(component); return this;
+  }
+  addDropdown(build) {
+    const selectEl = this.controlEl.createEl('select');
+    const component = {
+      selectEl,
+      addOption(value, text) { selectEl.createEl('option', { text, value }); return this; },
+      setValue(value) { selectEl.value = value; return this; },
+      onChange(callback) { selectEl.onchange = () => callback(selectEl.value); return this; },
+    };
+    build(component); return this;
+  }
+}
 export class Menu {
   constructor() { this.el = document.createElement('div'); this.el.setAttribute('role', 'menu'); }
   addItem(build) {

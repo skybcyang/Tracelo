@@ -75,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         let content = NSView(frame: NSRect(x: 0, y: 0, width: 520, height: 230))
-        let label = NSTextField(labelWithString: "第一行标题，其余内容保存为备注")
+        let label = NSTextField(labelWithString: "第一行标题，其余内容保存为详情")
         label.frame = NSRect(x: 20, y: 194, width: 480, height: 20)
         content.addSubview(label)
         let scroll = NSScrollView(frame: NSRect(x: 20, y: 56, width: 480, height: 128))

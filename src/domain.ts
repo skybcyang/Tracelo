@@ -202,7 +202,7 @@ export function setTaskNotes(task: WorkTask, notes: string, now: Date, eventId: 
   const changed = { ...task };
   if (notes) changed.notes = notes;
   else delete changed.notes;
-  return { ...changed, events: [...task.events, event(changed, "notes_changed", notes ? "更新任务备注" : "清空任务备注", now, eventId, {
+  return { ...changed, events: [...task.events, event(changed, "notes_changed", notes ? "更新任务详情" : "清空任务详情", now, eventId, {
     from: task.notes ?? "", to: notes,
   })] };
 }

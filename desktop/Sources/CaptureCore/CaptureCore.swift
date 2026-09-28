@@ -85,7 +85,7 @@ public struct CaptureRequest {
         if !draft.notes.isEmpty { fields.append("  \"notes\": \(quote(draft.notes))") }
         let eventFields = [("id", quote(eventID)), ("kind", quote("created")), ("text", quote("创建任务")), ("at", quote(at)), ("day", quote(day.string(from: now))), ("timezone", quote(timezone.identifier)), ("offsetMinutes", String(timezone.secondsFromGMT(for: now) / 60)), ("title", quote(draft.title)), ("groupName", quote("未分组")), ("important", "false"), ("urgent", "false")]
         fields.append("  \"events\": [\n    {\n" + eventFields.map { "      \(quote($0.0)): \($0.1)" }.joined(separator: ",\n") + "\n    }\n  ]")
-        let notes = draft.notes.isEmpty ? "" : "\n\n## 备注\n\n\(draft.notes)"
+        let notes = draft.notes.isEmpty ? "" : "\n\n## 详情\n\n\(draft.notes)"
         markdown = "<!-- work-timeline-task:v1\n{\n" + fields.joined(separator: ",\n") + "\n}\n-->\n\n# \(inline(draft.title))\n\n- 状态：进行中\n- 分组：未分组\n- 象限：不重要 · 不紧急\(notes)\n\n## 时间线\n\n- \(at) · **创建** · 创建任务\n"
     }
     public func publish(to directory: URL) throws -> URL {

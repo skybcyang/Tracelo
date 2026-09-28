@@ -36,7 +36,7 @@ try {
   });
   await check('empty notes entry shares a row instead of reserving a notes section', async () => {
     assert.equal(await card(ids.bare).locator('.wt-task-notes').count(), 0);
-    assert.equal(await card(ids.bare).getByRole('button', { name: '添加备注', exact: true }).count(), 1);
+    assert.equal(await card(ids.bare).getByRole('button', { name: '添加详情', exact: true }).count(), 1);
     assert.equal(await card(ids.bare).locator('.wt-read-more:visible').count(), 0);
   });
   await check('collapsed cards show three open todos with one fraction and clear remaining count', async () => {

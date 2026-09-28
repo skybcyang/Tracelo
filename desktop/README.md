@@ -19,15 +19,17 @@ desktop/.build/release/TraceloCapture
 
 ## 输入行为
 
-- 第一行作为标题（去除首尾空白），剩余行作为 Markdown 备注，保留行顺序、空行与图片引用。第一行空白时不能保存。
+- 第一行作为标题（去除首尾空白），剩余行作为 Markdown 详情，保留行顺序、空行与图片引用。第一行空白时不能保存。
 - Enter 创建，Shift+Enter 换行；输入法有 marked text 时按键交由系统处理，避免选词时误提交。
 - Esc 收起并保留草稿，再次打开恢复。浮窗位于鼠标所在显示器的可见区域中心，并聚焦编辑框；收起后恢复此前应用焦点。
-- 默认「未分组、不重要、不紧急」。备注不是进展；仅生成一条创建事件。
+- 默认「未分组、不重要、不紧急」。详情不是进展；仅生成一条创建事件。
 - 保存成功才清空输入并收起。错误在浮窗中提示，原输入和本次请求 ID 保留以供重试。
 
 ## 存档协议与安全发布
 
-`CaptureCore` 与 `src/archive.ts` 使用同一 v1 协议，包含 JSON 注释、属性、可选 `## 备注` 和时间线。备注位于属性之后、待办之前。JSON 使用两个空格缩进，Unicode 和斜线保持原样，转义遵循 `JSON.stringify`；无备注时不写字段或正文区。
+`CaptureCore` 与 `src/archive.ts` 使用同一 v1 协议，包含 JSON 注释、属性、可选 `## 详情` 和时间线。详情位于属性之后、待办之前。JSON 使用两个空格缩进，Unicode 和斜线保持原样，转义遵循 `JSON.stringify`；无详情时不写字段或正文区。
+
+当前工作区将产品名称“备注”调整为“详情”（尚未发布）。内部字段仍为 `notes`，插件继续严格兼容旧 `## 备注` 存档；使用本工作区原生工具时，应搭配同一工作区构建的插件，已发布的 0.6.0 插件尚不支持新的正文标题。
 
 文件名为唯一任务 UUID 加 `.md`，省略 `archiveName`，因此解析后使用任务 ID 作为合法归档名称。工具仅新增文件，不修改任何已有任务、分组档案、插件状态或材料。配置拒绝 `..`、绝对任务路径及解析符号链接后逃出 vault 的路径。
 
@@ -40,7 +42,7 @@ swift run --package-path desktop CaptureCoreTests
 npx vitest run tests/desktop-archive.test.ts
 ```
 
-原生测试不依赖 XCTest（仅安装 Command Line Tools 的环境也可运行），覆盖多行拆分、空标题、IME/Shift/Enter/Esc 输入策略、目录边界、原子不覆盖和相同请求重试。跨语言测试实际编译 Swift fixture，生成只有标题、中文/图片备注、Unicode/控制字符转义三类样例；由 TypeScript 严格解析并重新序列化，逐字节比较。仅 macOS 执行该跨语言测试。
+原生测试不依赖 XCTest（仅安装 Command Line Tools 的环境也可运行），覆盖多行拆分、空标题、IME/Shift/Enter/Esc 输入策略、目录边界、原子不覆盖和相同请求重试。跨语言测试实际编译 Swift fixture，生成只有标题、中文/图片详情、Unicode/控制字符转义三类样例；由 TypeScript 严格解析并重新序列化，逐字节比较。仅 macOS 执行该跨语言测试。
 
 构建与上述自动测试不启动菜单栏程序，不写入真实 vault。
 

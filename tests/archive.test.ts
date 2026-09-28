@@ -36,6 +36,15 @@ function task() {
 }
 
 describe("Markdown archive protocol", () => {
+  it("writes details headings while reading exact legacy notes projections", () => {
+    const withDetails = { ...task(), notes: '原有备注内容保持原样' };
+    const current = serializeTaskMarkdown(withDetails);
+    expect(current).toContain('## 详情');
+    const legacy = current.replace('## 详情', '## 备注');
+    expect(parseTaskMarkdown(legacy)).toEqual(withDetails);
+    expect(parseTaskMarkdown(current)).toEqual(withDetails);
+    expect(() => parseTaskMarkdown(legacy.replace('## 备注\n\n原有', '## 备注\n\n外部修改'))).toThrow('任务文件已被外部修改');
+  });
   it("round-trips one task while remaining readable as Markdown", () => {
     const source = serializeTaskMarkdown(task());
 

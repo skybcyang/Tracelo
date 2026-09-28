@@ -309,6 +309,7 @@ async function commitImport(adapter: TransferAdapter, store: ArchiveStore, input
     if (!existing.length) {
       nextState.viewMode = bundle.state.viewMode;
       nextState.boardZoom = bundle.state.boardZoom;
+      nextState.cardLayout = bundle.state.cardLayout;
       nextState.presentationMode = bundle.state.presentationMode;
     }
     const importedIds = new Set(plan.tasks.map(t => t.id));

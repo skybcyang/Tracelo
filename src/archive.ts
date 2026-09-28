@@ -24,6 +24,7 @@ export interface PluginState {
   drafts: Record<string, string>;
   noteDrafts: Record<string, string>;
   boardZoom: number;
+  cardLayout: "aligned" | "masonry";
   presentationMode: boolean;
   orders: TaskOrders;
   viewMode: ViewMode;
@@ -44,6 +45,7 @@ export function createDefaultState(): PluginState {
     drafts: {},
     noteDrafts: {},
     boardZoom: 100,
+    cardLayout: "aligned",
     presentationMode: false,
     orders: { group: {}, quadrant: {} },
     viewMode: "group",
@@ -84,6 +86,7 @@ export function normalizePluginState(value: unknown): PluginState {
     boardZoom: typeof value.boardZoom === "number" && Number.isFinite(value.boardZoom)
       ? Math.max(60, Math.min(120, Math.round(value.boardZoom / 5) * 5)) : 100,
     presentationMode: value.presentationMode === true,
+    cardLayout: value.cardLayout === "masonry" ? "masonry" : "aligned",
     orders: {
       group: orderRecord(orders.group),
       quadrant: orderRecord(orders.quadrant),
@@ -110,7 +113,7 @@ const EVENT_LABELS: Record<TaskEventKind, string> = {
   todo_removed: "删除待办",
   todo_restored: "恢复待办",
   due_changed: "截止日期变更",
-  notes_changed: "备注变更",
+  notes_changed: "详情变更",
   icon_changed: "图标变更",
 };
 
@@ -124,7 +127,7 @@ function inline(text: string): string {
   return text.replace(/\r?\n/g, " ").replace(/([\\`*_{}[\]<>])/g, "\\$1");
 }
 
-function taskBody(task: WorkTask): string {
+function taskBody(task: WorkTask, legacyNotes = false): string {
   const properties = [
     `- 状态：${STATUS_LABELS[task.status]}`,
     `- 分组：${inline(task.groupName)}`,
@@ -135,9 +138,9 @@ function taskBody(task: WorkTask): string {
     ? `\n\n## 待办\n\n${task.todos.map(({ done, text }) => `- [${done ? "x" : " "}] ${inline(text)}`).join("\n")}`
     : "";
   const timeline = task.events.map((entry) =>
-    `- ${entry.at} · **${EVENT_LABELS[entry.kind]}** · ${inline(entry.text)}`,
+    `- ${entry.at} · **${legacyNotes && entry.kind === "notes_changed" ? "备注变更" : EVENT_LABELS[entry.kind]}** · ${inline(entry.text)}`,
   ).join("\n");
-  const notes = task.notes ? `\n\n## 备注\n\n${task.notes}` : "";
+  const notes = task.notes ? `\n\n## ${legacyNotes ? "备注" : "详情"}\n\n${task.notes}` : "";
   return `# ${inline(task.title)}\n\n${properties}${notes}${todos}\n\n## 时间线\n\n${timeline}\n`;
 }
 
@@ -216,7 +219,8 @@ export function parseTaskMarkdown(source: string): WorkTask {
     throw new Error("任务文件格式无效");
   }
   assertTask(value);
-  if (serializeTaskMarkdown(value) !== source) throw new Error("任务文件已被外部修改");
+  const legacy = `<!-- work-timeline-task:v1\n${JSON.stringify(value, null, 2)}\n-->\n\n${taskBody(value, true)}`;
+  if (serializeTaskMarkdown(value) !== source && legacy !== source) throw new Error("任务文件已被外部修改");
   return value;
 }
 

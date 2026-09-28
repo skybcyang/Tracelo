@@ -31,8 +31,8 @@ try {
     try { await run(); checks++; } catch (error) { failures.push(name + ": " + error.message); }
   }
   await check('first image upload survives real folder events and saves its visible reference', async () => {
-    await payment.getByRole('button', { name: '添加备注', exact: true }).click();
-    const notes = payment.getByRole('textbox', { name: '任务备注', exact: true });
+    await payment.getByRole('button', { name: '添加详情', exact: true }).click();
+    const notes = payment.getByRole('textbox', { name: '任务详情', exact: true });
     await notes.fill('图片之前\n\n图片之后');
     await notes.evaluate(el => el.setSelectionRange(5, 5));
     await page.evaluate(() => {
@@ -40,14 +40,14 @@ try {
       const mkdir = app.vault.adapter.mkdir.bind(app.vault.adapter);
       app.vault.adapter.mkdir = async path => { await mkdir(path); app.emitVaultEvent('create', path); };
     });
-    await payment.getByLabel('插入备注图片', { exact: true }).setInputFiles({
+    await payment.getByLabel('插入详情图片', { exact: true }).setInputFiles({
       name: 'reference.png', mimeType: 'image/png',
       buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'),
     });
     await page.waitForFunction(id => window.cardFixture.plugin.state.noteDrafts[id]?.includes('image-'), ids.payment);
     const visible = await notes.inputValue();
     assert.match(visible, /图片之前\n!\[reference\.png\]\(<image-[^>]+\.png>\)\n图片之后/);
-    await payment.getByRole('button', { name: '保存备注', exact: true }).click();
+    await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     await page.waitForFunction(id => !Object.hasOwn(window.cardFixture.plugin.state.noteDrafts, id), ids.payment);
     const saved = await page.evaluate(async id => {
       const { plugin, app } = window.cardFixture;
@@ -57,8 +57,8 @@ try {
     assert.ok(saved.source.includes(visible));
   });
   await check('clipboard images replace the selection in order and keep exact attachment bytes', async () => {
-    await payment.getByRole('button', { name: '备注 · 查看', exact: true }).click();
-    const notes = payment.getByRole('textbox', { name: '任务备注', exact: true });
+    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    const notes = payment.getByRole('textbox', { name: '任务详情', exact: true });
     await notes.fill('前文\n替换这里\n后文');
     await notes.evaluate(el => {
       el.setSelectionRange(3, 7);
@@ -67,10 +67,10 @@ try {
       data.items.add(new File([new Uint8Array([4, 5, 6])], 'paste-b.png', { type: 'image/png' }));
       el.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
     });
-    await payment.getByText('图片已插入，请保存备注', { exact: true }).waitFor();
+    await payment.getByText('图片已插入，请保存详情', { exact: true }).waitFor();
     const visible = await notes.inputValue();
     assert.match(visible, /^前文\n!\[paste-a.png\]\(<image-[^>]+>\)!\[paste-b.png\]\(<image-[^>]+>\)\n后文$/);
-    await payment.getByRole('button', { name: '保存备注', exact: true }).click();
+    await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     const saved = await page.evaluate(async id => {
       const { plugin, app } = window.cardFixture;
       const task = plugin.tasks.find(t => t.id === id);
@@ -82,8 +82,8 @@ try {
     assert.deepEqual(saved.bytes, [[1, 2, 3], [4, 5, 6]]);
   });
   await check('external image drop ignores non-images and never moves the dragged task id', async () => {
-    await payment.getByRole('button', { name: '备注 · 查看', exact: true }).click();
-    const notes = payment.getByRole('textbox', { name: '任务备注', exact: true });
+    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    const notes = payment.getByRole('textbox', { name: '任务详情', exact: true });
     await notes.fill('拖入前\n\n拖入后');
     const before = await page.evaluate(() => window.cardFixture.plugin.tasks);
     await notes.evaluate((el, moving) => {
@@ -94,16 +94,16 @@ try {
       data.items.add(new File([new Uint8Array([7, 8, 9])], 'drop.png', { type: 'image/png' }));
       el.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
     }, ids.plain);
-    await payment.getByText('图片已插入，请保存备注', { exact: true }).waitFor();
+    await payment.getByText('图片已插入，请保存详情', { exact: true }).waitFor();
     const visible = await notes.inputValue();
     assert.match(visible, /^拖入前\n!\[drop.png\]\(<image-[^>]+>\)\n拖入后$/);
     assert.deepEqual(await page.evaluate(() => window.cardFixture.plugin.tasks), before);
-    await payment.getByRole('button', { name: '保存备注', exact: true }).click();
+    await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     assert.equal(await payment.locator('.wt-notes-preview img').count(), 1);
   });
   await check('pending and failed image writes protect the editor and permit a clipboard retry', async () => {
-    await payment.getByRole('button', { name: '备注 · 查看', exact: true }).click();
-    const notes = payment.getByRole('textbox', { name: '任务备注', exact: true });
+    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    const notes = payment.getByRole('textbox', { name: '任务详情', exact: true });
     await notes.fill('失败后保留文字');
     await page.evaluate(() => {
       const adapter = window.cardFixture.app.vault.adapter;
@@ -119,9 +119,9 @@ try {
     await pasteImage();
     await page.waitForFunction(() => Boolean(window.rejectImageWrite));
     assert.equal(await notes.isDisabled(), true);
-    assert.equal(await payment.getByRole('button', { name: '保存备注', exact: true }).isDisabled(), true);
+    assert.equal(await payment.getByRole('button', { name: '保存详情', exact: true }).isDisabled(), true);
     await payment.getByText('图片上传中…', { exact: true }).waitFor();
-    await payment.getByRole('button', { name: '取消备注编辑', exact: true }).click();
+    await payment.getByRole('button', { name: '取消详情编辑', exact: true }).click();
     assert.equal(await notes.count(), 1);
     await page.evaluate(() => window.rejectImageWrite());
     await payment.getByText('上传失败：附件磁盘写入失败', { exact: true }).waitFor();
@@ -129,18 +129,18 @@ try {
     assert.equal(await notes.isDisabled(), false);
     await page.evaluate(() => { window.cardFixture.app.vault.adapter.writeBinary = window.restoreImageWrite; });
     await pasteImage();
-    await payment.getByText('图片已插入，请保存备注', { exact: true }).waitFor();
+    await payment.getByText('图片已插入，请保存详情', { exact: true }).waitFor();
     assert.match(await notes.inputValue(), /^失败后保留文字!\[retry.png\]/);
-    await payment.getByRole('button', { name: '保存备注', exact: true }).click();
-    await payment.getByRole('button', { name: '备注 · 查看', exact: true }).click();
+    await payment.getByRole('button', { name: '保存详情', exact: true }).click();
+    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
     await notes.fill('图片已移除，文字保留');
-    await payment.getByRole('button', { name: '保存备注', exact: true }).click();
+    await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     assert.equal(await payment.locator('.wt-notes-preview img').count(), 0);
-    await payment.getByRole('button', { name: '备注 · 查看', exact: true }).click();
+    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
     await notes.fill('');
-    await payment.getByRole('button', { name: '保存备注', exact: true }).click();
+    await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     assert.equal(await payment.locator('.wt-notes-preview').count(), 0);
-    await payment.getByRole('button', { name: '添加备注', exact: true }).waitFor();
+    await payment.getByRole('button', { name: '添加详情', exact: true }).waitFor();
     assert.equal(await page.evaluate(id => window.cardFixture.plugin.tasks.find(t => t.id === id).events.filter(e => e.kind === 'progress').length, ids.payment), 1);
   });
   await page.reload();
@@ -154,6 +154,57 @@ try {
   await check('board controls offer independent zoom and presentation mode', async () => {
     assert.equal(await page.getByRole('button', { name: '缩小看板', exact: true }).count(), 1);
     assert.equal(await page.getByRole('button', { name: '展示模式', exact: true }).count(), 1);
+  });
+  await check('view settings fit the top bar across narrow and dark layouts', async () => {
+    try {
+      for (const dark of [false, true]) for (const width of [390, 900, 1440]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.evaluate(dark => document.body.classList.toggle('theme-dark', dark), dark);
+        const geometry = await page.getByRole('button', { name: '缩小看板', exact: true }).evaluate(button => {
+          const header = button.closest('.wt-header');
+          if (!header) return null;
+          const bar = header.getBoundingClientRect(), layout = document.querySelector('.wt-layout').getBoundingClientRect();
+          const root = document.querySelector('.work-timeline-view');
+          return { top: bar.top, bottom: bar.bottom, contentTop: layout.top, hostBottom: root.getBoundingClientRect().bottom, overflow: root.scrollWidth > root.clientWidth, controls: [...header.querySelectorAll('button')].filter(el => el.getClientRects().length).map(el => { const r = el.getBoundingClientRect(); return { height: r.height, top: r.top, bottom: r.bottom, left: r.left, right: r.right }; }) };
+        });
+        assert.ok(geometry, 'display settings must be grouped in the header');
+        assert.ok(geometry.bottom <= geometry.contentTop + 1 && geometry.bottom <= geometry.hostBottom + 1, JSON.stringify(geometry));
+        assert.equal(geometry.overflow, false);
+        assert.ok(geometry.controls.every(control => control.height >= 30 && control.top >= geometry.top && control.bottom <= geometry.bottom));
+        for (let i=0; i<geometry.controls.length; i++) for (let j=i+1; j<geometry.controls.length; j++) {
+          const a=geometry.controls[i], b=geometry.controls[j];
+          assert.ok(a.right <= b.left + 1 || b.right <= a.left + 1 || a.bottom <= b.top + 1 || b.bottom <= a.top + 1, 'header controls overlap');
+        }
+        const before = await page.getByRole('button', { name: '缩小看板', exact: true }).boundingBox();
+        await page.evaluate(() => { document.querySelector('.wt-task-column').scrollTop = 500; document.querySelector('.wt-layout').scrollTop = 500; });
+        assert.deepEqual(await page.getByRole('button', { name: '缩小看板', exact: true }).boundingBox(), before);
+      }
+    } finally {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.evaluate(() => { document.body.classList.remove('theme-dark'); document.querySelector('.wt-task-column').scrollTop = 0; document.querySelector('.wt-layout').scrollTop = 0; });
+    }
+  });
+  await check('keyboard zoom retains focus for repeated steps and moves to reset at the limit', async () => {
+    const smaller = page.getByRole('button', { name: '缩小看板', exact: true });
+    const reset = page.getByRole('button', { name: '恢复看板缩放为100%', exact: true });
+    try {
+      await smaller.focus();
+      await page.keyboard.press('Enter');
+      await settle();
+      assert.equal(await smaller.evaluate(el => el === document.activeElement), true);
+      await page.keyboard.press('Enter');
+      await settle();
+      assert.equal(await reset.textContent(), '90%');
+      await page.evaluate(() => window.cardFixture.plugin.setBoardZoom(65));
+      await smaller.focus();
+      await page.keyboard.press('Enter');
+      await settle();
+      assert.equal(await smaller.isDisabled(), true);
+      assert.equal(await reset.evaluate(el => el === document.activeElement), true);
+      await page.keyboard.press('Enter');
+      await settle();
+      assert.equal(await reset.textContent(), '100%');
+    } finally { await page.evaluate(() => window.cardFixture.plugin.setBoardZoom(100)); }
   });
   await check('presentation exposes all information but only the clicked card editor', async () => {
     await page.getByRole('button', { name: '展示模式', exact: true }).click();
@@ -174,13 +225,13 @@ try {
     await page.getByRole('button', { name: '恢复看板缩放为100%', exact: true }).click();
   });
   await check('notes save separately and unsaved text survives switching cards', async () => {
-    await payment.getByRole('button', { name: '添加备注', exact: true }).click();
-    await payment.getByRole('textbox', { name: '任务备注', exact: true }).fill('背景信息\nhttps://example.com');
+    await payment.getByRole('button', { name: '添加详情', exact: true }).click();
+    await payment.getByRole('textbox', { name: '任务详情', exact: true }).fill('背景信息\nhttps://example.com');
     await card(ids.plain).locator('.wt-card-open').click();
-    await payment.getByRole('button', { name: '备注 · 有未保存内容', exact: true }).click();
-    assert.equal(await payment.getByRole('textbox', { name: '任务备注', exact: true }).inputValue(), '背景信息\nhttps://example.com');
+    await payment.getByRole('button', { name: '详情 · 有未保存内容', exact: true }).click();
+    assert.equal(await payment.getByRole('textbox', { name: '任务详情', exact: true }).inputValue(), '背景信息\nhttps://example.com');
     const before = await payment.locator('.wt-card-latest').textContent();
-    await payment.getByRole('button', { name: '保存备注', exact: true }).click();
+    await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).notes === '背景信息\nhttps://example.com', ids.payment);
     assert.equal(await payment.locator('.wt-card-latest').textContent(), before);
     assert.equal(await payment.locator('.wt-notes-preview').textContent(), '背景信息\nhttps://example.com');
@@ -188,18 +239,18 @@ try {
     assert.equal(await page.locator('.wt-event-changes .is-notes_changed').isVisible(), false);
   });
   await check('failed notes save keeps the draft and retry succeeds without progress changes', async () => {
-    await payment.getByRole('button', { name: '备注 · 查看', exact: true }).click();
-    await payment.getByRole('textbox', { name: '任务备注', exact: true }).fill('失败后继续编辑');
+    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    await payment.getByRole('textbox', { name: '任务详情', exact: true }).fill('失败后继续编辑');
     await page.evaluate(() => {
       const adapter = window.cardFixture.app.vault.adapter;
       window.restoreNotesWrite = adapter.write;
       adapter.write = async () => { throw new Error('模拟磁盘错误'); };
     });
-    await payment.getByRole('button', { name: '保存备注', exact: true }).click();
+    await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     await payment.getByText('保存失败：模拟磁盘错误', { exact: true }).waitFor();
-    assert.equal(await payment.getByRole('textbox', { name: '任务备注', exact: true }).inputValue(), '失败后继续编辑');
+    assert.equal(await payment.getByRole('textbox', { name: '任务详情', exact: true }).inputValue(), '失败后继续编辑');
     await page.evaluate(() => { window.cardFixture.app.vault.adapter.write = window.restoreNotesWrite; });
-    await payment.getByRole('button', { name: '保存备注', exact: true }).click();
+    await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).notes === '失败后继续编辑', ids.payment);
   });
   await check('60 percent zoom increases columns while toolbar and timeline stay unscaled', async () => {
@@ -229,11 +280,11 @@ try {
       plugin.saveData = async () => { throw new Error('偏好保存失败'); };
       try {
         await plugin.recordProgress(id, '正式保存一次');
-        await plugin.saveTaskNotes(id, '正式备注已保存');
+        await plugin.saveTaskNotes(id, '正式详情已保存');
         return { count: plugin.tasks.find(t => t.id === id).events.filter(e => e.kind === 'progress').length - before, notes: plugin.tasks.find(t => t.id === id).notes, draft: plugin.state.drafts[id] };
       } finally { plugin.saveData = save; }
     }, ids.plain);
-    assert.deepEqual(result, { count: 1, notes: '正式备注已保存', draft: undefined });
+    assert.deepEqual(result, { count: 1, notes: '正式详情已保存', draft: undefined });
   });
   await check('directory migration preserves nested task images and progress drafts', async () => {
     const result = await page.evaluate(async id => {
@@ -265,7 +316,7 @@ try {
     await page.waitForFunction(id => window.cardFixture.plugin.tasks.some(task => task.id === id), id);
     assert.equal(await card(id).count(), 1);
     assert.equal(await card(id).locator('.wt-card-latest').count(), 0);
-    assert.equal(await card(id).getByRole('button', { name: '备注 · 查看', exact: true }).count(), 1);
+    assert.equal(await card(id).getByRole('button', { name: '编辑详情', exact: true }).count(), 1);
   });
   await page.reload();
   await page.waitForFunction(() => window.cardFixture);
