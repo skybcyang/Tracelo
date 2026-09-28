@@ -35,10 +35,18 @@ final class CaptureCoreTests {
         XCTAssertEqual(inputAction(keyCode: 36, shift: false, marked: false), .submit)
         XCTAssertEqual(inputAction(keyCode: 53, shift: false, marked: false), .dismiss)
     }
+    func testPanelFitsAvailableScreenAndGrowsWithContent() {
+        for (content, width, height, expectedWidth, expectedHeight) in [(20.0, 1440.0, 900.0, 560.0, 260.0), (600, 1440, 900, 560, 420), (600, 400, 350, 368, 318)] {
+            let size = capturePanelSize(contentHeight: content, available: CGSize(width: width, height: height))
+            XCTAssertEqual(size.width, expectedWidth)
+            XCTAssertEqual(size.height, expectedHeight)
+        }
+    }
 }
 let tests = CaptureCoreTests()
 try tests.testFirstLineIsTitleAndNotesKeepOrder()
 try tests.testAtomicPublishDoesNotOverwriteAndRetryIsIdempotent()
 try tests.testConfigurationRejectsEscapingVaultAndMissingDirectories()
 tests.testInputPolicyProtectsIMEAndPreservesShiftReturn()
-print("Capture core: 4 tests passed")
+tests.testPanelFitsAvailableScreenAndGrowsWithContent()
+print("Capture core: 5 tests passed")

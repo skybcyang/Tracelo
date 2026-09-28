@@ -16,6 +16,9 @@ public struct CaptureDraft {
     }
 }
 public enum InputAction { case system, submit, dismiss }
+public func capturePanelSize(contentHeight: Double, available: CGSize) -> CGSize {
+    CGSize(width: min(560, max(1, available.width - 32)), height: min(max(260, contentHeight + 160), 420, max(1, available.height - 32)))
+}
 public func inputAction(keyCode: UInt16, shift: Bool, marked: Bool) -> InputAction {
     if marked { return .system }
     if keyCode == 53 { return .dismiss }
