@@ -239,6 +239,7 @@
 }
 
 .wt-timeline-column {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -932,12 +933,12 @@
 }
 
 .wt-timeline-header {
-  min-height: 110px;
   flex: 0 0 auto;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
-  padding: 25px 28px 17px;
+  gap: 12px;
+  padding: 20px 24px 16px;
   border-bottom: 1px solid var(--wt-line);
 }
 
@@ -952,8 +953,12 @@
 .wt-timeline-header p {
   margin-top: 6px;
   color: var(--wt-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
+
+.wt-timeline-header > div:first-child { min-width: 0; }
+.wt-timeline-header h2 { overflow-wrap: anywhere; }
+.wt-timeline-header .wt-eyebrow { color: var(--wt-accent-strong); }
 
 .work-timeline-view .wt-back-button,
 .work-timeline-view .wt-date-controls button {
@@ -963,20 +968,26 @@
   box-shadow: none;
   background: transparent;
   color: var(--wt-muted);
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
 .wt-date-controls {
-  gap: 7px;
+  width: 100%;
+  gap: 6px;
 }
 
+.work-timeline-view .wt-date-controls .wt-icon-button { width: 32px; min-width: 32px; padding: 0; }
+.work-timeline-view .wt-date-controls button:disabled { opacity: 0.55; cursor: default; }
+
 .wt-date-controls input {
-  width: 132px;
+  width: 136px;
+  min-width: 0;
   min-height: 32px;
   border-color: var(--wt-line);
-  background: rgba(255, 255, 255, 0.54);
-  font-size: 10px;
+  background: var(--wt-soft);
+  color: var(--wt-text);
+  font-size: 11px;
 }
 
 .wt-timeline-scroll {
@@ -984,9 +995,38 @@
   flex: 1 1 auto;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 16px 28px 46px;
-  scroll-behavior: smooth;
+  padding: 16px 24px 46px;
+  overflow-anchor: none;
+  scroll-behavior: auto;
 }
+
+.wt-event-stream { position: relative; }
+.wt-event-stream:has(li)::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 14px;
+  left: 7px;
+  width: 1px;
+  background: var(--wt-line);
+}
+.work-timeline-view .wt-new-progress {
+  position: absolute;
+  z-index: 2;
+  right: 20px;
+  bottom: 16px;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--wt-line-strong);
+  border-radius: 18px;
+  background: var(--wt-card);
+  color: var(--wt-accent-strong);
+  box-shadow: var(--wt-card-shadow);
+  font-size: 12px;
+}
+.wt-new-progress svg { width: 14px; height: 14px; vertical-align: middle; }
 
 .wt-task-due { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 9px; color: var(--wt-muted); font-size: 11px; }
 .work-timeline-view .wt-task-due button { border: 0; box-shadow: none; background: transparent; color: var(--wt-accent-strong); font-size: 11px; }
@@ -1009,12 +1049,12 @@
 .wt-confirm-copy { color: var(--wt-text); font-size: 13px; }
 
 .wt-timeline-day + .wt-timeline-day {
-  margin-top: 21px;
+  margin-top: 16px;
 }
 
 .wt-timeline-day h3 {
-  padding: 0 0 9px 53px;
-  border-bottom: 1px solid var(--wt-line);
+  padding: 0 0 8px 28px;
+  color: var(--wt-muted);
   font-size: 11px;
   font-weight: 720;
 }
@@ -1027,38 +1067,21 @@
 
 .wt-event-list li {
   position: relative;
-  display: grid;
-  grid-template-columns: 47px minmax(0, 1fr);
-  gap: 15px;
-  min-height: 58px;
-  padding-top: 14px;
+  padding: 8px 0 12px 28px;
 }
 
 .wt-event-list li::before {
   content: "";
   position: absolute;
-  top: 18px;
-  left: 58px;
+  top: 13px;
+  left: 3px;
   z-index: 1;
-  width: 7px;
-  height: 7px;
-  border: 2px solid #9baac0;
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border: 2px solid var(--wt-line-strong);
   border-radius: 50%;
   background: var(--wt-bg);
-}
-
-.wt-event-list li::after {
-  content: "";
-  position: absolute;
-  top: 29px;
-  bottom: -14px;
-  left: 62px;
-  width: 1px;
-  background: var(--wt-line);
-}
-
-.wt-event-list li:last-child::after {
-  display: none;
 }
 
 .wt-event-list li.is-progress::before {
@@ -1066,23 +1089,25 @@
   box-shadow: 0 0 0 3px rgba(36, 91, 231, 0.08);
 }
 
+.wt-event-list li.is-completed::before { display: none; }
+.wt-event-completed { position: absolute; top: 10px; left: 0; width: 15px; height: 15px; border-radius: 50%; color: var(--wt-green); background: var(--wt-bg); }
+.wt-event-completed svg { display: block; width: 15px; height: 15px; }
+.wt-event-meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; color: var(--wt-muted); font-size: 11px; line-height: 1.5; }
+
 .wt-event-list time {
-  color: var(--wt-faint);
-  font-size: 9px;
+  color: inherit;
+  font-size: inherit;
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
 }
 
 .wt-event-body {
   min-width: 0;
-  padding-left: 13px;
 }
 
 .wt-event-kind {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--wt-muted);
-  font-size: 9px;
+  color: inherit;
+  font-size: inherit;
 }
 
 .work-timeline-view .wt-event-task {
@@ -1090,43 +1115,38 @@
   max-width: 100%;
   height: auto;
   min-height: 24px;
-  overflow: hidden;
   padding: 0;
   border: 0;
   box-shadow: none;
   background: transparent;
   color: var(--wt-text);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 720;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.6;
 }
 
 .wt-event-text {
   color: var(--wt-text);
-  font-size: 11px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.65;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .wt-event-list li.is-progress .wt-event-text {
-  font-size: 12px;
-  font-weight: 620;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .wt-event-list li.is-muted {
   color: var(--wt-muted);
+  padding-bottom: 8px;
 }
-
-.wt-event-changes { margin: 12px 0; }
-.wt-event-changes > summary {
-  padding: 7px 0;
-  color: var(--wt-muted);
-  font-size: 11px;
-  cursor: pointer;
-}
-.wt-event-changes .wt-event-text { color: var(--wt-muted); font-weight: 400; }
+.wt-event-list li.is-muted .wt-event-text { color: var(--wt-muted); }
+.wt-event-list li.is-muted::before { top: 15px; left: 5px; width: 5px; height: 5px; border-width: 1px; }
 
 .modal-container:has(.wt-modal) .modal-bg {
   background: rgba(25, 35, 51, 0.28);
