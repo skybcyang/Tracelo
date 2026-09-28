@@ -1393,8 +1393,8 @@ class WorkTimelineView extends ItemView {
       return;
     }
     const items = Array.from(body.querySelectorAll<HTMLElement>("[data-event-id]"));
-    const newProgress = items.some(item => item.classList.contains("is-progress") && !reading.eventIds.has(item.dataset.eventId!));
-    if (newProgress && reading.nearBottom) {
+    const newActivity = items.some(item => !item.classList.contains("is-muted") && !reading.eventIds.has(item.dataset.eventId!));
+    if (newActivity && reading.nearBottom) {
       body.scrollTop = body.scrollHeight;
       return;
     }
@@ -1402,7 +1402,7 @@ class WorkTimelineView extends ItemView {
     body.scrollTop = anchor
       ? anchor.getBoundingClientRect().top - body.getBoundingClientRect().top - reading.anchorOffset
       : reading.top;
-    if (!reading.nearBottom && (newProgress || reading.pendingProgress)) {
+    if (!reading.nearBottom && (newActivity || reading.pendingProgress)) {
       const button = body.parentElement!.createEl("button", { cls: "wt-new-progress", attr: { type: "button", "aria-label": "有新进展" } });
       button.createSpan({ text: "有新进展", attr: { role: "status" } });
       setIcon(button.createSpan({ attr: { "aria-hidden": "true" } }), "arrow-down");
