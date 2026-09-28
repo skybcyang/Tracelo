@@ -23,7 +23,7 @@ try {
   }
   await check('compact default and expanded body keep header and actions visible at desktop, short and narrow sizes', async () => {
     assert.equal(await modal.getByRole('button', { name: '创建任务', exact: true }).isDisabled(), true);
-    assert.equal(await modal.getByRole('combobox', { name: '任务象限', exact: true }).inputValue(), 'not_important_not_urgent');
+    assert.equal(await modal.getByRole('radio', { name: '不重要不紧急', exact: true }).isChecked(), true);
     assert.equal(await modal.getByRole('textbox', { name: '初始进展', exact: true }).isVisible(), false);
     assert.equal(await modal.locator('.wt-new-task-body').evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, 'empty form needs no scrolling');
     await modal.getByRole('button', { name: '添加待办', exact: true }).click();
@@ -47,7 +47,7 @@ try {
     await modal.locator('.wt-modal-title').fill('会话草稿');
     await modal.getByRole('textbox', { name: '任务详情', exact: true }).fill('详情\n第二行');
     await modal.getByRole('combobox', { name: '任务分组', exact: true }).selectOption({ label: '产品研发' });
-    await modal.getByRole('combobox', { name: '任务象限', exact: true }).selectOption('important_urgent');
+    await modal.locator('.wt-quadrant-option.is-important_urgent').click();
     await modal.getByRole('button', { name: '添加待办', exact: true }).click();
     await modal.getByRole('textbox', { name: '待办内容', exact: true }).fill('保留待办');
     await modal.getByRole('button', { name: '待办 · 1', exact: true }).click();
@@ -63,7 +63,7 @@ try {
     assert.match(await modal.getByRole('status').textContent(), /已恢复草稿/);
     assert.equal(await modal.locator('.wt-modal-title').inputValue(), '会话草稿');
     assert.equal(await modal.getByRole('textbox', { name: '任务详情', exact: true }).inputValue(), '详情\n第二行');
-    assert.equal(await modal.getByRole('combobox', { name: '任务象限', exact: true }).inputValue(), 'important_urgent');
+    assert.equal(await modal.getByRole('radio', { name: '重要且紧急', exact: true }).isChecked(), true);
     await modal.getByRole('button', { name: '待办 · 1', exact: true }).click();
     assert.equal(await modal.getByRole('textbox', { name: '待办内容', exact: true }).inputValue(), '保留待办');
     assert.equal(await modal.locator('input[type=date]').inputValue(), '2026-12-01');
@@ -79,7 +79,7 @@ try {
     await modal.locator('.wt-modal-title').fill('可靠提交');
     await modal.getByRole('textbox', { name: '任务详情', exact: true }).fill('任务说明');
     await modal.getByRole('combobox', { name: '任务分组', exact: true }).selectOption({ label: '产品研发' });
-    await modal.getByRole('combobox', { name: '任务象限', exact: true }).selectOption('important_urgent');
+    await modal.locator('.wt-quadrant-option.is-important_urgent').click();
     await modal.getByRole('button', { name: '添加待办', exact: true }).click();
     await modal.getByRole('textbox', { name: '待办内容', exact: true }).fill('失败仍保留待办');
     await modal.getByRole('button', { name: '截止日期', exact: true }).click();
@@ -105,7 +105,7 @@ try {
     assert.equal(await modal.getByRole('textbox', { name: '初始进展', exact: true }).inputValue(), '初始记录');
     assert.equal(await modal.getByRole('textbox', { name: '待办内容', exact: true }).inputValue(), '失败仍保留待办');
     assert.equal(await modal.locator('input[type=date]').inputValue(), '2026-12-01');
-    assert.equal(await modal.getByRole('combobox', { name: '任务象限', exact: true }).inputValue(), 'important_urgent');
+    assert.equal(await modal.getByRole('radio', { name: '重要且紧急', exact: true }).isChecked(), true);
     assert.equal(await modal.getByRole('combobox', { name: '任务分组', exact: true }).inputValue(), await page.evaluate(() => window.cardFixture.plugin.groups[0].id));
     await page.evaluate(() => {
       window.restoreCreationWrite();
@@ -124,6 +124,21 @@ try {
     assert.equal(saved[0].events.filter(e => e.kind === 'progress').length, 1);
     await open();
     assert.equal(await modal.locator('.wt-modal-title').inputValue(), '');
+  });
+  await check('property-only draft retains group and priority', async () => {
+    await modal.getByRole('combobox', { name: '任务分组', exact: true }).selectOption({ label: '产品研发' });
+    await modal.locator('.wt-quadrant-option.is-important_urgent').click();
+    await modal.getByRole('button', { name: '取消', exact: true }).click();
+    await open();
+    assert.equal(await modal.getByRole('radio', { name: '重要且紧急', exact: true }).isChecked(), true);
+    assert.equal(await modal.getByRole('combobox', { name: '任务分组', exact: true }).inputValue(), await page.evaluate(() => window.cardFixture.plugin.groups[0].id));
+  });
+  await check('state preference failure after task archive commit does not invite duplicate creation', async () => {
+    await modal.locator('.wt-modal-title').fill('只创建一次');
+    await page.evaluate(() => { window.cardFixture.plugin.saveData = async () => { throw new Error('偏好保存失败'); }; });
+    await modal.getByRole('button', { name: '创建任务', exact: true }).click();
+    await modal.waitFor({ state: 'detached' });
+    assert.equal(await page.evaluate(() => window.cardFixture.plugin.tasks.filter(t => t.title === '只创建一次').length), 1);
   });
   assert.deepEqual(errors, []);
   console.log(`${checks} compact task creation checks passed.`);

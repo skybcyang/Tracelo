@@ -55,7 +55,8 @@ try {
     assert.equal(await preview.count(), 1);
     assert.match(await preview.textContent(), /最后一段详情$/);
     assert.ok(await preview.evaluate(el => el.clientHeight >= el.scrollHeight - 1));
-    await card(ids.plain).getByRole('button', { name: '编辑详情', exact: true }).click();
+    await card(ids.plain).locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     await card(ids.plain).getByRole('textbox', { name: '任务详情', exact: true }).fill('取消的内容');
     await card(ids.plain).getByRole('button', { name: '取消详情编辑', exact: true }).click();
     assert.match(await preview.textContent(), /最后一段详情$/);

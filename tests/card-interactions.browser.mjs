@@ -31,7 +31,8 @@ try {
     try { await run(); checks++; } catch (error) { failures.push(name + ": " + error.message); }
   }
   await check('first image upload survives real folder events and saves its visible reference', async () => {
-    await payment.getByRole('button', { name: '添加详情', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '添加详情', exact: true }).click();
     const notes = payment.getByRole('textbox', { name: '任务详情', exact: true });
     await notes.fill('图片之前\n\n图片之后');
     await notes.evaluate(el => el.setSelectionRange(5, 5));
@@ -57,7 +58,8 @@ try {
     assert.ok(saved.source.includes(visible));
   });
   await check('clipboard images replace the selection in order and keep exact attachment bytes', async () => {
-    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     const notes = payment.getByRole('textbox', { name: '任务详情', exact: true });
     await notes.fill('前文\n替换这里\n后文');
     await notes.evaluate(el => {
@@ -82,7 +84,8 @@ try {
     assert.deepEqual(saved.bytes, [[1, 2, 3], [4, 5, 6]]);
   });
   await check('external image drop ignores non-images and never moves the dragged task id', async () => {
-    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     const notes = payment.getByRole('textbox', { name: '任务详情', exact: true });
     await notes.fill('拖入前\n\n拖入后');
     const before = await page.evaluate(() => window.cardFixture.plugin.tasks);
@@ -102,7 +105,8 @@ try {
     assert.equal(await payment.locator('.wt-notes-preview img').count(), 1);
   });
   await check('pending and failed image writes protect the editor and permit a clipboard retry', async () => {
-    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     const notes = payment.getByRole('textbox', { name: '任务详情', exact: true });
     await notes.fill('失败后保留文字');
     await page.evaluate(() => {
@@ -132,24 +136,27 @@ try {
     await payment.getByText('图片已插入，请保存详情', { exact: true }).waitFor();
     assert.match(await notes.inputValue(), /^失败后保留文字!\[retry.png\]/);
     await payment.getByRole('button', { name: '保存详情', exact: true }).click();
-    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     await notes.fill('图片已移除，文字保留');
     await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     assert.equal(await payment.locator('.wt-notes-preview img').count(), 0);
-    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     await notes.fill('');
     await payment.getByRole('button', { name: '保存详情', exact: true }).click();
     assert.equal(await payment.locator('.wt-notes-preview').count(), 0);
-    await payment.getByRole('button', { name: '添加详情', exact: true }).waitFor();
+    assert.equal(await payment.locator('.wt-task-notes').count(), 0);
     assert.equal(await page.evaluate(id => window.cardFixture.plugin.tasks.find(t => t.id === id).events.filter(e => e.kind === 'progress').length, ids.payment), 1);
   });
   await page.reload();
   await page.waitForFunction(() => window.cardFixture);
   Object.assign(ids, await page.evaluate(() => window.cardFixture.ids));
   payment = card(ids.payment);
-  await check('optional icons and a direct rename entry are available', async () => {
+  await check('task icon and a single overflow action keep the title uncluttered', async () => {
     assert.equal(await payment.locator('.wt-task-icon').count(), 1);
-    assert.equal(await payment.getByRole('button', { name: '编辑标题：完成支付模块', exact: true }).count(), 1);
+    assert.equal(await payment.getByRole('button', { name: '编辑标题：完成支付模块', exact: true }).count(), 0);
+    assert.equal(await payment.locator('.wt-card-heading-actions button').count(), 1);
   });
   await check('board controls offer independent zoom and presentation mode', async () => {
     assert.equal(await page.getByRole('button', { name: '缩小看板', exact: true }).count(), 1);
@@ -225,10 +232,13 @@ try {
     await page.getByRole('button', { name: '恢复看板缩放为100%', exact: true }).click();
   });
   await check('notes save separately and unsaved text survives switching cards', async () => {
-    await payment.getByRole('button', { name: '添加详情', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '添加详情', exact: true }).click();
     await payment.getByRole('textbox', { name: '任务详情', exact: true }).fill('背景信息\nhttps://example.com');
     await card(ids.plain).locator('.wt-card-open').click();
-    await payment.getByRole('button', { name: '详情 · 有未保存内容', exact: true }).click();
+    assert.equal(await payment.getByRole('textbox', { name: '任务详情', exact: true }).inputValue(), '背景信息\nhttps://example.com');
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     assert.equal(await payment.getByRole('textbox', { name: '任务详情', exact: true }).inputValue(), '背景信息\nhttps://example.com');
     const before = await payment.locator('.wt-card-latest').textContent();
     await payment.getByRole('button', { name: '保存详情', exact: true }).click();
@@ -239,7 +249,8 @@ try {
     assert.equal(await page.locator('.wt-event-list .is-notes_changed').isVisible(), true);
   });
   await check('failed notes save keeps the draft and retry succeeds without progress changes', async () => {
-    await payment.getByRole('button', { name: '编辑详情', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     await payment.getByRole('textbox', { name: '任务详情', exact: true }).fill('失败后继续编辑');
     await page.evaluate(() => {
       const adapter = window.cardFixture.app.vault.adapter;
@@ -316,7 +327,8 @@ try {
     await page.waitForFunction(id => window.cardFixture.plugin.tasks.some(task => task.id === id), id);
     assert.equal(await card(id).count(), 1);
     assert.equal(await card(id).locator('.wt-card-latest').count(), 0);
-    assert.equal(await card(id).getByRole('button', { name: '编辑详情', exact: true }).count(), 1);
+    assert.equal(await card(id).locator('.wt-notes-preview').count(), 1);
+    assert.equal(await card(id).locator('.wt-details-heading').count(), 0);
   });
   await page.reload();
   await page.waitForFunction(() => window.cardFixture);
@@ -325,7 +337,7 @@ try {
   await check('top-level creation needs only a title and defaults to ungrouped, neither important nor urgent', async () => {
     await page.getByRole('button', { name: '新建任务', exact: true }).click();
     assert.equal(await page.getByRole('combobox', { name: '任务分组' }).inputValue(), '');
-    assert.equal(await page.getByRole('combobox', { name: '任务象限', exact: true }).inputValue(), 'not_important_not_urgent');
+    assert.equal(await page.getByRole('radio', { name: '不重要不紧急', exact: true }).isChecked(), true);
     await page.locator('.wt-modal-title').fill('默认分类任务');
     await page.getByRole('button', { name: '创建任务', exact: true }).click();
     await page.locator('.wt-new-task-modal').waitFor({ state: 'detached' });
@@ -415,7 +427,7 @@ try {
       const tile = page.getByRole('button', { name: '在产品研发中新建任务', exact: true });
       await tile.focus(); await tile.press('Enter');
       assert.equal(await page.getByRole('combobox', { name: '任务分组' }).inputValue(), await page.evaluate(() => window.cardFixture.plugin.groups[0].id));
-      assert.equal(await page.getByRole('combobox', { name: '任务象限', exact: true }).inputValue(), 'not_important_not_urgent');
+      assert.equal(await page.getByRole('radio', { name: '不重要不紧急', exact: true }).isChecked(), true);
       await page.getByRole('button', { name: '取消', exact: true }).click();
       await settle();
       assert.equal(await tile.evaluate(el => el === document.activeElement), true);
@@ -430,7 +442,7 @@ try {
       const areas = await page.locator('.wt-task-section').evaluateAll(els => els.map(el => el.dataset.area));
       for (const area of areas) {
         await page.locator(`[data-area="${area}"] .wt-card-create`).click();
-        assert.equal(await page.getByRole('combobox', { name: '任务象限', exact: true }).inputValue(), area);
+        assert.equal(await page.locator('.wt-quadrant-picker input:checked').inputValue(), area);
         await page.locator('.wt-modal-title').fill('象限入口 ' + area);
         await page.getByRole('button', { name: '创建任务', exact: true }).click();
         await page.locator('.wt-new-task-modal').waitFor({ state: 'detached' });
@@ -443,7 +455,7 @@ try {
       await page.getByRole('button', { name: '在产品研发中新建任务', exact: true }).click();
       await page.locator('.wt-modal-title').fill('分组入口验证');
       await page.getByRole('combobox', { name: '任务分组' }).selectOption('');
-      await page.getByRole('combobox', { name: '任务象限', exact: true }).selectOption('important_urgent');
+      await page.locator('.wt-quadrant-option.is-important_urgent').click();
       await page.getByRole('button', { name: '创建任务', exact: true }).click();
       await page.locator('.wt-new-task-modal').waitFor({ state: 'detached' });
       assert.equal(await page.getByRole('searchbox').inputValue(), '');
@@ -642,7 +654,7 @@ try {
       assert.equal(await page.evaluate(() => window.cardFixture.app.vault.adapter.exists('工作记录/材料')), false);
       await page.getByRole('menuitem', { name: '创建文件夹', exact: true }).click();
       await page.waitForFunction(() => window.cardFixture.app.openedFolders.length === 1);
-      assert.equal(await payment.locator('.wt-card-folder').count(), 1);
+      assert.equal(await page.evaluate(id => window.cardFixture.plugin.hasTaskFolder(id), ids.payment), true);
       assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'false');
       assert.equal(await page.evaluate(id => JSON.stringify(window.cardFixture.plugin.tasks.find(t => t.id === id).events), ids.payment), before);
       const path = await page.evaluate(() => window.cardFixture.app.openedFolders[0]);
@@ -650,8 +662,9 @@ try {
       assert.match(name, /^\d{4}-\d{2}-\d{2} 完成支付模块$/);
       assert.equal(path, '/test-vault/工作记录/任务/' + name);
     });
-    await check('folder shortcut reuses directory and never expands the card', async () => {
-      await payment.locator('.wt-card-folder').click();
+    await check('folder menu reuses directory and never expands the card', async () => {
+      await payment.locator('.wt-card-menu').click();
+      await page.getByRole('menuitem', { name: '打开文件夹', exact: true }).click();
       await page.waitForFunction(() => window.cardFixture.app.openedFolders.length === 2);
       assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'false');
       await payment.click({ button: 'right' });
@@ -693,17 +706,19 @@ try {
     await check('folder survives task rename and completion', async () => {
       await page.evaluate(async id => { const p = window.cardFixture.plugin; await p.renameTask(id, '支付模块改名'); await p.finishTask(id); }, ids.payment);
       await page.locator('.wt-ended-section > summary').click();
-      assert.equal(await payment.locator('.wt-card-folder').count(), 1);
-      await payment.locator('.wt-card-folder').click();
+      assert.equal(await page.evaluate(id => window.cardFixture.plugin.hasTaskFolder(id), ids.payment), true);
+      await payment.locator('.wt-card-menu').click();
+      await page.getByRole('menuitem', { name: '打开文件夹', exact: true }).click();
       const name = await page.evaluate(id => window.cardFixture.plugin.tasks.find(t => t.id === id).archiveName, ids.payment);
       assert.match(name, / 支付模块改名$/);
       assert.equal(await page.evaluate(() => window.cardFixture.app.openedFolders.at(-1)), '/test-vault/工作记录/任务/' + name);
     });
     await check('system open failure reports error without removing the folder', async () => {
       await page.evaluate(() => { window.cardFixture.app.openError = '无法启动文件管理器'; });
-      await payment.locator('.wt-card-folder').click();
+      await payment.locator('.wt-card-menu').click();
+      await page.getByRole('menuitem', { name: '打开文件夹', exact: true }).click();
       await page.getByText(/无法启动文件管理器/).waitFor();
-      assert.equal(await payment.locator('.wt-card-folder').count(), 1);
+      assert.equal(await page.evaluate(id => window.cardFixture.plugin.hasTaskFolder(id), ids.payment), true);
     });
     await check('creation failure can be retried without a false folder indicator', async () => {
       const result = await page.evaluate(async id => {

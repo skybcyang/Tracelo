@@ -1,6 +1,6 @@
 param(
     [string]$OutputDirectory = (Join-Path $PSScriptRoot "../artifacts"),
-    [string]$Version = "0.7.0"
+    [string]$Version = "0.8.0"
 )
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path

@@ -13,6 +13,17 @@ public record CaptureDraft(string Title, string Notes) {
     }
 }
 public record CaptureConfiguration(string Vault, string TaskDirectory) {
+    public static string ReadGroupsArchive(string directory) {
+        var path = Path.Combine(directory, "_groups.md");
+        FileAttributes attributes;
+        try { attributes = File.GetAttributes(path); }
+        catch (FileNotFoundException) { return ""; }
+        if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
+            throw new IOException("分组文件必须是普通文件，不能是文件夹或符号链接");
+        var info = new FileInfo(path);
+        if (info.Length > 4 * 1024 * 1024) throw new IOException("分组文件过大，无法读取");
+        return File.ReadAllText(path);
+    }
     public string Destination() {
         var parts = TaskDirectory.Replace('\\', '/').Split('/');
         if (!Path.IsPathFullyQualified(Vault) || parts.Any(p => !CaptureRequest.SafeSegment(p)))
@@ -31,6 +42,21 @@ public record CaptureConfiguration(string Vault, string TaskDirectory) {
     }
 }
 public record CaptureRequest(string Id, string Markdown) {
+    public static CaptureRequest FromSharedForm(string id, string markdown) {
+        const string prefix = "<!-- work-timeline-task:v1\n";
+        var end = markdown.IndexOf("\n-->\n\n", StringComparison.Ordinal);
+        if (!SafeSegment(id) || markdown.Length > 2 * 1024 * 1024 || !markdown.StartsWith(prefix, StringComparison.Ordinal) || end <= prefix.Length)
+            throw new ArgumentException("任务文件格式无效");
+        try {
+            using var parsed = JsonDocument.Parse(markdown[prefix.Length..end]);
+            var task = parsed.RootElement;
+            if (task.GetProperty("id").GetString() != id || task.GetProperty("version").GetInt32() != 1 || string.IsNullOrWhiteSpace(task.GetProperty("title").GetString()))
+                throw new ArgumentException("任务 ID 与文件内容不匹配");
+        } catch (Exception error) when (error is JsonException or KeyNotFoundException or InvalidOperationException) {
+            throw new ArgumentException("任务文件格式无效", error);
+        }
+        return new(id, markdown);
+    }
     public static bool SafeSegment(string value) => value.Length is > 0 and <= 180
         && !Regex.IsMatch(value, "[<>:\"/\\\\|?*\\x00-\\x1f]|[. ]$")
         && !Regex.IsMatch(value, @"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)", RegexOptions.IgnoreCase);
@@ -107,6 +133,33 @@ public static class InputBehavior {
         : key == 27 ? InputAction.Dismiss : key == 13 && !shift ? InputAction.Submit : InputAction.System;
 }
 public class CaptureSettings {
+    public string? GroupsSource { get; set; }
+    public bool UpdateGroupsSource(string? source) {
+        var changed = GroupsSource != source;
+        if (changed) PendingRequest = null;
+        GroupsSource = source;
+        return changed;
+    }
+    public bool CopyDraftFrom(CaptureSettings previous) {
+        var targetChanged = Vault != previous.Vault || TaskDirectory != previous.TaskDirectory;
+        Draft = previous.Draft; FormDraft = previous.FormDraft;
+        PendingRequest = targetChanged ? null : previous.PendingRequest;
+        GroupsSource = targetChanged ? null : previous.GroupsSource;
+        return targetChanged;
+    }
+    public void SetDraft(JsonElement draft) {
+        if (draft.ValueKind != JsonValueKind.Object) throw new ArgumentException("草稿格式无效");
+        if (FormDraft == null || !System.Text.Json.Nodes.JsonNode.DeepEquals(
+            System.Text.Json.Nodes.JsonNode.Parse(FormDraft.Value.GetRawText()), System.Text.Json.Nodes.JsonNode.Parse(draft.GetRawText()))) PendingRequest = null;
+        FormDraft = draft.Clone(); Draft = "";
+    }
+    public JsonElement? FormDraft { get; set; }
+    public CaptureRequest? PendingRequest { get; set; }
+    public JsonElement RestoredDraft() {
+        if (FormDraft is { ValueKind: JsonValueKind.Object } draft) return draft;
+        var lines = (Draft ?? "").Replace("\r\n", "\n").Split('\n');
+        return JsonSerializer.SerializeToElement(new { title = lines[0], notes = string.Join("\n", lines.Skip(1)) });
+    }
     public string Draft { get; set; } = "";
     public string Vault { get; set; } = "";
     public string TaskDirectory { get; set; } = "工作记录/任务";

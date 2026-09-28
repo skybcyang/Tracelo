@@ -119,9 +119,16 @@ export class Menu {
     const button = this.el.createEl('button', { attr: { role: 'menuitem' } });
     const item = {
       setTitle(text) { button.textContent = text; return item; },
-      setIcon() { return item; }, setChecked() { return item; },
+      setIcon() { return item; }, setChecked(value) { button.setAttribute('aria-checked', String(value)); return item; },
+      setSubmenu: () => {
+        const submenu = new Menu(); submenu.el.hidden = true;
+        button.setAttribute('aria-haspopup', 'menu');
+        this.el.append(submenu.el);
+        button.onclick = () => { submenu.el.hidden = !submenu.el.hidden; };
+        return submenu;
+      },
       setDisabled(value) { button.disabled = value; return item; },
-      onClick(callback) { button.onclick = () => { button.closest('[role=menu]').remove(); callback(); }; return item; },
+      onClick(callback) { button.onclick = () => { document.querySelectorAll('[role=menu]').forEach(menu => menu.remove()); callback(); }; return item; },
     };
     build(item); return this;
   }

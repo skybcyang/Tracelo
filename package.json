@@ -1,6 +1,6 @@
 {
   "name": "tracelo",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "description": "Tracelo — task cards and append-only progress timelines for Obsidian.",
   "repository": {
@@ -14,7 +14,8 @@
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "test": "vitest run",
     "test:layout": "node tests/card-layout.browser.mjs && node tests/card-masonry.browser.mjs && node tests/pane-scroll.browser.mjs && node tests/card-interactions.browser.mjs && node tests/card-content.browser.mjs && node tests/card-polish.browser.mjs && node tests/view-details.browser.mjs && node tests/task-acceptance.browser.mjs && node tests/timeline.browser.mjs && node tests/create-task.browser.mjs",
-    "check": "npm test && npm run build && npm run test:layout"
+    "test:capture": "node tests/capture-shell.browser.mjs && node tests/entry-audit.browser.mjs",
+    "check": "npm test && npm run build && npm run test:layout && npm run test:capture"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

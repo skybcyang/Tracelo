@@ -5,12 +5,13 @@ import { describe, expect, it } from "vitest";
 
 describe("final plugin surface", () => {
   const main = readFileSync("src/main.ts", "utf8");
+  const form = readFileSync("src/new-task-form.ts", "utf8");
   const styles = readFileSync("styles.css", "utf8");
 
   it("advances the plugin version so existing vaults receive an upgrade snapshot", () => {
     const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(manifest.version).toBe("0.7.0");
+    expect(manifest.version).toBe("0.8.0");
     expect(pkg.version).toBe(manifest.version);
     expect(JSON.parse(readFileSync('package-lock.json', 'utf8')).version).toBe(manifest.version);
     expect(JSON.parse(readFileSync('versions.json', 'utf8'))[manifest.version]).toBe(manifest.minAppVersion);
@@ -26,7 +27,6 @@ describe("final plugin surface", () => {
       "异常关闭",
       "搜索任务和进展",
       "返回每日时间线",
-      "切换卡牌保留草稿",
       "wt-card-composer",
       "wt-view-switch",
       "wt-ended-section",
@@ -54,10 +54,10 @@ describe("final plugin surface", () => {
       "wt-new-task-modal",
       "wt-group-manager-modal",
       "wt-field-label",
-      "wt-new-properties",
+      "wt-quadrant-picker",
       "wt-primary-action",
       "创建中…",
-    ]) expect(main).toContain(token);
+    ]) expect(main + form).toContain(token);
 
     for (const token of [
       ".modal-container:has(.wt-modal)",
@@ -71,8 +71,9 @@ describe("final plugin surface", () => {
     ]) expect(styles).toContain(token);
 
     expect(styles).toContain("input:not([type=\"radio\"])");
-    // The compact creator has no radios; its input sizing remains locally scoped.
+    // The shared creator scopes hidden radio sizing separately from text fields.
     expect(styles).toContain(".wt-new-task-modal .wt-modal-form :is(input, select, textarea)");
+    expect(styles).toContain('.wt-new-task-modal .wt-quadrant-option input[type="radio"]');
   });
 
   it("offers optional card details and due-day navigation without a required feature switch", () => {

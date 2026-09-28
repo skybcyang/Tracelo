@@ -36,11 +36,50 @@ final class CaptureCoreTests {
         XCTAssertEqual(inputAction(keyCode: 53, shift: false, marked: false), .dismiss)
     }
     func testPanelFitsAvailableScreenAndGrowsWithContent() {
-        for (content, width, height, expectedWidth, expectedHeight) in [(20.0, 1440.0, 900.0, 560.0, 260.0), (600, 1440, 900, 560, 420), (600, 400, 350, 368, 318)] {
+        for (content, width, height, expectedWidth, expectedHeight) in [(20.0, 1440.0, 900.0, 560.0, 260.0), (600, 1440, 900, 560, 760), (1000, 1440, 900, 560, 780), (600, 400, 350, 368, 318)] {
             let size = capturePanelSize(contentHeight: content, available: CGSize(width: width, height: height))
             XCTAssertEqual(size.width, expectedWidth)
             XCTAssertEqual(size.height, expectedHeight)
         }
+    }
+    func testSharedRequestPreservesBytesAndRejectsMismatchedOrUnsafeHeader() throws {
+        let original = try CaptureRequest(text: "任务\n详情", id: "shared-id")
+        let shared = try CaptureRequest(id: original.id, markdown: original.markdown)
+        XCTAssertEqual(shared.markdown, original.markdown)
+        XCTAssertThrowsError(try CaptureRequest(id: "different-id", markdown: original.markdown))
+        XCTAssertThrowsError(try CaptureRequest(id: "../escape", markdown: original.markdown))
+        XCTAssertThrowsError(try CaptureRequest(id: "shared-id", markdown: "# no archive header"))
+        XCTAssertThrowsError(try CaptureRequest(id: "shared-id", markdown: original.markdown.replacingOccurrences(of: "\"version\": 1", with: "\"version\": 2")))
+        XCTAssertThrowsError(try CaptureRequest(id: "shared-id", markdown: original.markdown.replacingOccurrences(of: "\"events\": [", with: "\"invalidEvents\": [")))
+        XCTAssertThrowsError(try CaptureRequest(id: "shared-id", markdown: original.markdown.replacingOccurrences(of: "\"important\": false", with: "\"important\": \"false\"")))
+        XCTAssertThrowsError(try CaptureRequest(id: "shared-id", markdown: original.markdown.replacingOccurrences(of: "\"timezone\":", with: "\"invalidTimezone\":")))
+        for id in ["NUL", "bad?name", "trailing.", "bad\u{0}", String(repeating: "x", count: 181)] {
+            XCTAssertThrowsError(try CaptureRequest(text: "任务", id: id))
+        }
+    }
+    func testStructuredDraftRoundTripPreservesAllFieldsAndMigratesLegacy() throws {
+        let draft = try CaptureFormDraft(json: ["title": "标题", "notes": "详情\n第二行", "groupId": "group-a", "quadrant": "important_urgent", "todos": ["第一项", "第二项"], "dueDate": "2026-10-01", "initialProgress": "初始进展", "expanded": ["todos": true, "due": true, "progress": false]])
+        let restored = try CaptureFormDraft(data: draft.data)
+        XCTAssertEqual(restored.data, draft.data)
+        XCTAssertEqual(restored.values["todos"] as? [String], ["第一项", "第二项"])
+        let legacy = CaptureFormDraft(legacyText: "  旧标题  \r\n旧详情\r\n\r\n末尾")
+        XCTAssertEqual(legacy.values["title"] as? String, "旧标题")
+        XCTAssertEqual(legacy.values["notes"] as? String, "旧详情\n\n末尾")
+        XCTAssertThrowsError(try CaptureFormDraft(data: Data("broken".utf8)))
+        XCTAssertThrowsError(try CaptureFormDraft(json: ["invalid": Double.nan]))
+    }
+    func testGroupsSourceMissingIsEmptyButUnreadableSourceFails() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = CaptureConfiguration(vault: directory.path, taskDirectory: ".")
+        XCTAssertEqual(try configuration.groupsSource(), "")
+        let source = "分组原文\n保持原始字节"
+        let groups = directory.appendingPathComponent("_groups.md")
+        try source.write(to: groups, atomically: true, encoding: .utf8)
+        XCTAssertEqual(try configuration.groupsSource(), source)
+        try Data([0xff, 0xfe, 0xff]).write(to: groups)
+        XCTAssertThrowsError(try configuration.groupsSource())
     }
 }
 let tests = CaptureCoreTests()
@@ -49,4 +88,7 @@ try tests.testAtomicPublishDoesNotOverwriteAndRetryIsIdempotent()
 try tests.testConfigurationRejectsEscapingVaultAndMissingDirectories()
 tests.testInputPolicyProtectsIMEAndPreservesShiftReturn()
 tests.testPanelFitsAvailableScreenAndGrowsWithContent()
-print("Capture core: 5 tests passed")
+try tests.testSharedRequestPreservesBytesAndRejectsMismatchedOrUnsafeHeader()
+try tests.testStructuredDraftRoundTripPreservesAllFieldsAndMigratesLegacy()
+try tests.testGroupsSourceMissingIsEmptyButUnreadableSourceFails()
+print("Capture core: 8 tests passed")

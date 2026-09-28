@@ -44,7 +44,12 @@ try {
     for (const dark of [false, true]) {
       await page.evaluate(dark => document.body.classList.toggle('theme-dark', dark), dark);
       await page.mouse.move(0, 0);
-      const item = card(ids.payment), before = await item.boundingBox();
+      const item = card(ids.payment);
+      // hover() itself scrolls a partly clipped card into view. Measure after
+      // that intentional scrolling so this checks hover styling, not scrolling.
+      await item.scrollIntoViewIfNeeded();
+      await settle();
+      const before = await item.boundingBox();
       await item.hover();
       await settle();
       assert.deepEqual(await item.boundingBox(), before);
@@ -102,12 +107,14 @@ try {
 
   await check('rename cancellation, empty title and composing Enter leave the task unchanged', async ids => {
     const before = await task(ids.payment), item = card(ids.payment);
-    await item.locator('.wt-card-rename').click();
+    await item.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '改名', exact: true }).click();
     const input = page.locator('.wt-prompt-modal input');
     await input.fill('取消改名');
     await input.press('Escape');
     assert.deepEqual(await task(ids.payment), before);
-    await item.locator('.wt-card-rename').click();
+    await item.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '改名', exact: true }).click();
     await input.fill('');
     await page.getByRole('button', { name: '确认', exact: true }).click();
     assert.equal(await input.count(), 1);
@@ -133,7 +140,8 @@ try {
       window.renameOldPath = path;
       return app.vault.adapter.read(path);
     }, ids.payment);
-    await item.locator('.wt-card-rename').click();
+    await item.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '改名', exact: true }).click();
     const input = page.locator('.wt-prompt-modal input');
     await input.fill('中文验收 / 非法:字符?');
     await page.evaluate(() => {
@@ -167,7 +175,8 @@ try {
 
   await check('collapsed details do not manufacture a read-more control for short content', async ids => {
     const item = card(ids.plain);
-    await item.getByRole('button', { name: '添加详情', exact: true }).click();
+    await item.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '添加详情', exact: true }).click();
     await item.getByRole('textbox', { name: '任务详情', exact: true }).fill('完整短详情');
     await item.getByRole('button', { name: '保存详情', exact: true }).click();
     await item.locator('.wt-notes-preview').waitFor();

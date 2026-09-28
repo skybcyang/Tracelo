@@ -1,0 +1,21 @@
+/* Host reset only. Surfaces, fields, focus, type and actions use plugin styles.css. */
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+button, input, select, textarea { font-family: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+button { appearance: none; -webkit-appearance: none; }
+.wt-modal.wt-new-task-modal.capture-modal { width: 100%; max-height: 100vh; min-height: 100%; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.capture-modal .modal-close-button { position: absolute; padding: 0; background: transparent; font-size: 23px; font-weight: 400; line-height: 1; }
+.capture-modal .modal-content { flex: 1; }
+.capture-modal .wt-new-task-body { align-content: start; }
+.capture-context { flex: none; display: flex; margin-top: 8px; min-width: 0; }
+.capture-context #location { border: 0; padding: 0; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.capture-modal .wt-modal-actions { display: flex; flex-wrap: wrap; }
+.capture-modal .wt-new-shortcut { white-space: nowrap; }
+@media (max-width: 460px) {
+  .capture-modal .wt-new-shortcut { flex-basis: 100%; }
+  .capture-context { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .capture-context #location { max-width: 100%; text-align: left; }
+}

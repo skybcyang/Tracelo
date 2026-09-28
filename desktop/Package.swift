@@ -5,7 +5,7 @@ let package = Package(name: "TraceloCapture", platforms: [.macOS(.v13)], product
     .executable(name: "archive-fixture", targets: ["ArchiveFixture"])
 ], targets: [
     .target(name: "CaptureCore"),
-    .executableTarget(name: "TraceloCapture", dependencies: ["CaptureCore"]),
+    .executableTarget(name: "TraceloCapture", dependencies: ["CaptureCore"], exclude: ["Resources"]),
     .executableTarget(name: "ArchiveFixture", dependencies: ["CaptureCore"]),
     .executableTarget(name: "CaptureCoreTests", dependencies: ["CaptureCore"], path: "Tests/CaptureCoreTests")
 ])

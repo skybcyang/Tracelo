@@ -20,8 +20,9 @@ try {
   const payment = page.locator(`[data-task-id="${ids.payment}"]`);
   const long = page.locator(`[data-task-id="${ids.long}"]`);
   async function check(name, run) { try { await run(); checks++; } catch (error) { failures.push(name + ': ' + error.message.split('Call log:')[0]); } finally { await page.locator('.modal-container').evaluateAll(els => els.forEach(el => el.remove())); } }
-  await check('clickable task icon offers searchable previews and saves only this task', async () => {
-    await payment.getByRole('button', { name: '更换图标：完成支付模块', exact: true }).click();
+  await check('menu icon picker offers searchable previews and saves only this task', async () => {
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
     const picker = page.locator('.wt-icon-picker');
     assert.ok(await picker.locator('.wt-icon-choice svg').count() >= 5);
     await picker.getByRole('searchbox', { name: '搜索图标', exact: true }).fill('代码');
@@ -38,23 +39,26 @@ try {
   });
   await check('picker cancellation and empty search do not change task data', async () => {
     const before = await page.evaluate(id => JSON.stringify(window.cardFixture.plugin.tasks.find(t => t.id === id)), ids.payment);
-    await payment.getByRole('button', { name: '更换图标：完成支付模块', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
     await page.getByRole('searchbox', { name: '搜索图标', exact: true }).fill('nonexistent-xyz');
     await page.getByText('没有匹配的图标', { exact: true }).waitFor();
     await page.getByRole('button', { name: '取消', exact: true }).click();
     assert.equal(await page.evaluate(id => JSON.stringify(window.cardFixture.plugin.tasks.find(t => t.id === id)), ids.payment), before);
-    assert.equal(await payment.locator('.wt-task-icon').evaluate(el => el === document.activeElement), true);
+    assert.equal(await payment.locator('.wt-card-menu').evaluate(el => el === document.activeElement), true);
   });
   await check('keyboard escape preserves the selection and returns focus', async () => {
-    await payment.getByRole('button', { name: '更换图标：完成支付模块', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
     assert.equal(await page.getByRole('button', { name: '代码 · code', exact: true }).getAttribute('aria-pressed'), 'true');
     await page.getByRole('searchbox', { name: '搜索图标', exact: true }).press('Escape');
     assert.equal(await page.locator('.wt-icon-picker').count(), 0);
-    assert.equal(await payment.locator('.wt-task-icon').evaluate(el => el === document.activeElement), true);
+    assert.equal(await payment.locator('.wt-card-menu').evaluate(el => el === document.activeElement), true);
   });
   await check('failed icon writes retain the picker and task, then allow retry', async () => {
     const before = await page.evaluate(id => JSON.stringify(window.cardFixture.plugin.tasks.find(t => t.id === id)), ids.payment);
-    await payment.getByRole('button', { name: '更换图标：完成支付模块', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
     await page.evaluate(() => {
       const adapter = window.cardFixture.app.vault.adapter;
       window.restoreIconWrite = () => { adapter.write = original; };
@@ -69,7 +73,8 @@ try {
     } finally { await page.evaluate(() => window.restoreIconWrite()); }
     await page.getByRole('button', { name: '文档 · file-text', exact: true }).click();
     await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).icon === 'file-text', ids.payment);
-    await payment.getByRole('button', { name: '更换图标：完成支付模块', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
     await page.getByRole('button', { name: '代码 · code', exact: true }).click();
   });
   await check('group picker updates inherited icons while preserving explicit overrides', async () => {
@@ -81,7 +86,8 @@ try {
     assert.equal(await payment.locator('.wt-task-icon svg.code').count(), 1);
   });
   await check('hidden icon remains configurable through the menu and can inherit again', async () => {
-    await payment.getByRole('button', { name: '更换图标：完成支付模块', exact: true }).click();
+    await payment.locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
     await page.getByRole('button', { name: '隐藏图标', exact: true }).click();
     await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).icon === null, ids.payment);
     assert.equal(await payment.locator('.wt-task-icon').count(), 0);
@@ -92,6 +98,31 @@ try {
     assert.equal(await payment.locator('.wt-task-icon svg.layers').count(), 1);
   });
   await page.evaluate(id => window.cardFixture.plugin.accessTaskFolder(id, true), ids.payment);
+  await check('time stays at the footer right edge with optional fields and folder actions', async () => {
+    for (const width of [260, 340, 480]) {
+      for (const viewMode of ['group', 'quadrant']) {
+        await page.evaluate(({ width, viewMode }) => {
+          const { plugin, app } = window.cardFixture;
+          plugin.state.viewMode = viewMode;
+          app.workspace.getLeavesOfType('work-timeline-view')[0].view.render();
+          document.querySelectorAll('.wt-card-grid').forEach(el => el.style.gridTemplateColumns = `${width}px`);
+        }, { width, viewMode });
+        const positions = await page.locator('.wt-card').evaluateAll(cards => cards.map(card => {
+          const meta = card.querySelector('.wt-card-meta').getBoundingClientRect();
+          const time = card.querySelector('.wt-card-time').getBoundingClientRect();
+          const tools = card.querySelector('.wt-card-tools')?.getBoundingClientRect();
+          return { title: card.querySelector('.wt-card-title').textContent, rightGap: meta.right - time.right,
+            toolsBeforeTime: !tools || tools.right <= time.left - 4,
+            overflow: card.scrollWidth > card.clientWidth + 1 };
+        }));
+        assert.ok(positions.every(p => Math.abs(p.rightGap) < 1 && p.toolsBeforeTime && !p.overflow), JSON.stringify({ width, viewMode, positions }));
+      }
+    }
+    await page.evaluate(() => {
+      window.cardFixture.plugin.state.viewMode = 'group';
+      window.cardFixture.app.workspace.getLeavesOfType('work-timeline-view')[0].view.render();
+    });
+  });
   await check('narrow card keeps a readable title with consistent header controls', async () => {
     await payment.evaluate(el => { el.parentElement.style.gridTemplateColumns = '260px'; });
     const widths = await payment.evaluate(el => ({ title: el.querySelector('.wt-card-open').getBoundingClientRect().width, toolsInTitle: el.querySelector('.wt-card-heading').querySelectorAll('.wt-card-folder, .wt-notes-entry').length, tools: [...el.querySelectorAll('.wt-card-heading button:not(.wt-card-open)')].map(b => { const r=b.getBoundingClientRect(); return [r.width,r.height]; }) }));
@@ -99,10 +130,11 @@ try {
     assert.equal(widths.toolsInTitle, 0);
     assert.ok(widths.tools.every(([w,h]) => w === 24 && h === 24), JSON.stringify(widths));
   });
-  await check('a card without optional fields shares its notes action with metadata', async () => {
+  await check('a card without optional fields keeps metadata free of duplicate actions', async () => {
     const plain = page.locator(`[data-task-id="${ids.plain}"]`);
     const notes = plain.getByRole('button', { name: '添加详情', exact: true });
-    assert.equal(await notes.evaluate(el => !!el.closest('.wt-card-meta')), true);
+    assert.equal(await notes.count(), 0);
+    assert.equal(await plain.locator('.wt-card-tools, .wt-card-folder').count(), 0);
     assert.equal(await plain.locator('.wt-card-status-row').count(), 0);
   });
   await check('multiline todo checkbox aligns with the first line', async () => {

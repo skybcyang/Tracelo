@@ -4,6 +4,9 @@ cd "$(dirname "$0")/.."
 version=$(node -p "JSON.parse(require('fs').readFileSync('manifest.json','utf8')).version")
 app="dist/macos/Tracelo Capture.app"
 mkdir -p "$app/Contents/MacOS"
+mkdir -p "$app/Contents/Resources"
+node desktop/build-form.mjs
+cp desktop/Sources/TraceloCapture/Resources/capture.html desktop/Sources/TraceloCapture/Resources/capture.css desktop/Sources/TraceloCapture/Resources/capture.js desktop/Sources/TraceloCapture/Resources/create-task.js styles.css "$app/Contents/Resources/"
 for arch in arm64 x86_64; do
   swift build --package-path desktop --scratch-path "dist/swift-$arch" -c release --arch "$arch" --product TraceloCapture
 done

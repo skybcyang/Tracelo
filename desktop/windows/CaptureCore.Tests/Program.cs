@@ -6,6 +6,14 @@ if (args.Length == 2 && args[0] == "--fixture") {
     Console.Write(CaptureRequest.Fixture(int.Parse(args[1])).Markdown);
     return;
 }
+if (args.Length == 3 && args[0] == "--publish-request") {
+    try {
+        using var json = JsonDocument.Parse(File.ReadAllText(args[1]));
+        var request = json.RootElement;
+        Console.Write(CaptureRequest.FromSharedForm(request.GetProperty("id").GetString()!, request.GetProperty("markdown").GetString()!).Publish(args[2]));
+    } catch (Exception error) { Console.Error.WriteLine(error.Message); Environment.ExitCode = 1; }
+    return;
+}
 var passed = 0;
 void Test(string name, Action action) { action(); Console.WriteLine($"PASS {name}"); passed++; }
 void Equal<T>(T actual, T expected) { if (!Equals(actual, expected)) throw new Exception($"Expected {expected}, got {actual}"); }
@@ -76,6 +84,71 @@ try {
     Test("capture bounds fit small and negative-origin monitor work areas", () => {
         Equal(WindowPlacement.Fit(-800, 20, 480, 260, 1160, 684), new WindowBounds(-800, 20, 480, 260));
         Equal(WindowPlacement.Fit(1920, 0, 1920, 1080, 580, 342), new WindowBounds(2590, 369, 580, 342));
+    });
+    Test("shared-form request rejects path injection and mismatching metadata", () => {
+        var fixture = CaptureRequest.Fixture(0);
+        Equal(CaptureRequest.FromSharedForm(fixture.Id, fixture.Markdown), fixture);
+        Reject(() => CaptureRequest.FromSharedForm("../escape", fixture.Markdown));
+        Reject(() => CaptureRequest.FromSharedForm("different-id", fixture.Markdown));
+        Reject(() => CaptureRequest.FromSharedForm("valid-id", "ordinary markdown"));
+    });
+    Test("structured form draft and pending request survive restart without losing fields", () => {
+        var path = Path.Combine(root, "structured-settings.json");
+        var state = new CaptureSettings { Draft = "legacy title\nlegacy notes" };
+        Equal(state.RestoredDraft().GetProperty("title").GetString(), "legacy title");
+        state.FormDraft = JsonSerializer.SerializeToElement(new { title = "结构化标题", notes = "详情", groupId = "group-1", quadrant = "important_urgent", todos = new[] { "待办一" }, dueDate = "2026-10-01", initialProgress = "初始进展", expanded = new { todos = true, due = true, progress = true } });
+        state.PendingRequest = CaptureRequest.Fixture(1);
+        state.Save(path);
+        var restored = CaptureSettings.Load(path);
+        Equal(restored.RestoredDraft().GetProperty("dueDate").GetString(), "2026-10-01");
+        Equal(restored.PendingRequest, state.PendingRequest);
+    });
+    Test("group archive reading returns raw strict archive without following links", () => {
+        var directory = new CaptureConfiguration(root, "工作记录/任务").Destination();
+        Equal(CaptureConfiguration.ReadGroupsArchive(directory), "");
+        var source = "<!-- work-timeline-groups:v1\n{\"version\":1,\"groups\":[],\"events\":[]}\n-->\n\n";
+        File.WriteAllText(Path.Combine(directory, "_groups.md"), source);
+        Equal(CaptureConfiguration.ReadGroupsArchive(directory), source);
+    });
+    Test("equivalent draft JSON retains pending ID after settings reformat", () => {
+        var state = new CaptureSettings { FormDraft = JsonDocument.Parse("{ \"title\": \"任务\", \"notes\": \"详情\" }").RootElement.Clone(), PendingRequest = CaptureRequest.Fixture(0) };
+        state.SetDraft(JsonDocument.Parse("{\"notes\":\"详情\",\"title\":\"任务\"}").RootElement);
+        Equal(state.PendingRequest?.Id, "desktop-fixture-0");
+        state.SetDraft(JsonDocument.Parse("{\"title\":\"改名\",\"notes\":\"详情\"}").RootElement);
+        Equal(state.PendingRequest, null);
+    });
+    Test("unreadable group path is an error rather than silently ungrouped", () => {
+        var directory = Path.Combine(root, "invalid-groups"); Directory.CreateDirectory(Path.Combine(directory, "_groups.md"));
+        Reject(() => CaptureConfiguration.ReadGroupsArchive(directory));
+    });
+    Test("group refresh invalidates stale request while preserving the complete draft", () => {
+        var draft = JsonSerializer.SerializeToElement(new { title = "保留标题", groupId = "group-1", notes = "详情" });
+        var state = new CaptureSettings { FormDraft = draft, GroupsSource = "old group archive", PendingRequest = CaptureRequest.Fixture(0) };
+        Equal(state.UpdateGroupsSource("old group archive"), false);
+        Equal(state.PendingRequest?.Id, "desktop-fixture-0");
+        Equal(state.UpdateGroupsSource("renamed group archive"), true);
+        Equal(state.PendingRequest, null);
+        Equal(state.RestoredDraft().GetProperty("groupId").GetString(), "group-1");
+        state.PendingRequest = CaptureRequest.Fixture(1);
+        state.UpdateGroupsSource(null);
+        Equal(state.PendingRequest, null);
+    });
+    Test("same-target restart keeps pending request but vault or directory changes clear it", () => {
+        var path = Path.Combine(root, "retry-settings.json");
+        var draft = JsonSerializer.SerializeToElement(new { title = "幂等重试", notes = "草稿" });
+        var state = new CaptureSettings { Vault = root, TaskDirectory = "tasks", FormDraft = draft, GroupsSource = "groups", PendingRequest = CaptureRequest.Fixture(1) };
+        state.Save(path);
+        var restored = CaptureSettings.Load(path);
+        restored.SetDraft(draft); restored.UpdateGroupsSource("groups");
+        Equal(restored.PendingRequest, state.PendingRequest);
+        var hotkeyOnly = new CaptureSettings { Vault = root, TaskDirectory = "tasks", HotkeyKey = 65 };
+        Equal(hotkeyOnly.CopyDraftFrom(restored), false);
+        Equal(hotkeyOnly.PendingRequest, state.PendingRequest);
+        foreach (var changed in new[] { new CaptureSettings { Vault = root + "-other", TaskDirectory = "tasks" }, new CaptureSettings { Vault = root, TaskDirectory = "other-tasks" } }) {
+            Equal(changed.CopyDraftFrom(restored), true);
+            Equal(changed.PendingRequest, null);
+            Equal(changed.RestoredDraft().GetProperty("title").GetString(), "幂等重试");
+        }
     });
     Console.WriteLine($"{passed} tests passed");
 } finally { Directory.Delete(root, true); }

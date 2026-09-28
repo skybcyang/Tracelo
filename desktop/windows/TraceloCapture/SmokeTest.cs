@@ -1,70 +1,119 @@
+using System.Text.Json;
 using Tracelo;
 
 namespace TraceloCapture;
 
-// Runs inside the published Windows executable; never reads or modifies user preferences.
+// Tests the published WebView2 surface against an isolated vault and settings only.
 internal static class SmokeTest {
     internal static int Run(string outputDirectory) {
         Directory.CreateDirectory(outputDirectory);
         var root = Path.Combine(outputDirectory, "smoke-" + Guid.NewGuid());
-        Directory.CreateDirectory(Path.Combine(root, "tasks"));
+        var tasks = Path.Combine(root, "tasks"); Directory.CreateDirectory(tasks);
         var path = Path.Combine(root, "settings.json");
-        var log = new List<string>();
-        void Check(bool condition, string name) { if (!condition) throw new Exception(name); log.Add("PASS " + name); }
+        var log = new List<string>(); var exitCode = 1;
+        void Check(bool value, string description) { if (!value) throw new Exception(description); log.Add("PASS " + description); }
+        var draft = JsonSerializer.SerializeToElement(new {
+            title = "整理本周工作进展", notes = "补充目标与参考资料\n\n保留 Markdown。", groupId = "smoke-group",
+            quadrant = "important_urgent", todos = new[] { "核对验收清单" }, dueDate = "2026-10-01", initialProgress = "已完成资料收集",
+            expanded = new { todos = true, due = true, progress = true }
+        });
+        File.WriteAllText(Path.Combine(tasks, "_groups.md"), "<!-- work-timeline-groups:v1\n{\n  \"version\": 1,\n  \"groups\": [\n    {\n      \"id\": \"smoke-group\",\n      \"name\": \"产品\"\n    }\n  ],\n  \"events\": []\n}\n-->\n\n# 任务分组\n\n1. 产品\n\n## 变更记录\n\n暂无记录\n");
+        new CaptureSettings { Vault = root, TaskDirectory = "tasks", HotkeyModifiers = 3, HotkeyKey = (uint)Keys.F11, FormDraft = draft }.Save(path);
         try {
-            new CaptureSettings { Vault = root, TaskDirectory = "tasks", HotkeyModifiers = 3, HotkeyKey = (uint)Keys.F11 }.Save(path);
-            using (var app = new CaptureApplication(path, smoke: true)) {
-                app.Show(); Application.DoEvents();
-                Check(app.Window.Visible && app.Window.Editor.Focused, "native capture window opens and focuses editor");
-                Check(Screen.FromControl(app.Window).WorkingArea.Contains(app.Window.Bounds), "capture fits monitor work area");
-                app.Window.Editor.Text = "保留草稿\r\n详情";
-                app.Window.Editor.HandleInput(Keys.Escape); Application.DoEvents();
-                Check(!app.Window.Visible && CaptureSettings.Load(path).Draft.Contains("详情"), "Escape hides window and persists draft");
-                Native.SendMessage(app.Window.Handle, 0x312, (IntPtr)1, IntPtr.Zero); Application.DoEvents();
-                Check(app.Window.Visible, "WM_HOTKEY reopens capture window");
-                Native.SendMessage(app.Window.Editor.Handle, 0x10D, IntPtr.Zero, IntPtr.Zero);
-                Check(!app.Window.Editor.HandleInput(Keys.Enter), "IME Enter remains a composition key");
-                Check(!app.Window.Editor.HandleInput(Keys.Escape), "IME Escape remains a composition key");
-                Check(Directory.GetFiles(Path.Combine(root, "tasks"), "*.md").Length == 0, "IME confirmation never creates a task");
-                Native.SendMessage(app.Window.Editor.Handle, 0x10E, IntPtr.Zero, IntPtr.Zero);
-                Check(!app.Window.Editor.HandleInput(Keys.Enter), "IME end confirmation guard remains active");
-                // Test a genuine registration collision while preserving the existing shortcut.
-                using var occupied = new Form(); _ = occupied.Handle;
-                Check(Native.RegisterHotKey(occupied.Handle, 97, 0x4003, (uint)Keys.F12), "test reserves competing shortcut");
+            using var app = new CaptureApplication(path, smoke: true);
+            app.Show();
+            app.Window.BeginInvoke(async () => {
                 try {
-                    var rejected = false;
-                    try { app.ApplySettings(new CaptureSettings { Vault = root, TaskDirectory = "tasks", HotkeyModifiers = 3, HotkeyKey = (uint)Keys.F12 }); }
-                    catch (IOException) { rejected = true; }
-                    Check(rejected && app.State.HotkeyKey == (uint)Keys.F11, "shortcut conflict retains original settings");
-                } finally { Native.UnregisterHotKey(occupied.Handle, 97); }
-                Check(!app.Window.Editor.HandleInput(Keys.Shift | Keys.Enter), "Shift+Enter stays in the editor");
-                app.Submit(); Application.DoEvents();
-                Check(!app.Window.Visible && app.Window.Editor.Text == "", "successful submit clears draft and hides window");
-                Check(Directory.GetFiles(Path.Combine(root, "tasks"), "*.md").Length == 1, "submit publishes exactly one task");
-                app.Show(); app.State.TaskDirectory = "missing"; app.Window.Editor.Text = "失败时保留"; app.Submit();
-                Check(app.Window.Visible && app.Window.Editor.Text == "失败时保留" && app.Window.Error.Text.Length > 0, "save failure retains draft and visible error");
-                void Screenshot(Form form, string name, bool dark) {
-                    Theme.Refresh(form, dark); form.Refresh(); Application.DoEvents();
-                    using var bitmap = new Bitmap(form.Width, form.Height);
-                    form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
-                    bitmap.Save(Path.Combine(outputDirectory, name));
-                }
-                Screenshot(app.Window, "capture-smoke.png", false);
-                Screenshot(app.Window, "capture-dark-smoke.png", true);
-                using var settings = new SettingsWindow(app.State, _ => { }); settings.Show(); Application.DoEvents();
-                Screenshot(settings, "settings-smoke.png", false);
-                Screenshot(settings, "settings-dark-smoke.png", true);
-                Check(app.Window.BackColor == settings.BackColor && app.Window.Editor.BackColor != Color.White, "capture and settings share dark theme surfaces");
-                settings.Close();
-                app.Dismiss();
+                    async Task WaitFor(Func<Task<bool>> condition, string description) {
+                        var deadline = DateTime.UtcNow.AddSeconds(20);
+                        while (!await condition()) {
+                            if (app.Window.Surface.LoadError is string error) throw new Exception(error);
+                            if (DateTime.UtcNow >= deadline) throw new TimeoutException(description);
+                            await Task.Delay(50);
+                        }
+                    }
+                    async Task<bool> Js(string code) => await app.Window.Surface.EvaluateAsync(code) == "true";
+                    await WaitFor(() => Task.FromResult(app.Window.Surface.Ready), "shared form did not become ready");
+                    await WaitFor(() => Js("window.capture.getDraft().title === '整理本周工作进展' && !document.querySelector('#submit').disabled"), "initial state was not restored");
+                    Check(Screen.FromControl(app.Window).WorkingArea.Contains(app.Window.Bounds), "shared form fits monitor work area");
+                    Check(await Js("window.capture.getDraft().groupId === 'smoke-group' && Array.from(document.querySelectorAll('option')).some(o=>o.textContent.includes('产品'))"), "group dropdown loads strict vault archive");
+                    Check(await Js("window.capture.getDraft().todos[0] === '核对验收清单' && window.capture.getDraft().initialProgress === '已完成资料收集'"), "complete structured draft restored");
+                    Check(await Js("getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(246, 249, 253)' || document.body.classList.contains('theme-dark')"), "surface uses shared plugin stylesheet");
+                    await app.Window.Surface.EvaluateAsync("Array.from(document.querySelectorAll('button')).find(button => button.textContent === '取消').click()");
+                    await WaitFor(() => Task.FromResult(!app.Window.Visible), "cancel did not dismiss");
+                    Check(CaptureSettings.Load(path).RestoredDraft().GetProperty("dueDate").GetString() == "2026-10-01", "cancel persists all form fields");
+                    Native.SendMessage(app.Window.Handle, 0x312, (IntPtr)1, IntPtr.Zero);
+                    Check(app.Window.Visible, "native hotkey reopens shared form");
+                    using (var occupied = new Form()) {
+                        _ = occupied.Handle;
+                        Check(Native.RegisterHotKey(occupied.Handle, 97, 0x4003, (uint)Keys.F12), "reserve competing shortcut");
+                        try {
+                            var rejected = false;
+                            try { app.ApplySettings(new CaptureSettings { Vault = root, TaskDirectory = "tasks", HotkeyModifiers = 3, HotkeyKey = (uint)Keys.F12 }); }
+                            catch (IOException) { rejected = true; }
+                            Check(rejected && app.State.HotkeyKey == (uint)Keys.F11, "shortcut conflict retains original settings");
+                        } finally { Native.UnregisterHotKey(occupied.Handle, 97); }
+                    }
+                    await app.Window.Surface.EvaluateAsync("document.querySelector('#task-title').dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true})); document.querySelector('#task-title').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true,isComposing:true}));");
+                    Check(Directory.GetFiles(tasks, "*.md").Length == 1, "IME confirmation does not publish task");
+                    await app.Window.Surface.EvaluateAsync("document.querySelector('input').dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));");
+                    await Task.Delay(180);
+                    foreach (var dark in new[] { false, true }) {
+                        app.Window.Surface.Update(new() { ["dark"] = dark });
+                        await WaitFor(() => Js($"document.body.classList.contains('theme-dark') === {dark.ToString().ToLowerInvariant()}"), "theme not updated");
+                        await Task.Delay(180);
+                        await app.Window.Surface.SnapshotAsync(Path.Combine(outputDirectory, dark ? "capture-dark-smoke.png" : "capture-smoke.png"));
+                    }
+                    var groupPath = Path.Combine(tasks, "_groups.md");
+                    File.WriteAllText(groupPath, File.ReadAllText(groupPath).Replace("产品", "产品新版"));
+                    await app.Window.Surface.EvaluateAsync("document.querySelector('form').requestSubmit()");
+                    await WaitFor(() => Js("document.querySelector('.wt-form-error').textContent.includes('分组档案已更新')"), "stale group archive was not rejected");
+                    Check(Directory.GetFiles(tasks, "*.md").Length == 1, "group rename rejects stale request before writing");
+                    Check(await Js("window.capture.getDraft().title === '整理本周工作进展' && window.capture.getDraft().groupId === 'smoke-group' && Array.from(document.querySelectorAll('option')).some(o=>o.textContent==='产品新版')"), "group refresh retains draft and updates dropdown");
+                    await app.Window.Surface.EvaluateAsync("document.querySelector('form').requestSubmit()");
+                    await WaitFor(() => Task.FromResult(!app.Window.Visible), "form did not publish");
+                    var created = Directory.GetFiles(tasks, "*.md").Single(file => Path.GetFileName(file) != "_groups.md");
+                    var markdown = File.ReadAllText(created);
+                    var end = markdown.IndexOf("\n-->\n\n", StringComparison.Ordinal);
+                    using var metadata = JsonDocument.Parse(markdown["<!-- work-timeline-task:v1\n".Length..end]);
+                    var task = metadata.RootElement;
+                    Check(task.GetProperty("groupId").GetString() == "smoke-group" && task.GetProperty("groupName").GetString() == "产品新版" && task.GetProperty("important").GetBoolean() && task.GetProperty("urgent").GetBoolean(), "shared form retry saves refreshed group and quadrant");
+                    Check(task.GetProperty("dueDate").GetString() == "2026-10-01" && task.GetProperty("todos")[0].GetProperty("text").GetString() == "核对验收清单", "shared form saves due date and todos");
+                    Check(task.GetProperty("events").EnumerateArray().Any(e => e.GetProperty("kind").GetString() == "progress"), "initial progress saved as its own event");
+                    Check(CaptureSettings.Load(path).FormDraft == null, "successful creation clears persistent draft");
+                    app.Show(); app.Window.Surface.Update(new() { ["draft"] = draft });
+                    await WaitFor(() => Js("window.capture.getDraft().title === '整理本周工作进展'"), "draft did not reach browser");
+                    app.State.TaskDirectory = "missing";
+                    await app.Window.Surface.EvaluateAsync("document.querySelector('form').requestSubmit()");
+                    await WaitFor(() => Js("document.querySelector('.wt-form-error').textContent.length > 0"), "save failure not reported");
+                    Check(app.Window.Visible && app.State.RestoredDraft().GetProperty("title").GetString() == "整理本周工作进展", "save failure retains complete draft");
+                    using var settings = new SettingsWindow(app.State, _ => { }); settings.Show();
+                    foreach (var dark in new[] { false, true }) {
+                        Theme.Refresh(settings, dark); settings.Refresh();
+                        using var image = new Bitmap(settings.Width, settings.Height);
+                        settings.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size));
+                        image.Save(Path.Combine(outputDirectory, dark ? "settings-dark-smoke.png" : "settings-smoke.png"));
+                    }
+                    settings.Close(); app.Dismiss();
+                    await WaitFor(() => Task.FromResult(!app.Window.Visible), "native dismiss did not snapshot the final draft");
+                    exitCode = 0;
+                } catch (Exception error) { log.Add(error.ToString()); }
+                finally { Application.ExitThread(); }
+            });
+            Application.Run(app);
+        } catch (Exception error) { log.Add(error.ToString()); }
+        finally {
+            // WebView2 shuts down its isolated browser process asynchronously.
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (Directory.Exists(root)) {
+                try { Directory.Delete(root, true); }
+                catch (IOException) when (DateTime.UtcNow < deadline) { Thread.Sleep(50); }
+                catch (UnauthorizedAccessException) when (DateTime.UtcNow < deadline) { Thread.Sleep(50); }
+                catch (Exception error) { log.Add("Test profile retained at " + root + ": " + error.Message); break; }
             }
-            using (var restarted = new CaptureApplication(path, smoke: true))
-                Check(restarted.Window.Editor.Text == "失败时保留", "process restart restores persistent draft");
-            File.WriteAllLines(Path.Combine(outputDirectory, "smoke-result.txt"), log.Append("Windows native smoke test passed"));
-            return 0;
-        } catch (Exception failure) {
-            File.WriteAllLines(Path.Combine(outputDirectory, "smoke-result.txt"), log.Append(failure.ToString()));
-            return 1;
-        } finally { Directory.Delete(root, true); }
+            log.Add(exitCode == 0 ? "Windows shared-form native smoke test passed" : "Windows shared-form native smoke test failed");
+            File.WriteAllLines(Path.Combine(outputDirectory, "smoke-result.txt"), log);
+        }
+        return exitCode;
     }
 }

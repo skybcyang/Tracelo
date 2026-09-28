@@ -1,25 +1,28 @@
 # Tracelo 桌面快捷创建
 
-0.7.0 提供 macOS Universal `.app` 压缩包和 Windows x64 自包含 `.exe` 压缩包，均与同版 Obsidian 插件配套使用。macOS 仅作本地 ad-hoc 签名，尚无开发者签名／公证；Windows 尚无代码签名。系统可能提示发布者未经验证。实际输入法选词、多屏和焦点恢复仍需实机复核，自动协议／输入策略测试不等同于全部系统交互验收。
+0.8.0 的插件、macOS 和 Windows 快捷窗口共用 `src/new-task-form.ts`：任务名称、详情、分组、重要／紧急四象限、待办、截止日期、初始进展及草稿采用同一表单和任务生成逻辑。名称与详情独立填写，象限使用四项直接可见的 2×2 选择区。macOS 使用系统 WebKit，Windows 使用 WebView2。截图与验证见[完整快捷创建](../docs/validation/2026-09-28-capture-shared-ui.md)。
+
+0.8.0 提供 macOS Universal `.app` 压缩包和 Windows x64 自包含 `.exe` 压缩包，均与同版 Obsidian 插件配套使用。macOS 仅作本地 ad-hoc 签名，尚无开发者签名／公证；Windows 尚无代码签名。系统可能提示发布者未经验证。实际输入法选词、多屏和焦点恢复仍需实机复核，自动协议／输入策略测试不等同于全部系统交互验收。
 
 ## 下载与安装
 
 从 [GitHub Releases](https://github.com/skybcyang/Tracelo/releases/latest) 下载对应平台的 ZIP，并核对 `SHA256SUMS.txt`。
 
-- **macOS 13+（Intel / Apple Silicon）**：解压 `Tracelo-Capture-0.7.0-macos-universal.zip`，将 `Tracelo Capture.app` 放入应用程序目录并打开。通过菜单栏图标进入设置。应用不会自动注册开机启动。
-- **Windows 10/11 x64**：解压 `Tracelo-Capture-0.7.0-windows-x64.zip`，运行 `TraceloCapture.exe`；无需另装 .NET。通过托盘菜单进入设置，详见 [Windows 使用与开发](windows/README.md)。
+- **macOS 13+（Intel / Apple Silicon）**：解压 `Tracelo-Capture-0.8.0-macos-universal.zip`，将 `Tracelo Capture.app` 放入应用程序目录并打开。通过菜单栏图标进入设置。应用不会自动注册开机启动。
+- **Windows 10/11 x64**：解压 `Tracelo-Capture-0.8.0-windows-x64.zip`，运行 `TraceloCapture.exe`；无需另装 .NET，需安装 WebView2 Evergreen Runtime。通过托盘菜单进入设置，详见 [Windows 使用与开发](windows/README.md)。
 
 选择 vault 后，填写插件设置中的实际任务相对目录。目录须存在；快捷工具只新增任务，不修改原有任务与插件状态。两个系统默认使用 Control+Alt/Option+Space，可在设置中更改。
 
 ## macOS 实现
 
-独立的 Swift / AppKit 菜单栏工具，macOS 13+，无第三方依赖。参考本地 Eureka 的 NSPanel、鼠标所在屏幕定位和 Carbon 全局快捷键模式；不复制其存档格式，不启动 HTTP 服务，也不要求 Obsidian 正在运行。
+独立的 Swift / AppKit / 系统 WebKit 菜单栏工具，macOS 13+，无第三方运行时依赖。NSPanel、鼠标所在屏幕定位和 Carbon 全局快捷键保持原生；页面完全本地加载，禁止外部导航和网络资源，不启动 HTTP 服务，也不要求 Obsidian 正在运行。
 
 ## 构建与运行
 
 在仓库根目录执行：
 
 ```sh
+node desktop/build-form.mjs
 swift build --package-path desktop -c release
 desktop/.build/release/TraceloCapture
 ```
@@ -30,15 +33,15 @@ desktop/.build/release/TraceloCapture
 
 ## 输入行为
 
-- 第一行作为标题（去除首尾空白），剩余行作为 Markdown 详情，保留行顺序、空行与图片引用。第一行空白时不能保存。
-- Enter 创建，Shift+Enter 换行；输入法有 marked text 时按键交由系统处理，避免选词时误提交。
+- 任务名称与 Markdown 详情分别填写。分组从当前任务目录的 `_groups.md` 读取，可选择四种重要／紧急组合。
+- 待办、截止日期与初始进展按需展开，折叠不清除已填写内容。⌘ Enter（macOS）／Ctrl Enter（Windows）创建，详情与进展中的 Enter 正常换行；组合输入时不提交。
 - Esc 收起并保留草稿，再次打开恢复。浮窗位于鼠标所在显示器的可见区域中心，并聚焦编辑框；收起后恢复此前应用焦点。
-- 默认「未分组、不重要、不紧急」。详情不是进展；仅生成一条创建事件。
+- 默认「未分组、不重要、不紧急」。详情不是进展；创建事件及所选待办、日期、初始进展事件与插件一致。完整字段和选择均保留在草稿中，可显式清空。
 - 保存成功才清空输入并收起。错误在浮窗中提示，原输入和本次请求 ID 保留以供重试。
 
 ## 存档协议与安全发布
 
-`CaptureCore` 与 `src/archive.ts` 使用同一 v1 协议，包含 JSON 注释、属性、可选 `## 详情` 和时间线。详情位于属性之后、待办之前。JSON 使用两个空格缩进，Unicode 和斜线保持原样，转义遵循 `JSON.stringify`；无详情时不写字段或正文区。
+共用表单使用插件的领域函数及 `src/archive.ts` 直接生成 v1 存档，原生 `CaptureCore` 校验请求 ID 和协议头并原子发布。包含 JSON 注释、属性、可选 `## 详情`、待办和时间线。分组源变动时先刷新选项，请用户确认后再创建，避免把旧分组悄悄改成未分组。
 
 0.7.0 将产品名称“备注”调整为“详情”。内部字段仍为 `notes`，插件继续严格兼容旧 `## 备注` 存档；应搭配 0.7.0 或更新插件，0.6.0 插件不支持新的正文标题。
 
@@ -52,11 +55,12 @@ desktop/.build/release/TraceloCapture
 swift run --package-path desktop CaptureCoreTests
 npx vitest run tests/desktop-archive.test.ts
 bash desktop/package-macos.sh
+PLAYWRIGHT_CHANNEL=chrome npm run test:capture
 ```
 
 原生测试不依赖 XCTest（仅安装 Command Line Tools 的环境也可运行），覆盖多行拆分、空标题、IME/Shift/Enter/Esc 输入策略、目录边界、原子不覆盖和相同请求重试。跨语言测试实际编译 Swift fixture，生成只有标题、中文/图片详情、Unicode/控制字符转义三类样例；由 TypeScript 严格解析并重新序列化，逐字节比较。仅 macOS 执行该跨语言测试。
 
-核心与协议测试不写入真实 vault。打包脚本同时构建 arm64/x86_64，合并 Universal 应用并验证签名与应用启动；启动检查只构造界面并退出，不注册快捷键或创建任务。
+核心与协议测试只使用临时目录，不写入真实 vault。打包脚本生成共享表单 bundle，同时构建 arm64/x86_64，合并 Universal 应用，复制插件样式表并验证签名与实际 WebKit 浅／深色界面；不注册真实快捷键，不修改用户草稿。可为二进制的 `--smoke-test` 追加 `--screenshots /tmp/tracelo-capture-preview` 输出真实 WebKit 渲染截图。Windows 构建同样生成并嵌入这些共享资源，运行需要 WebView2 Evergreen Runtime。
 
 ## 需要交互验收的项目
 

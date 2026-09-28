@@ -439,17 +439,16 @@
 }
 
 .wt-card.is-selected { border-color: var(--wt-accent); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--wt-accent) 45%, transparent), var(--wt-card-shadow); }
-.work-timeline-view .wt-card :is(.wt-task-icon, .wt-card-rename, .wt-card-menu, .wt-card-folder, .wt-notes-entry.is-empty) {
+.work-timeline-view .wt-card :is(.wt-task-icon, .wt-card-menu) {
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px;
   width: 24px; min-width: 24px; height: 24px; min-height: 24px; padding: 4px;
   border: 0; border-radius: 5px; box-shadow: none; color: var(--wt-muted); background: transparent;
 }
-.wt-card :is(.wt-task-icon, .wt-card-rename, .wt-card-menu, .wt-card-folder, .wt-notes-entry.is-empty) svg { width: 16px; height: 16px; }
+.wt-card :is(.wt-task-icon, .wt-card-menu) svg { width: 16px; height: 16px; }
 .wt-card-heading-actions { display: flex; flex: none; align-items: center; gap: 4px; }
-.wt-card-tools { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .wt-card-status-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.wt-card :is(.wt-card-rename, .wt-card-menu, .wt-card-folder) { opacity: .65; }
-.wt-card:hover :is(.wt-card-rename, .wt-card-menu, .wt-card-folder), .wt-card:focus-within :is(.wt-card-rename, .wt-card-menu, .wt-card-folder) { opacity: 1; }
+.wt-card :is(.wt-card-menu) { opacity: .65; }
+.wt-card:hover :is(.wt-card-menu), .wt-card:focus-within :is(.wt-card-menu) { opacity: 1; }
 .wt-board-controls {
   display: flex;
   flex: 0 0 auto;
@@ -487,28 +486,24 @@
 .work-timeline-view .wt-more-todos { height: auto; min-height: 24px; padding: 2px 0; border: 0; box-shadow: none; background: transparent; color: var(--wt-accent-strong); font-size: 11px; white-space: normal; text-align: left; }
 .work-timeline-view .wt-read-more { display: none; }
 .wt-card.has-truncated-content .wt-read-more { display: block; }
-.wt-card-meta { flex-wrap: wrap; }
-.wt-read-more { flex-basis: 100%; }
+.wt-read-more { grid-column: 1 / -1; justify-self: start; }
 .wt-card-todos.is-summary .wt-todo-label span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .wt-completed-todos { color: var(--wt-muted); font-size: 11px; margin-top: 6px; }
 .wt-completed-todos summary { min-height: 24px; padding: 3px 0; cursor: pointer; }
 .wt-recorded-feedback { color: var(--wt-accent); font-size: 12px; margin-top: 4px; }
-.work-timeline-view .wt-notes-entry { padding: 2px 0; margin: 0; font-size: 11px; font-weight: 600; line-height: 1.5; height: auto; color: var(--wt-muted); background: transparent; border: 0; box-shadow: none; }
 .wt-card-heading { position: relative; }
 .wt-task-notes { min-width: 0; margin-top: 12px; }
-.wt-notes-preview { margin-top: 4px; font-size: 12px; line-height: 1.6; color: var(--wt-text); overflow-wrap: anywhere; }
+.wt-notes-preview { font-size: 12px; line-height: 1.6; color: var(--wt-text); overflow-wrap: anywhere; }
 .wt-notes-preview > :first-child { margin-top: 0; }
 .wt-notes-preview > :last-child { margin-bottom: 0; }
 .wt-notes-preview img { display: block; max-width: 100%; height: auto; cursor: zoom-in; }
-.wt-details-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.wt-details-heading h4 { margin: 0; font-size: 11px; line-height: 1.5; font-weight: 600; color: var(--wt-muted); }
-.wt-details-heading .wt-notes-entry { font-weight: 400; }
+.wt-notes-draft-status { display: block; margin-bottom: 4px; color: var(--wt-muted); font-size: 11px; }
 .wt-notes-preview pre { overflow-x: auto; }
 .wt-notes-editor textarea { width: 100%; min-height: 120px; resize: vertical; font-size: 12px; }
 .wt-notes-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .wt-notes-actions input { max-width: 100%; font-size: 11px; }
 .wt-notes-actions button { font-size: 11px; }
-@media (hover: none) { .wt-card :is(.wt-card-rename, .wt-card-menu, .wt-card-folder) { opacity: 1; } }
+@media (hover: none) { .wt-card :is(.wt-card-menu) { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .wt-card { transition: none; } }
 
 .wt-card:not(.is-expanded) { cursor: pointer; }
@@ -595,13 +590,23 @@
 }
 
 .wt-card-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
   min-width: 0;
   min-height: 18px;
-  gap: 12px;
-  justify-content: space-between;
+  gap: 6px 12px;
   color: var(--wt-muted);
   font-size: 11px;
   line-height: 1.5;
+}
+
+.wt-card-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
 }
 
 .wt-card-summary {
@@ -655,7 +660,10 @@
 }
 
 .wt-card-time {
-  margin-left: auto;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -697,8 +705,7 @@
   color: var(--wt-green);
 }
 
-.work-timeline-view .wt-card-menu,
-.work-timeline-view .wt-card-folder {
+.work-timeline-view .wt-card-menu {
   position: static;
   flex: none;
   width: 24px;
@@ -711,8 +718,6 @@
   background: transparent;
   color: var(--wt-muted);
 }
-
-.wt-card-folder svg { width: 15px; height: 15px; }
 
 .wt-card-menu:hover,
 .wt-icon-button:hover,
@@ -810,7 +815,7 @@
 .wt-add-todo { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .work-timeline-view .wt-add-todo input { width: 100%; min-width: 0; flex: 1; height: 30px; padding: 5px 9px; border: 1px solid var(--wt-line); border-radius: 6px; background: var(--wt-card); color: var(--wt-text); font-size: 12px; }
 .work-timeline-view .wt-add-todo button { flex: none; width: 38px; min-width: 30px; height: 30px; padding: 0 10px; border: 1px solid var(--wt-line); border-radius: 6px; background: transparent; color: var(--wt-muted); box-shadow: none; }
-.work-timeline-view .wt-card :is(.wt-card-menu, .wt-card-folder, .wt-icon-button, .wt-optional-actions button):hover { background: var(--wt-soft); }
+.work-timeline-view .wt-card :is(.wt-card-menu, .wt-icon-button, .wt-optional-actions button):hover { background: var(--wt-soft); }
 .wt-undo-button { margin-left: 12px; }
 
 .wt-modal.wt-icon-picker { --wt-card: #fff; --wt-soft: #f2f5f9; width: min(480px, calc(100vw - 32px)); }
@@ -831,13 +836,14 @@
 @media (pointer: coarse) {
   .work-timeline-view .wt-card .wt-card-heading { flex-wrap: wrap; }
   .work-timeline-view .wt-card .wt-card-heading-actions { width: 100%; justify-content: flex-end; }
-  .work-timeline-view .wt-card :is(.wt-task-icon, .wt-card-rename, .wt-card-menu, .wt-card-folder, .wt-notes-entry.is-empty) { flex-basis: 44px; min-width: 44px; width: 44px; height: 44px; min-height: 44px; }
+  .work-timeline-view .wt-card :is(.wt-task-icon, .wt-card-menu) { flex-basis: 44px; min-width: 44px; width: 44px; height: 44px; min-height: 44px; }
   .wt-icon-picker .wt-icon-mode { min-height: 44px; }
 }
 
 .wt-composer-footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-top: 8px;
@@ -859,14 +865,6 @@
 }
 
 .work-timeline-view .wt-card .wt-composer-close { border: 1px solid var(--wt-line); background: transparent; color: var(--wt-muted); }
-
-.wt-draft-state {
-  display: block;
-  margin: 0;
-  color: var(--wt-muted);
-  font-size: 11px;
-  line-height: 1.5;
-}
 
 @media (pointer: coarse) {
   .work-timeline-view .wt-card .wt-composer-footer button { height: 44px; min-height: 44px; }
@@ -1711,11 +1709,9 @@
   .work-timeline-view .wt-optional-actions button,
   .work-timeline-view .wt-card-open,
   .work-timeline-view .wt-card-menu,
-  .work-timeline-view .wt-card-folder,
   .work-timeline-view .wt-add-todo button,
   .work-timeline-view .wt-add-todo input { min-height: 44px; }
   .work-timeline-view .wt-card-menu,
-  .work-timeline-view .wt-card-folder,
   .work-timeline-view .wt-add-todo button { min-width: 44px; }
   .wt-timeline-due { padding-left: 14px; padding-right: 14px; }
 
@@ -1772,16 +1768,21 @@
 .wt-new-task-modal [hidden] { display: none; }
 .wt-new-draft-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .wt-new-draft-status, .wt-new-shortcut { color: var(--wt-muted); font-size: 12px; }
-.wt-new-task-modal button.wt-new-clear { padding: 0 4px; background: transparent; box-shadow: none; color: var(--wt-muted); font-size: 12px; }
+.wt-new-task-modal button.wt-new-clear { height: 28px; padding: 0 4px; border: 0; background: transparent; box-shadow: none; color: var(--wt-muted); font-size: 12px; }
 .wt-new-task-modal .wt-field-label, .wt-new-task-modal .wt-optional { font-size: 12px; }
 .wt-new-task-modal .wt-optional { color: var(--wt-muted); }
-.wt-new-properties { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.wt-new-task-modal .wt-quadrant-picker { min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wt-new-task-modal .wt-quadrant-picker legend { grid-column: 1 / -1; }
 .wt-new-task-modal .wt-field { min-width: 0; }
 .wt-new-task-modal .wt-modal-form :is(input, select, textarea) { width: 100%; min-width: 0; box-shadow: none; }
+.wt-new-task-modal .wt-quadrant-option input[type="radio"] { width: 1px; min-width: 0; height: 1px; min-height: 0; padding: 0; margin: 0; border: 0; }
 .wt-new-task-modal .wt-modal-form :is(input, textarea)::placeholder { color: var(--wt-muted); }
 .wt-new-task-modal .wt-modal-title { min-height: 44px; font-size: 16px; }
 .wt-new-task-modal textarea { min-height: 64px; max-height: 160px; font-size: 15px; }
-.wt-new-task-modal select { min-height: 36px; padding: 6px 10px; }
+.wt-new-task-modal select { appearance: none; -webkit-appearance: none; height: 40px; min-height: 40px; padding: 6px 32px 6px 10px; background-image: none; }
+.wt-select-control { position: relative; display: block; min-width: 0; }
+.wt-select-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; color: var(--wt-muted); pointer-events: none; }
+.wt-select-icon svg { width: 14px; height: 14px; }
 .wt-new-task-modal .wt-new-optional { display: flex; flex-wrap: wrap; gap: 8px; }
 .wt-new-task-modal .wt-new-optional button { min-height: 32px; padding: 0 10px; box-shadow: none; }
 .wt-new-todo-section { display: grid; gap: 8px; }
@@ -1794,7 +1795,6 @@
 .wt-new-task-modal .wt-primary-action { box-shadow: none; }
 @media (max-width: 460px) {
   .wt-modal.wt-new-task-modal { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 16px 12px; }
-  .wt-new-properties { grid-template-columns: minmax(0, 1fr); }
   .wt-new-task-modal .wt-new-optional button, .wt-new-task-modal .wt-secondary-action, .wt-new-task-modal .wt-primary-action { min-height: 44px; }
   .wt-new-shortcut { font-size: 11px; }
 }
