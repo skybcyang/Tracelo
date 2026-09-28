@@ -195,7 +195,9 @@ class NewTaskModal extends Modal {
         super.close();
       },
     });
-    requestAnimationFrame(() => this.controller?.focus());
+    requestAnimationFrame(() => {
+      if (this.modalEl.isConnected && !this.modalEl.contains(this.modalEl.ownerDocument.activeElement)) this.controller?.focus();
+    });
   }
   close(): void { if (!this.controller?.isSaving()) super.close(); }
   onClose(): void {

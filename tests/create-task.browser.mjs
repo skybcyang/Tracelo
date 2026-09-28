@@ -140,6 +140,20 @@ try {
     await modal.waitFor({ state: 'detached' });
     assert.equal(await page.evaluate(() => window.cardFixture.plugin.tasks.filter(t => t.title === '只创建一次').length), 1);
   });
+  await page.goto('https://tracelo.test/');
+  await page.waitForFunction(() => window.cardFixture);
+  assert.equal(await page.evaluate(() => {
+    const schedule = window.requestAnimationFrame, pending = [];
+    window.requestAnimationFrame = callback => { pending.push(callback); return pending.length; };
+    try {
+      document.querySelector('.wt-new-task-button').click();
+      const details = document.querySelector('.wt-new-task-modal #task-details');
+      details.focus();
+      for (const callback of pending) callback(performance.now());
+      return document.activeElement === details;
+    } finally { window.requestAnimationFrame = schedule; }
+  }), true, 'deferred initial focus must not steal focus after the user selects details');
+  checks++; console.log('PASS deferred initial focus respects the field already selected by the user');
   assert.deepEqual(errors, []);
   console.log(`${checks} compact task creation checks passed.`);
 } finally { await browser.close(); }
