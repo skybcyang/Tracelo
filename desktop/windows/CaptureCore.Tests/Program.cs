@@ -71,5 +71,9 @@ try {
         state.Draft = ""; state.Save(path);
         Equal(CaptureSettings.Load(path).Draft, "");
     });
+    Test("capture bounds fit small and negative-origin monitor work areas", () => {
+        Equal(WindowPlacement.Fit(-800, 20, 480, 260, 1160, 684), new WindowBounds(-800, 20, 480, 260));
+        Equal(WindowPlacement.Fit(1920, 0, 1920, 1080, 580, 342), new WindowBounds(2590, 369, 580, 342));
+    });
     Console.WriteLine($"{passed} tests passed");
 } finally { Directory.Delete(root, true); }

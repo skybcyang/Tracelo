@@ -16,6 +16,7 @@ internal static class SmokeTest {
             using (var app = new CaptureApplication(path, smoke: true)) {
                 app.Show(); Application.DoEvents();
                 Check(app.Window.Visible && app.Window.Editor.Focused, "native capture window opens and focuses editor");
+                Check(Screen.FromControl(app.Window).WorkingArea.Contains(app.Window.Bounds), "capture fits monitor work area");
                 app.Window.Editor.Text = "保留草稿\r\n详情";
                 app.Window.Editor.HandleInput(Keys.Escape); Application.DoEvents();
                 Check(!app.Window.Visible && CaptureSettings.Load(path).Draft.Contains("详情"), "Escape hides window and persists draft");
@@ -42,13 +43,19 @@ internal static class SmokeTest {
                 Check(Directory.GetFiles(Path.Combine(root, "tasks"), "*.md").Length == 1, "submit publishes exactly one task");
                 app.Show(); app.State.TaskDirectory = "missing"; app.Window.Editor.Text = "失败时保留"; app.Submit();
                 Check(app.Window.Visible && app.Window.Editor.Text == "失败时保留" && app.Window.Error.Text.Length > 0, "save failure retains draft and visible error");
-                using var capture = new Bitmap(app.Window.Width, app.Window.Height);
-                app.Window.DrawToBitmap(capture, new Rectangle(Point.Empty, capture.Size));
-                capture.Save(Path.Combine(outputDirectory, "capture-smoke.png"));
+                void Screenshot(Form form, string name, bool dark) {
+                    Theme.Refresh(form, dark); form.Refresh(); Application.DoEvents();
+                    using var bitmap = new Bitmap(form.Width, form.Height);
+                    form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+                    bitmap.Save(Path.Combine(outputDirectory, name));
+                }
+                Screenshot(app.Window, "capture-smoke.png", false);
+                Screenshot(app.Window, "capture-dark-smoke.png", true);
                 using var settings = new SettingsWindow(app.State, _ => { }); settings.Show(); Application.DoEvents();
-                using var settingsImage = new Bitmap(settings.Width, settings.Height);
-                settings.DrawToBitmap(settingsImage, new Rectangle(Point.Empty, settingsImage.Size));
-                settingsImage.Save(Path.Combine(outputDirectory, "settings-smoke.png")); settings.Close();
+                Screenshot(settings, "settings-smoke.png", false);
+                Screenshot(settings, "settings-dark-smoke.png", true);
+                Check(app.Window.BackColor == settings.BackColor && app.Window.Editor.BackColor != Color.White, "capture and settings share dark theme surfaces");
+                settings.Close();
                 app.Dismiss();
             }
             using (var restarted = new CaptureApplication(path, smoke: true))

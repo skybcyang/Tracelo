@@ -95,6 +95,13 @@ public record CaptureRequest(string Id, string Markdown) {
     }
 }
 public enum InputAction { System, Submit, Dismiss }
+public record WindowBounds(int X, int Y, int Width, int Height);
+public static class WindowPlacement {
+    public static WindowBounds Fit(int x, int y, int availableWidth, int availableHeight, int width, int height) {
+        width = Math.Min(width, availableWidth); height = Math.Min(height, availableHeight);
+        return new(x + (availableWidth - width) / 2, y + (availableHeight - height) / 2, width, height);
+    }
+}
 public static class InputBehavior {
     public static InputAction Action(int key, bool shift, bool composing) => composing ? InputAction.System
         : key == 27 ? InputAction.Dismiss : key == 13 && !shift ? InputAction.Submit : InputAction.System;

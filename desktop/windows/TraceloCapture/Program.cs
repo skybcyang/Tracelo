@@ -32,19 +32,40 @@ internal static class Native {
 }
 
 internal static class Theme {
-    internal static readonly Color Background = Color.FromArgb(245, 247, 250);
-    internal static readonly Color Text = Color.FromArgb(23, 32, 51);
-    internal static readonly Color Muted = Color.FromArgb(82, 99, 119);
-    internal static readonly Color Accent = Color.FromArgb(36, 91, 231);
-    internal static readonly Color Error = Color.FromArgb(166, 39, 45);
+    internal static bool Dark { get; private set; } = SystemDark();
+    internal static Color Background => SystemInformation.HighContrast ? SystemColors.Window : Dark ? Color.FromArgb(23, 32, 51) : Color.FromArgb(245, 247, 250);
+    internal static Color Surface => SystemInformation.HighContrast ? SystemColors.Window : Dark ? Color.FromArgb(31, 43, 64) : Color.White;
+    internal static Color Text => SystemInformation.HighContrast ? SystemColors.WindowText : Dark ? Color.FromArgb(236, 241, 248) : Color.FromArgb(23, 32, 51);
+    internal static Color Muted => SystemInformation.HighContrast ? SystemColors.WindowText : Dark ? Color.FromArgb(179, 194, 214) : Color.FromArgb(82, 99, 119);
+    internal static Color Accent => SystemInformation.HighContrast ? SystemColors.Highlight : Color.FromArgb(36, 91, 231);
+    internal static Color Error => SystemInformation.HighContrast ? SystemColors.WindowText : Dark ? Color.FromArgb(255, 170, 177) : Color.FromArgb(166, 39, 45);
+    private static bool SystemDark() {
+        try { return Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1) is int mode && mode == 0; }
+        catch { return false; }
+    }
+    internal static void Refresh(Form form, bool? dark = null) {
+        Dark = dark ?? SystemDark();
+        void Paint(Control control) {
+            control.BackColor = control is TextBox ? Surface : Background;
+            control.ForeColor = control.Tag as string == "error" ? Error : control.Tag as string == "muted" ? Muted : Text;
+            if (control is Button button) {
+                var primary = button.Tag as string == "primary";
+                button.BackColor = primary ? Accent : Surface;
+                button.ForeColor = primary ? SystemInformation.HighContrast ? SystemColors.HighlightText : Color.White : Text;
+                button.FlatAppearance.BorderColor = primary ? Accent : Muted;
+            }
+            foreach (Control child in control.Controls) Paint(child);
+        }
+        Paint(form);
+    }
     internal static void Apply(Form form, string title, Size size) {
-        form.Text = title; form.ClientSize = size; form.MinimumSize = form.Size;
+        form.Text = title; form.ClientSize = size;
         form.AutoScaleMode = AutoScaleMode.Dpi; form.Font = new Font("Microsoft YaHei UI", 10);
         form.BackColor = Background; form.ForeColor = Text; form.StartPosition = FormStartPosition.CenterScreen;
     }
     internal static Button Button(string title, bool primary = false) {
         var button = new Button { Text = title, AutoSize = true, MinimumSize = new Size(96, 36), Cursor = Cursors.Hand,
-            FlatStyle = FlatStyle.Flat, BackColor = primary ? Accent : Color.White, ForeColor = primary ? Color.White : Text, Margin = new Padding(8, 0, 0, 0) };
+            FlatStyle = FlatStyle.Flat, BackColor = primary ? Accent : Surface, ForeColor = primary ? Color.White : Text, Margin = new Padding(8, 0, 0, 0), Tag = primary ? "primary" : "secondary" };
         button.FlatAppearance.BorderColor = primary ? Accent : Color.FromArgb(176, 189, 205);
         return button;
     }
@@ -89,8 +110,8 @@ internal sealed class CaptureEditor : TextBox {
 internal sealed class CaptureWindow : Form {
     internal readonly CaptureEditor Editor = new();
     internal readonly Button Create = Theme.Button("创建任务", true);
-    internal readonly Label Destination = new() { Dock = DockStyle.Fill, ForeColor = Theme.Muted, AutoEllipsis = true, AccessibleName = "任务保存位置" };
-    internal readonly Label Error = new() { Dock = DockStyle.Fill, ForeColor = Theme.Error, AutoSize = false, AccessibleName = "保存状态" };
+    internal readonly Label Destination = new() { Dock = DockStyle.Fill, ForeColor = Theme.Muted, Tag = "muted", AutoEllipsis = true, AccessibleName = "任务保存位置" };
+    internal readonly Label Error = new() { Dock = DockStyle.Fill, ForeColor = Theme.Error, Tag = "error", AutoSize = false, AccessibleName = "保存状态" };
     internal event Action? Submit;
     internal event Action? Dismiss;
     internal event Action? Settings;
@@ -104,19 +125,21 @@ internal sealed class CaptureWindow : Form {
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         foreach (var height in new[] { 46f, 28f, 38f }) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
         layout.Controls.Add(new Label { Text = "任务内容", Dock = DockStyle.Fill, Font = new Font(Font, FontStyle.Bold), AutoSize = true });
-        layout.Controls.Add(new Label { Text = "第一行作为标题，其余内容保存为详情", Dock = DockStyle.Fill, ForeColor = Theme.Muted });
+        layout.Controls.Add(new Label { Text = "第一行作为标题，其余内容保存为详情", Dock = DockStyle.Fill, ForeColor = Theme.Muted, Tag = "muted" });
         layout.Controls.Add(Destination);
         layout.Controls.Add(Editor); layout.Controls.Add(Error);
-        layout.Controls.Add(new Label { Text = "Enter 创建 · Shift+Enter 换行 · Esc 保留草稿", Dock = DockStyle.Fill, ForeColor = Theme.Muted, Font = new Font(Font.FontFamily, 9) });
+        layout.Controls.Add(new Label { Text = "Enter 创建 · Shift+Enter 换行 · Esc 保留草稿", Dock = DockStyle.Fill, ForeColor = Theme.Muted, Tag = "muted", Font = new Font(Font.FontFamily, 9) });
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
         Create.Click += (_, _) => Submit?.Invoke();
         var settings = Theme.Button("设置…"); settings.Click += (_, _) => Settings?.Invoke();
         buttons.Controls.Add(Create); buttons.Controls.Add(settings); layout.Controls.Add(buttons); Controls.Add(layout);
         Editor.Submit += () => Submit?.Invoke(); Editor.Dismiss += () => Dismiss?.Invoke();
         FormClosing += (_, e) => { if (!AllowClose) { e.Cancel = true; Dismiss?.Invoke(); } };
+        Theme.Refresh(this);
     }
     protected override void WndProc(ref Message message) {
         if (message.Msg == 0x312) Hotkey?.Invoke();
+        if (message.Msg == 0x1A) Theme.Refresh(this); // Windows theme/settings change
         base.WndProc(ref message);
     }
 }
@@ -161,9 +184,16 @@ internal sealed class CaptureApplication : ApplicationContext {
     internal void Show() {
         if (!Window.Visible) previousWindow = Native.GetForegroundWindow();
         var area = Screen.FromPoint(Cursor.Position).WorkingArea;
-        Window.Location = new Point(area.Left + (area.Width - Window.Width) / 2, area.Top + (area.Height - Window.Height) / 2);
+        Theme.Refresh(Window);
+        var border = Window.Size - Window.ClientSize;
+        var desired = new Size((int)(580 * Window.DeviceDpi / 96d) + border.Width, (int)(342 * Window.DeviceDpi / 96d) + border.Height);
+        void Fit() {
+            var fit = WindowPlacement.Fit(area.Left, area.Top, area.Width, area.Height, desired.Width, desired.Height);
+            Window.Bounds = new Rectangle(fit.X, fit.Y, fit.Width, fit.Height);
+        }
+        Fit();
         if (State.Vault.Length == 0) Window.Error.Text = "首次使用请打开设置，选择 Obsidian vault 和任务目录。";
-        Window.Show(); Window.Activate(); Native.SetForegroundWindow(Window.Handle); Window.Editor.Focus();
+        Window.Show(); Fit(); Window.Activate(); Native.SetForegroundWindow(Window.Handle); Window.Editor.Focus();
     }
     internal void Dismiss() {
         try { State.Draft = Window.Editor.Text; State.Save(settingsPath); }
