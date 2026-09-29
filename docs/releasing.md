@@ -28,7 +28,7 @@ git diff --check
 npm run check
 ```
 
-Node.js 要求 ≥ 22.12；浏览器测试需已安装 Playwright Chromium，或使用 `PLAYWRIGHT_CHANNEL=chrome`。macOS 完整跨语言检查需 Swift 和 .NET 8 SDK；必要时设置 `DOTNET_PATH` 为实际 SDK 路径，不复用上次 `/tmp` 中的临时路径。缺少工具导致的跳过要注明，不能当作全部通过。
+Node.js 要求 ≥ 22.12；完整浏览器测试需安装 Playwright Chromium（`npx playwright install chromium`）。`PLAYWRIGHT_CHANNEL=chrome` 仅被部分脚本读取，不能替代完整套件的 Chromium 依赖。macOS 完整跨语言检查需 Swift 和 .NET 8 SDK；必要时设置 `DOTNET_PATH` 为实际 SDK 路径，不直接假定上次 `/tmp` 中的路径仍可用。缺少工具导致的跳过要注明，不能当作全部通过。
 
 完整本地检查在代码稳定后运行一次。仅文档调整检查链接与差异；平台专项修复先做对应检查，再由三平台 CI 把关，避免无变化地重复整套回归。测试证据必须记录对应提交及运行环境。
 

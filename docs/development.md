@@ -15,7 +15,7 @@ npm run test:presentation # 等高卡片、展示模式、动效与异步边界
 npm run check         # 依次执行以上全部
 ```
 
-浏览器测试需要 Playwright 浏览器；使用已安装的 Chrome 时运行 `PLAYWRIGHT_CHANNEL=chrome npm run check`。完整跨语言检查还需 macOS Swift 和 .NET 8 SDK；`dotnet` 不在 PATH 时，可通过 `DOTNET_PATH` 指定可执行文件。缺少原生工具导致的跳过不算通过。
+完整浏览器套件需要 Playwright Chromium，先运行 `npx playwright install chromium`（Linux CI 使用 `--with-deps`）。部分脚本支持 `PLAYWRIGHT_CHANNEL=chrome`，但顶栏与展示模式等脚本仍直接启动 Chromium，因此该变量不能替代完整套件的浏览器安装。完整跨语言检查还需 macOS Swift 和 .NET 8 SDK；`dotnet` 不在 PATH 时，可通过 `DOTNET_PATH` 指定可执行文件。缺少原生工具导致的跳过不算通过。
 
 桌面应用构建见[桌面工具文档](../desktop/README.md)。`tests/notion-interface.browser.mjs` 是旧设计实验，当前主题由 `collection-interface` 和 `header-navigation` 测试覆盖。
 
