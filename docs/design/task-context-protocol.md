@@ -6,12 +6,18 @@
 
 | 字段 | 含义 | 旧数据默认值 |
 | --- | --- | --- |
-| `WorkTask.notes` | 原样保存的 Markdown 备注，支持文字与图片链接交错 | 无备注 |
+| `WorkTask.notes` | 原样保存的 Markdown 详情，支持文字与图片链接交错 | 无详情 |
 | `WorkTask.icon` | `noto:<name>` 彩色图标标识，兼容旧 Obsidian/Lucide 名称；`null` 表示隐藏；缺省继承分组 | 继承分组 |
 | `WorkGroup.icon` | 同组卡片的默认图标 | `circle-dot` |
 | `PluginState.noteDrafts` | 按任务 ID 保存的未提交备注，空字符串也是有效草稿 | 空记录 |
 | `PluginState.boardZoom` | 看板缩放百分比，60～120，步长 5 | 100 |
-| `PluginState.presentationMode` | 完整显示卡片信息，编辑输入单独开启 | false |
+| `PluginState.cardLayout` | 顶部对齐 `aligned`／稳定瀑布流 `masonry` | `aligned` |
+| `PluginState.theme` | `evergreen`／`graphite`／`glacier`／`vermilion` | `evergreen` |
+| `PluginState.appearance` | `system`／`light`／`dark` | `system` |
+| `PluginState.compactCards` | 收起卡片隐藏详情与待办 | false |
+| `PluginState.quickDrafts` | 按任务 ID 保存的快捷进展草稿 | 空记录 |
+
+`presentationMode` 已在 0.9.0 移除；旧偏好或导入包中的该字段忽略。
 
 图标选择器仅提供随包内置的 Noto Emoji（`@iconify-json/noto` 1.2.9，3,729 个非隐藏图标）。旧 `circle-dot` 默认显示为 `noto:bookmark-tabs`，常见旧名称映射到语义对应的 Noto 图标，无法匹配时使用默认图标。映射只发生在渲染层，不批量改写任务或追加历史。插件卡片与桌面快捷卡片共用渲染器，不需要联网。仅对常用图标提供中文标签，其余可按英文名称搜索。
 
@@ -19,10 +25,10 @@
 
 ## Markdown 投影
 
-非空备注在任务属性之后、待办与时间线之前写入：
+非空详情在任务属性之后、待办与时间线之前写入；内部字段仍为 `notes`，兼容读取旧 `## 备注` 正文：
 
 ```markdown
-## 备注
+## 详情
 
 背景说明
 
@@ -50,6 +56,12 @@
 结果写入同名 `.result.json`，`status` 为 `applied` 或 `failed`，另含 `version`、`id`、`message`。没有结果表示 `queued`，桌面显示“已暂存，打开 Obsidian 后写入任务”。只有 `applied` 才清除相应进展草稿并收起；失败保留输入。重试只移除对应失败回执，保留原请求。当前实现保留命令／回执文件用于恢复，不自动清理。
 
 这是当前仓库内插件为单写入者的协议，不提供多设备同时运行插件的分布式锁。同步软件造成的跨设备并发冲突仍需通过现有存档保护处理；桌面不会把缓存的任务快照覆盖回磁盘。
+
+图文进展使用 `attachments: [{ name, base64, sha256? }]`。插件校验文件名、容量与摘要后，以稳定名称保存附件，再写入事件；事件签名只保留名称和 SHA-256，不保存 Base64。重试校验已有字节并复用同一命令 ID，回执丢失不重复追加进展。
+
+## 桌面显示偏好（尚未发布）
+
+插件把 `{ version: 1, theme, appearance }` 写入 `<任务目录>/.tracelo-ui.json`，macOS 与 Windows 宿主读取后交给共享表单。此文件仅为显示偏好投影，不是正式任务，不进入任务历史；源偏好仍由插件数据保存。未知主题回退 `evergreen`，未知外观回退 `system`，不修改图文草稿或进展队列。
 
 ## 创建前图片
 

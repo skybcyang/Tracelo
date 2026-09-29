@@ -36,7 +36,7 @@ final class CaptureCoreTests {
         XCTAssertEqual(inputAction(keyCode: 53, shift: false, marked: false), .dismiss)
     }
     func testPanelFitsAvailableScreenAndGrowsWithContent() {
-        for (content, width, height, expectedWidth, expectedHeight) in [(20.0, 1440.0, 900.0, 600.0, 260.0), (600, 1440, 900, 600, 760), (1000, 1440, 900, 600, 780), (600, 400, 350, 368, 318)] {
+        for (content, width, height, expectedWidth, expectedHeight) in [(20.0, 1440.0, 900.0, 554.0, 260.0), (600, 1440, 900, 554, 760), (1000, 1440, 900, 554, 780), (600, 400, 350, 368, 318)] {
             let size = capturePanelSize(contentHeight: content, available: CGSize(width: width, height: height))
             XCTAssertEqual(size.width, expectedWidth)
             XCTAssertEqual(size.height, expectedHeight)

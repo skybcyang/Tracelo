@@ -19,7 +19,7 @@ try {
   const ids = await page.evaluate(() => window.cardFixture.ids);
   const payment = page.locator(`[data-task-id="${ids.payment}"]`);
   const long = page.locator(`[data-task-id="${ids.long}"]`);
-  async function check(name, run) { try { await run(); checks++; } catch (error) { failures.push(name + ': ' + error.message.split('Call log:')[0]); } finally { await page.locator('.modal-container').evaluateAll(els => els.forEach(el => el.remove())); } }
+  async function check(name, run) { try { await run(); checks++; } catch (error) { failures.push(name + ': ' + error.message); } finally { await page.locator('.modal-container').evaluateAll(els => els.forEach(el => el.remove())); } }
   await check('menu icon picker offers searchable previews and saves only this task', async () => {
     await payment.locator('.wt-card-menu').click();
     await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
@@ -135,7 +135,7 @@ try {
     const notes = plain.getByRole('button', { name: '添加详情', exact: true });
     assert.equal(await notes.count(), 0);
     assert.equal(await plain.locator('.wt-card-tools, .wt-card-folder').count(), 0);
-    assert.equal(await plain.locator('.wt-card-status-row').count(), 0);
+    assert.equal(await plain.locator('.wt-card-status-row').count(), 1);
   });
   await check('multiline todo checkbox aligns with the first line', async () => {
     await long.locator('.wt-card-open').click();
@@ -151,10 +151,10 @@ try {
       await page.evaluate(dark => { document.body.classList.toggle('theme-dark',dark); document.querySelectorAll('.wt-card-grid').forEach(el=>el.style.removeProperty('grid-template-columns')); }, dark);
       if (await payment.locator('.wt-card-open').getAttribute('aria-expanded') !== 'true') await payment.locator('.wt-card-open').click();
       const sizes = await payment.evaluate(el => {
-        const buttons=[...el.querySelector('.wt-composer-footer').querySelectorAll('button')].map(b=>b.getBoundingClientRect().height);
+        const buttons=[...el.querySelector('.wt-composer-footer').querySelectorAll('button')].filter(b=>b.getBoundingClientRect().height>0).map(b=>b.getBoundingClientRect().height);
         return { buttons, width:el.clientWidth, scroll:el.scrollWidth, title:el.querySelector('.wt-card-open').getBoundingClientRect().width };
       });
-      assert.ok(Math.abs(sizes.buttons[0]-sizes.buttons[1]) < 1, JSON.stringify(sizes));
+      assert.deepEqual(sizes.buttons, [30], 'one compact save button; collapse lives in the card footer');
       assert.ok(sizes.scroll <= sizes.width + 1 && sizes.title >= 90, JSON.stringify(sizes));
     });
   }

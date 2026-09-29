@@ -26,6 +26,8 @@ try {
   assert.equal(await modal.locator('.wt-draft-image').count(), 1);
   await modal.getByRole('button', { name: '撤销移除图片' }).click();
   assert.equal(await modal.locator('.wt-draft-image').count(), 2);
+  await modal.locator('.wt-capture-extra > summary').click();
+  if (!(await modal.getByRole('button', { name: '清空草稿', exact: true }).isVisible())) await modal.locator('.wt-capture-extra > summary').click();
   await modal.getByRole('button', { name: '清空草稿', exact: true }).click();
   assert.equal(await modal.locator('.wt-draft-image').count(), 0);
   await modal.getByRole('button', { name: '撤销清空草稿', exact: true }).click();
@@ -58,6 +60,7 @@ try {
   });
   await modal.locator('input[type=file]').setInputFiles({ name: 'late.png', mimeType: 'image/png', buffer: png });
   assert.equal(await modal.locator('#submit').isDisabled(), true);
+  await modal.locator('.wt-capture-extra > summary').click();
   await modal.getByRole('button', { name: '清空草稿', exact: true }).click();
   await modal.locator('#task-title').fill('清空后新内容');
   await page.evaluate(() => { window.restoreReader(); for (const read of window.pendingImageReads) read(); });
@@ -73,6 +76,7 @@ try {
   assert.equal(await modal.getByRole('button', { name: '预览图片：late.png' }).evaluate(el => el === document.activeElement), true);
   await modal.getByRole('button', { name: '取消', exact: true }).click();
   await open(); assert.equal(await modal.locator('.wt-draft-image').count(), 1);
+  if (!(await modal.getByRole('button', { name: '清空草稿', exact: true }).isVisible())) await modal.locator('.wt-capture-extra > summary').click();
   await modal.getByRole('button', { name: '清空草稿', exact: true }).click();
   await modal.locator('#task-title').fill('混合剪贴板');
   await modal.locator('#task-details').evaluate((el, base64) => {

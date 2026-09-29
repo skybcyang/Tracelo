@@ -1,5 +1,6 @@
 (() => {
   const shared = TraceloCreateTask;
+  shared.setCaptureIcon(document.querySelector('.capture-brand-icon'), 'workflow');
   const send = message => {
     if (window.chrome?.webview) window.chrome.webview.postMessage(message);
     else window.webkit.messageHandlers.capture.postMessage(message);
@@ -12,9 +13,16 @@
       resizeScheduled = false;
       const modal = document.querySelector('.capture-modal');
       const header = document.querySelector('.modal-title');
-      const context = document.querySelector('.capture-context');
+      const tabs = document.querySelector('.wt-capture-tabs');
       const style = getComputedStyle(modal);
-      send({ action: 'resize', height: mode === 'progress' ? 760 : Math.ceil(header.offsetHeight + 52 + controller.body.scrollHeight + controller.footer.offsetHeight + context.offsetHeight + 8 + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + 2) });
+      const quick = document.querySelector('.wt-quick-progress');
+      const quickBody = quick?.querySelector('.wt-quick-body');
+      const editor = quickBody?.querySelector('.wt-quick-editor');
+      const editorHeight = editor ? editor.querySelector('.wt-card-body').scrollHeight + editor.querySelector('.wt-composer-footer').offsetHeight : 0;
+      const quickHeight = quickBody ? (editor ? editorHeight : [...quickBody.children].reduce((height, node) => height + node.scrollHeight + 8, 0))
+        + quick.querySelector('.wt-quick-toolbar').offsetHeight + quick.querySelector('.wt-quick-status').offsetHeight : 0;
+      const contentHeight = mode === 'progress' ? quickHeight + 16 : controller.body.scrollHeight + controller.footer.offsetHeight;
+      send({ action: 'resize', height: Math.ceil(header.offsetHeight + tabs.offsetHeight + contentHeight + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + 2) });
     });
   }
   const controller = shared.mountNewTaskForm(document.querySelector('.modal-content'), {
@@ -41,16 +49,21 @@
   const tabs = document.createElement('div'); tabs.className = 'wt-capture-tabs'; tabs.setAttribute('role', 'group'); tabs.setAttribute('aria-label', '快捷入口');
   content.before(tabs);
   const quickContainer = document.createElement('div'); quickContainer.className = 'work-timeline-view wt-quick-progress'; content.append(quickContainer); quickContainer.hidden = true;
-  const progress = shared.mountQuickProgress(quickContainer, { send, setIcon: shared.setCaptureIcon, resize });
+  const progress = shared.mountQuickProgress(quickContainer, {
+    send, setIcon: shared.setCaptureIcon, resize, isWin: !!window.chrome?.webview,
+    getLocation: () => document.querySelector('#location').textContent,
+    openSettings: () => send({ action: 'settings', draft: controller.read() }),
+  });
   function setMode(value) {
     if (controller.isSaving()) return;
     mode = value; controller.form.hidden = mode !== 'create';
+    document.querySelector('.capture-modal').classList.toggle('is-progress-mode', mode === 'progress');
     if (mode === 'progress') progress.show(); else { progress.hide(); controller.focus(); }
     tabs.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
-    document.querySelector('.modal-title').textContent = mode === 'progress' ? '记录进展' : '新建任务'; resize();
+    document.title = mode === 'progress' ? 'Tracelo · 记录进展' : 'Tracelo · 新建任务'; resize();
   }
-  for (const [value, text] of [['progress', '记录进展'], ['create', '新建任务']]) {
-    const button = document.createElement('button'); button.type = 'button'; button.textContent = text; button.dataset.mode = value; button.setAttribute('aria-pressed', String(value === mode)); button.onclick = () => setMode(value); tabs.append(button);
+  for (const [value, text] of [['create', '新建任务'], ['progress', '记录进展']]) {
+    const button = document.createElement('button'); button.type = 'button'; const icon = document.createElement('span'); shared.setCaptureIcon(icon, value === 'create' ? 'square-pen' : 'message-square-plus'); button.append(icon, text); button.dataset.mode = value; button.setAttribute('aria-pressed', String(value === mode)); button.onclick = () => setMode(value); tabs.append(button);
   }
   function dismiss() {
     if (mode === 'progress') { send({ action: 'progressDismiss' }); return; }
@@ -64,6 +77,15 @@
   window.capture = {
     getDraft: controller.read, dismiss,
     update(state) {
+      if (state.uiSettings) {
+        const ui = state.uiSettings;
+        document.body.dataset.traceloTheme = ['evergreen','graphite','glacier','vermilion'].includes(ui.theme) ? ui.theme : 'evergreen';
+        document.body.dataset.traceloAppearance = ['light','dark'].includes(ui.appearance) ? ui.appearance : 'system';
+      }
+      if ('location' in state) {
+        const location = document.querySelector('#location'); location.textContent = state.location; location.title = state.directory || state.location;
+        document.querySelector('.capture-workspace').textContent = state.location;
+      }
       if ('directory' in state && state.directory) taskDirectory = state.directory;
       if (state.mode) setMode(state.mode);
       progress.update(state);
@@ -86,7 +108,6 @@
       if ('configured' in state) configured = state.configured;
       controller.setAvailable(configured && !groupError);
       if ('dark' in state) document.body.classList.toggle('theme-dark', state.dark);
-      if ('location' in state) { const location = document.querySelector('#location'); location.textContent = state.location; location.title = state.directory || state.location; }
       if (state.error || groupError) {
         const message = state.error || groupError;
         if (mode === 'progress') progress.setError(message);

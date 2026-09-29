@@ -1,0 +1,87 @@
+/* Candidate visual layer. Map plugin tokens to host variables; no product logic changes. */
+.plugin-design .work-timeline-view,.plugin-design.theme-dark .work-timeline-view,.plugin-design .wt-modal,.plugin-design.theme-dark .wt-modal{
+  --wt-accent:var(--interactive-accent);--wt-accent-strong:var(--interactive-accent);--wt-bg:var(--background-primary);--wt-panel:var(--background-primary);--wt-card:var(--background-primary-alt);--wt-soft:var(--background-secondary);--wt-text:var(--text-normal);--wt-muted:var(--text-muted);--wt-faint:var(--text-muted);--wt-line:var(--background-modifier-border);--wt-line-strong:color-mix(in srgb,var(--text-muted) 45%,var(--background-modifier-border));--wt-card-shadow:none;--wt-control-bg:var(--background-primary);--wt-control-border:var(--background-modifier-border);--wt-card-min:260px;--wt-card-gap:12px;--wt-timeline-width:clamp(286px,27%,340px);font-family:var(--font-interface);background:var(--background-primary);background-image:none;color:var(--text-normal)
+}
+.plugin-design .work-timeline-view{--wt-priority-red:#a7474e;--wt-priority-blue:#596793;--wt-priority-amber:#816522;--wt-priority-gray:var(--text-muted)}
+.plugin-design.theme-dark .work-timeline-view{--wt-priority-red:#d49299;--wt-priority-blue:#a4acd0;--wt-priority-amber:#cdb778;--wt-priority-gray:var(--text-muted)}
+.plugin-design .wt-header{grid-template-columns:minmax(0,1fr) auto;min-height:48px;padding:7px 16px;gap:14px;background:var(--background-primary);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+.plugin-design .wt-brand{display:none}
+.plugin-design .wt-view-tools{grid-row:auto;grid-column:auto;justify-content:flex-start;gap:12px;flex-wrap:nowrap}
+.plugin-design .wt-view-switch{grid-template-columns:repeat(2,minmax(54px,1fr));padding:2px;border-radius:5px;background:var(--background-secondary);border-color:transparent;gap:2px}
+.plugin-design .work-timeline-view .wt-view-switch button{height:26px;min-height:26px;padding:0 11px;font-size:12px;font-weight:500;border-radius:4px}
+.plugin-design .work-timeline-view .wt-view-switch button.is-active{background:var(--background-primary);color:var(--text-normal);box-shadow:0 1px 3px #0000000a}
+.plugin-design .wt-board-controls{gap:8px;padding-left:10px}
+.plugin-design .wt-zoom-stepper{border:0;background:transparent;padding:0;gap:0}
+.plugin-design .work-timeline-view .wt-board-controls button{height:28px;min-height:28px;min-width:26px;padding:0 5px;font-size:11px}
+.plugin-design .wt-header-actions{gap:6px}
+.plugin-design .work-timeline-view .wt-header-actions .wt-icon-button{height:28px;min-height:28px;min-width:28px;width:28px;border:0;background:transparent;color:var(--text-muted);box-shadow:none}
+.plugin-design .work-timeline-view .wt-new-task-button{min-height:30px;height:30px;padding:0 11px;border-radius:5px;font-size:12px;gap:6px;background:var(--interactive-accent);color:var(--text-on-accent);box-shadow:none;border:0}
+.plugin-design .work-timeline-view .wt-new-task-button:hover{background:var(--interactive-accent-hover)}
+.plugin-design .wt-task-column{padding:12px 16px 30px;background:var(--background-primary)}
+.plugin-design .wt-task-toolbar{min-height:34px;gap:12px;margin-bottom:11px}
+.plugin-design .wt-task-toolbar h2{font-size:13px;font-weight:600;color:var(--text-muted)}
+.plugin-design .wt-search{width:min(230px,55%);background:var(--background-secondary);border:1px solid transparent;border-radius:5px;padding:0 9px;gap:6px}
+.plugin-design .wt-search input{min-height:28px;font-size:11px}
+.plugin-design .wt-search:focus-within{border-color:var(--interactive-accent)}
+.plugin-design .wt-board{gap:17px}
+.plugin-design .wt-section-heading{min-height:29px;border-color:var(--background-modifier-border)}
+.plugin-design .wt-section-heading h3{font-size:12px;font-weight:600}
+.plugin-design .wt-section-heading span{font-size:10px}
+.plugin-design .wt-card{border-radius:7px;box-shadow:none;background:var(--wt-card);border-color:var(--wt-line)}
+.plugin-design .wt-card:hover{border-color:var(--wt-line-strong);background:var(--wt-card);box-shadow:none}
+.plugin-design .wt-card.is-selected{border-color:var(--interactive-accent);box-shadow:inset 2px 0 color-mix(in srgb,var(--interactive-accent) 50%,transparent)}
+.plugin-design .wt-card-body{padding:13px 14px 14px}
+.plugin-design .wt-card-title{font-size:14px;font-weight:600;line-height:1.6}
+.plugin-design .wt-card-latest{font-size:12px;line-height:1.75}
+.plugin-design .wt-latest-label{font-size:10px;font-weight:500;color:var(--text-muted)}
+.plugin-design .wt-latest-label.is-today{color:var(--interactive-accent)}
+.plugin-design .wt-card .wt-notes-preview{font-size:12px;line-height:1.75;color:var(--text-muted)}
+.plugin-design .wt-task-notes{border-color:var(--wt-line)}
+.plugin-design .wt-card-meta{font-size:10px}
+.plugin-design .wt-card-time{font-size:10px}
+.plugin-design .wt-card-selection{font-size:10px;font-weight:500;margin-bottom:4px}
+.plugin-design .wt-todo-label{font-size:12px}
+.plugin-design .wt-todo-row{min-height:27px}
+.plugin-design .wt-card-todos{margin-top:10px}
+.plugin-design .work-timeline-view button.wt-card-create{min-height:65px;border-radius:7px;border-color:var(--wt-line);gap:4px;padding:10px;background:transparent}
+.plugin-design .wt-card-create-label{font-size:11px;font-weight:500}
+.plugin-design .wt-card-create-hint{font-size:10px;color:var(--text-muted)}
+.plugin-design .wt-summary-chip,.plugin-design .wt-due-chip{font-size:10px;border-radius:4px}
+.plugin-design .wt-timeline-column,.plugin-design.theme-dark .wt-timeline-column{background:var(--background-primary);backdrop-filter:none;-webkit-backdrop-filter:none}
+.plugin-design .wt-timeline-header{padding:17px 18px 13px;gap:10px}
+.plugin-design .wt-timeline-header h2{font-size:14px;line-height:1.5;font-weight:600}
+.plugin-design .wt-timeline-header .wt-eyebrow{font-size:11px;color:var(--text-muted);font-weight:500;margin-bottom:5px}
+.plugin-design .wt-timeline-header.is-task-history{background:var(--background-primary-alt);box-shadow:inset 2px 0 var(--interactive-accent)}
+.plugin-design .wt-timeline-header.is-task-history .wt-eyebrow{color:var(--interactive-accent)}
+.plugin-design .wt-timeline-header p{font-size:11px}
+.plugin-design .wt-timeline-scroll{padding:15px 18px 35px}
+.plugin-design .wt-timeline-due{padding:12px 18px;max-height:26%}
+.plugin-design .wt-timeline-due h3{font-size:10px;font-weight:500}
+.plugin-design .wt-event-text{font-size:12px;line-height:1.8}
+.plugin-design .wt-event-meta{font-size:10px}
+.plugin-design .wt-timeline-day h3{font-size:11px;font-weight:500}
+.plugin-design .wt-date-controls{gap:3px}
+.plugin-design .wt-date-controls input{width:126px;height:29px;min-height:29px;background:var(--background-secondary);border-color:var(--background-modifier-border);border-radius:5px;padding:0 6px}
+.plugin-design .work-timeline-view .wt-date-controls button{height:28px;min-height:28px;padding:0 6px;font-size:10px}
+.plugin-design .work-timeline-view .wt-date-controls .wt-icon-button{width:25px;min-width:25px}
+.plugin-design .wt-timeline-column .wt-back-button{font-size:10px}
+.plugin-design .wt-composer{border-radius:5px}
+.plugin-design .wt-composer textarea{background:var(--background-primary);font-size:12px}
+.plugin-design .wt-ended-section{border-color:var(--background-modifier-border)}
+.plugin-design .wt-ended-section>summary{font-size:12px;color:var(--text-muted)}
+.plugin-design .wt-modal,.plugin-design.theme-dark .wt-modal{border:1px solid var(--background-modifier-border);border-radius:10px;box-shadow:0 18px 65px #0004;backdrop-filter:none;-webkit-backdrop-filter:none;padding:24px;background:var(--background-primary)}
+.plugin-design .wt-modal:before{display:none}
+.plugin-design .wt-modal .modal-title{font-size:17px;font-weight:600}
+.plugin-design .wt-new-task-modal,.plugin-design.theme-dark .wt-new-task-modal{background:var(--background-primary);color:var(--text-normal)}
+.plugin-design .wt-modal .wt-modal-actions,.plugin-design.theme-dark .wt-modal .wt-modal-actions{background:var(--background-primary);border-color:var(--background-modifier-border)}
+.plugin-design .wt-modal :is(input:not([type=checkbox]),textarea,select){background:var(--background-primary);border-color:var(--background-modifier-border);color:var(--text-normal);border-radius:5px;box-shadow:none}
+.plugin-design .wt-modal :is(input,textarea,select):focus{border-color:var(--interactive-accent);outline:1px solid var(--interactive-accent);outline-offset:0;box-shadow:none}
+.plugin-design .wt-modal .wt-quadrant-option{border-radius:5px;background:var(--background-primary);border-color:var(--background-modifier-border)}
+.plugin-design .wt-modal .wt-quadrant-option.is-selected{background:color-mix(in srgb,var(--interactive-accent) 10%,var(--background-primary));border-color:var(--interactive-accent)}
+.plugin-design .work-timeline-view .wt-primary-action,.plugin-design .wt-modal .wt-primary-action{color:var(--text-on-accent);background:var(--interactive-accent);border-color:var(--interactive-accent);box-shadow:none}
+.plugin-design .wt-modal .wt-secondary-action{background:var(--interactive-normal);border-color:var(--background-modifier-border);color:var(--text-normal);box-shadow:none}
+.plugin-design :is(.work-timeline-view,.wt-modal) :is(button,input,textarea,select):focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px}
+@container work-timeline (max-width:900px){.plugin-design .wt-header{min-height:47px;grid-template-columns:minmax(0,1fr) auto;gap:8px}.plugin-design .wt-pane-switch{padding:5px 13px;gap:5px;background:var(--background-primary)}.plugin-design .work-timeline-view .wt-pane-switch button{min-height:30px;height:30px;border-radius:4px;font-size:12px}.plugin-design .wt-timeline-header{padding:15px 18px}.plugin-design .wt-timeline-due{max-height:25%}}
+@container work-timeline (max-width:600px){.plugin-design .wt-header{grid-template-columns:minmax(0,1fr) auto;padding:7px 10px;gap:6px}.plugin-design .wt-view-tools{gap:0;flex-wrap:nowrap}.plugin-design .wt-view-tools .wt-view-switch{flex:0 1 auto;grid-template-columns:repeat(2,minmax(44px,1fr))}.plugin-design .work-timeline-view .wt-view-switch button{padding:0 8px;font-size:11px}.plugin-design .wt-board-controls{display:none}.plugin-design .wt-header-actions{gap:2px}.plugin-design .work-timeline-view .wt-new-task-button{width:30px;height:30px;min-height:30px;padding:0}.plugin-design .wt-task-column{padding:10px 12px 26px}.plugin-design .wt-task-toolbar{flex-direction:row;align-items:center;gap:8px}.plugin-design .wt-task-toolbar h2{font-size:12px;white-space:nowrap}.plugin-design .wt-search{min-width:0;width:67%}.plugin-design .wt-search input{font-size:10px}.plugin-design .wt-card-title{font-size:14px}.plugin-design .wt-card-body{padding:14px}.plugin-design .wt-todo-row{min-height:32px}.plugin-design .wt-board.is-quadrant{grid-template-columns:1fr}}
+@media(max-width:600px){.plugin-design .wt-modal{padding:19px;border-radius:8px}.plugin-design .wt-modal .modal-title{font-size:16px}.plugin-design .wt-modal .modal-content{max-height:calc(100dvh - 110px)}}
+@media(prefers-reduced-motion:reduce){.plugin-design *{animation:none!important;transition:none!important}}

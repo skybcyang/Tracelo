@@ -18,6 +18,11 @@ try {
   await page.waitForFunction(() => window.cardFixture);
   const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const pane = page.locator('.wt-timeline-scroll');
+  const anchor = () => pane.evaluate(el => { const top=el.getBoundingClientRect().top; const item=[...el.querySelectorAll('[data-event-id]')].find(n=>n.getBoundingClientRect().bottom>top); return {id:item?.dataset.eventId,offset:item?.getBoundingClientRect().top-top}; });
+  const assertAnchor = async before => {
+    const offset = await pane.evaluate((el, id) => el.querySelector(`[data-event-id="${id}"]`).getBoundingClientRect().top - el.getBoundingClientRect().top, before.id);
+    assert.ok(Math.abs(offset - before.offset) < 1, `reading anchor ${before.id}: ${before.offset} → ${offset}`);
+  };
   const view = 'work-timeline-view';
   const screenshot = async name => {
     if (process.env.TIMELINE_SCREENSHOT_DIR) await page.locator('.wt-timeline-column').screenshot({ path: resolve(process.env.TIMELINE_SCREENSHOT_DIR, `${name}.png`) });
@@ -35,6 +40,7 @@ try {
       timeline.selectedDay = '2026-01-01';
       timeline.render();
       timeline.selectedTaskId = taskMode ? task.id : null;
+      timeline.narrowPane = 'history';
       timeline.selectedDay = '2026-09-28';
       timeline.render();
     }, { kinds, taskMode, view });
@@ -46,7 +52,7 @@ try {
     assert.equal(await pane.locator('details, summary').count(), 0);
     assert.equal(await pane.locator('.wt-event-text:visible').count(), kinds.length);
     const actual = await pane.locator('li').evaluateAll(items => items.map(el => el.className.split(' ')[0].replace('is-', '')));
-    assert.deepEqual(actual, kinds);
+    assert.deepEqual(actual, [...kinds].reverse());
     assert.equal(await pane.locator('.wt-event-task').count(), 0);
     assert.equal(await pane.locator('.wt-timeline-day h3').count(), 2);
     const rail = await pane.locator('.wt-event-stream').evaluate(el => {
@@ -57,7 +63,7 @@ try {
     });
     assert.equal(rail.width, '1px');
     assert.ok(rail.content !== 'none' && rail.height >= rail.distance);
-    assert.equal(await pane.locator('.is-progress .wt-event-text').first().evaluate(el => getComputedStyle(el).fontSize), '13px');
+    assert.equal(await pane.locator('.is-progress .wt-event-text').first().evaluate(el => getComputedStyle(el).fontSize), '11px');
     await pane.evaluate(el => { el.scrollTop = 0; });
     await screenshot('timeline-mixed');
   });
@@ -74,7 +80,7 @@ try {
     assert.equal(await pane.locator('.wt-event-stream').count(), 1);
     assert.equal(await pane.locator('.wt-event-list').count(), 1);
     const times = await pane.locator('time').evaluateAll(els => els.map(el => el.dateTime));
-    assert.deepEqual(times, [...times].sort());
+    assert.deepEqual(times, [...times].sort().reverse());
   });
   await check('property-only days keep every event visible and date controls work with keyboard', async () => {
     await seed(['renamed', 'todo_added', 'todo_done', 'group_changed'], false);
@@ -98,9 +104,9 @@ try {
         await window.cardFixture.plugin.addTask({ title: `新任务 ${i}`, groupId: null, groupName: '未分组', important: false, urgent: false, todos: [], initialProgress: '', dueDate: null });
       }, i);
       await settle();
-      assert.ok(await pane.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop < 2), `creation ${i} should follow to latest record`);
+      assert.ok(await pane.evaluate(el => el.scrollTop < 2), `creation ${i} should follow to latest record`);
     }
-    const top = await pane.evaluate(el => el.scrollTop);
+    const top = await anchor();
     await page.evaluate(view => {
       const { plugin, app, ids } = window.cardFixture;
       const task = plugin.tasks.find(t => t.id === ids.payment);
@@ -108,17 +114,17 @@ try {
       app.workspace.getLeavesOfType(view)[0].view.render();
     }, view);
     await settle();
-    assert.equal(await pane.evaluate(el => el.scrollTop), top);
+    await assertAnchor(top);
   });
   await check('old-record reading survives rerenders, property updates and incoming progress', async () => {
     await seed(Array.from({ length: 32 }, (_, i) => i % 3 ? 'progress' : 'todo_added'));
-    assert.ok(await pane.evaluate(el => el.scrollTop > 100), 'first entry opens at latest records');
+    assert.ok(await pane.evaluate(el => el.scrollTop < 2), 'first entry opens at latest records');
     await pane.evaluate(el => { el.scrollTop = 140; });
     await settle();
-    const before = await pane.evaluate(el => el.scrollTop);
+    const before = await anchor();
     await page.evaluate(view => window.cardFixture.app.workspace.getLeavesOfType(view)[0].view.render(), view);
     await settle();
-    assert.equal(await pane.evaluate(el => el.scrollTop), before, 'unrelated render must retain reading position');
+    await assertAnchor(before);
     await page.evaluate(view => {
       const { plugin, app, ids } = window.cardFixture;
       const task = plugin.tasks.find(t => t.id === ids.payment);
@@ -126,22 +132,22 @@ try {
       app.workspace.getLeavesOfType(view)[0].view.render();
     }, view);
     await settle();
-    assert.equal(await pane.evaluate(el => el.scrollTop), before);
+    await assertAnchor(before);
     assert.equal(await page.getByRole('button', { name: '有新进展', exact: true }).count(), 0);
     await page.clock.setFixedTime(new Date('2026-09-29T12:00:00.000Z'));
     await page.evaluate(async () => window.cardFixture.plugin.recordProgress(window.cardFixture.ids.payment, '新进展不会抢走阅读位置'));
     await settle();
-    assert.equal(await pane.evaluate(el => el.scrollTop), before);
+    await assertAnchor(before);
     await page.getByRole('button', { name: '有新进展', exact: true }).waitFor();
     await page.evaluate(view => window.cardFixture.app.workspace.getLeavesOfType(view)[0].view.render(), view);
     await settle();
     await page.getByRole('button', { name: '有新进展', exact: true }).press('Enter');
     await settle();
-    assert.ok(await pane.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop < 2));
+    assert.ok(await pane.evaluate(el => el.scrollTop < 2));
     assert.equal(await page.getByRole('button', { name: '有新进展', exact: true }).count(), 0);
     await page.evaluate(async () => window.cardFixture.plugin.recordProgress(window.cardFixture.ids.payment, '底部阅读跟随最新进展'));
     await settle();
-    assert.ok(await pane.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop < 2));
+    assert.ok(await pane.evaluate(el => el.scrollTop < 2));
   });
   await check('narrow timeline supports long content, both themes and empty date', async () => {
     await page.setViewportSize({ width: 1100, height: 700 });

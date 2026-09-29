@@ -9,7 +9,7 @@ const LEGACY_ICONS: Record<string, string> = {
   'circle-dot': 'bookmark-tabs', circle: 'blue-circle', layers: 'books', code: 'laptop',
   'file-text': 'page-facing-up', file: 'page-facing-up', target: 'bullseye',
   folder: 'file-folder', folders: 'card-index-dividers', 'folder-open': 'open-file-folder',
-  briefcase: 'briefcase', 'book-open': 'open-book', lightbulb: 'light-bulb',
+  'briefcase-business': 'briefcase', 'code-2': 'laptop', route: 'compass', 'notebook-pen': 'memo', 'messages-square': 'speech-balloon', briefcase: 'briefcase', 'book-open': 'open-book', lightbulb: 'light-bulb',
   'message-square': 'speech-balloon', 'message-circle': 'speech-balloon',
   calendar: 'calendar', 'calendar-days': 'calendar', 'check-check': 'check-mark-button',
   check: 'check-mark-button', 'circle-check': 'check-mark-button', bug: 'bug',

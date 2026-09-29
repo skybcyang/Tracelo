@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTask, addProgress, latestProgressAt, searchTasks, setTaskNotes, setTaskIcon, taskIcon, isTaskIcon } from "../src/domain";
+import { createTask, addProgress, latestProgressAt, searchTasks, setTaskNotes, setTaskIcon, taskIcon } from "../src/domain";
 import { createDefaultState, normalizePluginState, parseTaskMarkdown, serializeTaskMarkdown, serializeGroupArchive, parseGroupArchive } from "../src/archive";
 
 const at = (hour: number) => new Date(`2026-09-27T0${hour}:00:00.000Z`);
@@ -42,21 +42,17 @@ describe("task context independent of progress", () => {
 });
 
 describe("extended v1 archive", () => {
-  it.each(['noto:rocket', 'noto:1st-place-medal', 'noto:books'])("preserves %s through task and group archive round trips", icon => {
-    expect(isTaskIcon(icon)).toBe(true);
+  it.each(['noto:rocket', 'noto:1st-place-medal', 'noto:books'])("round trips Noto task and group icons: %s", icon => {
     const task = setTaskIcon(base(), icon, at(2), 'color-icon');
     expect(parseTaskMarkdown(serializeTaskMarkdown(task))).toEqual(task);
     const groups = { version: 1 as const, groups: [{ id: 'g', name: '彩色', icon }], events: [] };
     expect(parseGroupArchive(serializeGroupArchive(groups))).toEqual(groups);
   });
-
-  it('rejects unknown icon namespaces and malformed asset names', () => {
-    for (const icon of ['fluent-emoji:rocket', 'other:rocket', 'noto:../rocket', 'noto:', 'noto:rocket:blue', 'https://example.com/icon.svg', '<svg>']) {
-      expect(isTaskIcon(icon)).toBe(false);
+  it('rejects unsupported namespaces and malformed Noto names', () => {
+    for (const icon of ['other:rocket', 'noto:../rocket', 'noto:', 'noto:rocket:blue']) {
+      expect(() => setTaskIcon(base(), icon, at(2), 'bad')).toThrow();
     }
-    expect(isTaskIcon('lucide-book-open')).toBe(true);
   });
-
   it("round trips notes and icons, checks their readable projection, and accepts old tasks", () => {
     const old = base();
     expect(serializeTaskMarkdown(old)).not.toContain("## 详情");

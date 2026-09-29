@@ -38,7 +38,7 @@ internal static class SmokeTest {
                     Check(Screen.FromControl(app.Window).WorkingArea.Contains(app.Window.Bounds), "shared form fits monitor work area");
                     Check(await Js("window.capture.getDraft().groupId === 'smoke-group' && Array.from(document.querySelectorAll('option')).some(o=>o.textContent.includes('产品'))"), "group dropdown loads strict vault archive");
                     Check(await Js("window.capture.getDraft().todos[0] === '核对验收清单' && window.capture.getDraft().initialProgress === '已完成资料收集'"), "complete structured draft restored");
-                    Check(await Js("getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(255, 255, 255)' || document.body.classList.contains('theme-dark')"), "surface uses shared plugin stylesheet");
+                    Check(await Js("getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(252, 253, 252)' || document.body.classList.contains('theme-dark')"), "surface uses shared plugin stylesheet");
                     await app.Window.Surface.EvaluateAsync("Array.from(document.querySelectorAll('button')).find(button => button.textContent === '取消').click()");
                     await WaitFor(() => Task.FromResult(!app.Window.Visible), "cancel did not dismiss");
                     Check(CaptureSettings.Load(path).RestoredDraft().GetProperty("dueDate").GetString() == "2026-10-01", "cancel persists all form fields");

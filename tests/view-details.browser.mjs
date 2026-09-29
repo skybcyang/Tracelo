@@ -33,8 +33,12 @@ try {
       window.timelineObserver = new MutationObserver(records => window.preservedTimeline.changes += records.length);
       window.timelineObserver.observe(pane, { subtree: true, childList: true, attributes: true, characterData: true });
     });
-    for (const name of ['缩小看板', '恢复看板缩放为100%', '四象限', '分组']) {
-      await page.getByRole('button', { name, exact: true }).click();
+    for (const name of ['缩小看板', '恢复看板缩放为100%', '四象限', '分组看板']) {
+      if (name.includes('看板') && name !== '分组看板') {
+        await page.locator('.wt-board-options summary').click();
+        await page.locator('.wt-settings-modal').getByRole('button', { name, exact:true }).click();
+        await page.locator('.wt-settings-modal').getByRole('button', { name:'完成', exact:true }).click();
+      } else await page.getByRole('button', { name, exact: true }).click();
       await settle();
       const state = await page.evaluate(() => {
         const before = window.preservedTimeline, now = document.querySelector('.wt-timeline-column');
@@ -44,7 +48,7 @@ try {
     }
     await page.evaluate(() => window.timelineObserver.disconnect());
   });
-  await check('legacy details are fully visible without expanding a card', async () => {
+  await check('legacy details are fully visible after expanding a card', async () => {
     await page.evaluate(async id => {
       const plugin = window.cardFixture.plugin;
       await plugin.saveTaskNotes(id, '第一段详情\n\n' + '完整长详情。'.repeat(100) + '\n\n最后一段详情');
@@ -53,6 +57,7 @@ try {
     }, ids.plain);
     const preview = card(ids.plain).locator('.wt-notes-preview');
     assert.equal(await card(ids.plain).locator('.wt-card-composer').count(), 0);
+    await card(ids.plain).locator('.wt-card-open').click();
     assert.equal(await preview.count(), 1);
     assert.match(await preview.textContent(), /最后一段详情$/);
     assert.ok(await preview.evaluate(el => el.clientHeight >= el.scrollHeight - 1));
@@ -87,23 +92,26 @@ try {
     assert.equal(saved.task.notes, '任务目标\n\n完整要求与参考链接 https://example.com');
     assert.deepEqual(saved.task.events.map(e => e.kind), ['created']);
     assert.ok(saved.source.includes('## 详情'));
-    await card(saved.task.id).getByRole('button', { name: '关闭进展输入', exact: true }).click();
+    await card(saved.task.id).getByRole('button', { name: '收起', exact: true }).click();
+    assert.equal(await card(saved.task.id).locator('.wt-notes-preview').count(), 1);
+    await card(saved.task.id).locator('.wt-card-open').click();
     await page.waitForFunction(id => document.querySelector(`[data-task-id="${id}"] .wt-notes-preview`)?.textContent === window.cardFixture.plugin.tasks.find(t => t.id === id).notes, saved.task.id);
     assert.equal(await card(saved.task.id).locator('.wt-notes-preview').textContent(), saved.task.notes);
   });
-  await check('long detail images render in full on collapsed cards and open independently', async () => {
+  await check('long detail images render in full on expanded cards and open independently', async () => {
     const image = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="960"><rect width="160" height="960" fill="steelblue"/></svg>').toString('base64');
     await page.evaluate(async ({ id, image }) => {
       await window.cardFixture.plugin.saveTaskNotes(id, `图片之前\n![长截图](<${image}>)\n图片之后`);
       await window.cardFixture.plugin.setBoardZoom(window.cardFixture.plugin.state.boardZoom);
     }, { id: ids.dateOnly, image });
+    await card(ids.dateOnly).locator('.wt-card-open').click();
     const picture = card(ids.dateOnly).locator('.wt-notes-preview img');
     await picture.evaluate(img => img.decode());
     assert.equal(await picture.evaluate(img => img.getBoundingClientRect().height), 960);
-    assert.equal(await card(ids.dateOnly).locator('.wt-card-composer').count(), 0);
+    assert.equal(await card(ids.dateOnly).locator('.wt-card-composer').count(), 1);
     await picture.click();
     assert.equal(await page.locator('.modal-title').textContent(), '详情图片');
-    assert.equal(await card(ids.dateOnly).locator('.wt-card-composer').count(), 0);
+    assert.equal(await card(ids.dateOnly).locator('.wt-card-composer').count(), 1);
   });
   assert.deepEqual(errors, []);
   assert.deepEqual(failures, []);

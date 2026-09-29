@@ -6,6 +6,12 @@ public struct QuickWorkspace {
     public let directory: URL
     public init(directory: URL) { self.directory = directory }
     private var queue: URL { directory.appendingPathComponent(".tracelo-operations", isDirectory: true) }
+    public func uiSettings() -> [String: Any] {
+        let path = directory.appendingPathComponent(".tracelo-ui.json")
+        guard safeFile(path), let data = try? Data(contentsOf: path), data.count < 4096,
+            let settings = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+        return settings
+    }
     private func safeFile(_ path: URL) -> Bool {
         let resolved = path.resolvingSymlinksInPath().standardizedFileURL.path
         return resolved.hasPrefix(directory.resolvingSymlinksInPath().standardizedFileURL.path + "/")

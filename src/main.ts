@@ -21,13 +21,14 @@ import { AGENT_RULE } from "./agent-rule";
 import { renderTaskCard, formatTime, dueLabel, dueState } from "./task-card";
 import { mountDeadlineCalendar } from './deadline-calendar';
 import { prepareImages } from './draft-images';
-import { applyQuickOperation, QUICK_DIRECTORY, type QuickOperation } from './quick-operations';
+import { applyQuickOperation, decodeQuickImages, QUICK_DIRECTORY, type QuickOperation } from './quick-operations';
 import { findTaskMatches, searchExcerpt, type TaskMatch } from "./search";
 import { IconPickerModal, availableIconIds } from "./icon-picker";
 import { setContentIcon } from './content-icons';
 import { mountMasonryColumns } from "./card-layout";
 import { mountNewTaskForm, buildNewTask, type NewTaskValues, type NewTaskContext, type NewTaskDraft } from "./new-task-form";
-import { normalizePluginState, type PluginState } from "./archive";
+import { normalizePluginState, serializeTaskMarkdown, type PluginState } from "./archive";
+import { mountQuickProgress } from './desktop-progress';
 import { ArchiveStore } from "./archive-store";
 import { MATERIALS_DIRECTORY, relocateTaskReferences, safeSegment } from "./storage-names";
 import { exportBundle, importBundle, MAX_PACKAGE_BYTES, parseBundle, planImport, recoverInterruptedImport, type TransferBundle } from "./transfer";
@@ -146,12 +147,21 @@ class NewTaskModal extends Modal {
     private readonly submitTask: (values: NewTaskValues) => Promise<void>,
     private readonly context: NewTaskContext = {}, private readonly returnFocus?: HTMLElement,
     private readonly draftScope = '',
+    private readonly openProgress?: () => void,
   ) { super(app); }
 
   onOpen(): void {
-    this.setTitle("新建任务");
+    this.setTitle("Tracelo");
     this.modalEl.addClass("wt-modal");
     this.modalEl.addClass("wt-new-task-modal");
+    this.modalEl.addClass('wt-capture-dialog');
+    const brand = this.titleEl.createSpan({cls:'wt-capture-brand'}); setIcon(brand,'workflow'); this.titleEl.prepend(brand);
+    const tabs = this.contentEl.createDiv({cls:'wt-capture-tabs'});
+    for (const [label, icon, active] of [['新建任务','square-pen',true],['记录进展','message-square-plus',false]] as const) {
+      const button = tabs.createEl('button',{attr:{type:'button','aria-pressed':String(active)}});
+      setIcon(button.createSpan(),icon); button.createSpan({text:label});
+      if (!active) { button.disabled = !this.openProgress; button.onclick = () => { this.close(); this.openProgress?.(); }; }
+    }
     let drafts = newTaskDrafts.get(this.app);
     if (!drafts) { drafts = new Map(); newTaskDrafts.set(this.app, drafts); }
     const scopedDrafts = drafts;
@@ -350,9 +360,9 @@ class GroupManagerModal extends Modal {
         cls: "wt-group-count",
       });
       const actions = row.createDiv({ cls: "wt-row-actions" });
-      const groupIcon = iconButton(actions, 'circle-dot', '设置分组图标');
-      setContentIcon(groupIcon, group.icon ?? 'circle-dot');
-      groupIcon.onclick = () => new IconPickerModal(
+      const iconControl = iconButton(actions, "circle-dot", "设置分组图标");
+      setContentIcon(iconControl, group.icon ?? "circle-dot");
+      iconControl.onclick = () => new IconPickerModal(
         this.app, "分组图标", group.icon ?? "circle-dot",
         async value => { if (value) { await this.plugin.changeGroupIcon(group.id, value); this.renderGroups(); } },
         { returnFocus: () => this.contentEl.querySelectorAll<HTMLElement>('[aria-label="设置分组图标"]')[index]?.focus() },
@@ -459,7 +469,7 @@ class TransferModal extends Modal {
 interface TimelineReading {
   key: string;
   top: number;
-  nearBottom: boolean;
+  nearStart: boolean;
   eventIds: Set<string>;
   anchorId?: string;
   anchorOffset: number;
@@ -472,6 +482,8 @@ class WorkTimelineView extends ItemView {
   private selectedTaskId: string | null = null;
   private expandedTaskId: string | null = null;
   private searchQuery = "";
+  private boardFilter = 'all';
+  private dueTodayOnly = false;
   private narrowPane: 'tasks' | 'history' = 'tasks';
   private taskScrollTop = 0;
   private hiddenTimelineReading?: TimelineReading;
@@ -519,22 +531,27 @@ class WorkTimelineView extends ItemView {
   }
 
   openNewTask(context: NewTaskContext = {}, returnFocus?: HTMLElement): void {
+    const groupId = this.boardFilter === 'all' || this.boardFilter === 'ungrouped' ? null : this.boardFilter;
+    context = { groupId, ...context };
     new NewTaskModal(this.app, this.plugin.groups, async (values) => {
       const id = await this.plugin.addTask(values);
       this.selectedTaskId = id;
       this.expandedTaskId = id;
+      if (this.boardFilter !== 'all') this.boardFilter = values.groupId ?? 'ungrouped';
+      this.dueTodayOnly = false;
       this.searchQuery = "";
       this.searchTarget = undefined;
       this.narrowPane = 'tasks';
       this.render();
       requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${id}"] .wt-card-open`)?.focus());
-    }, context, returnFocus, this.plugin.state.taskDirectory).open();
+    }, context, returnFocus, this.plugin.state.taskDirectory, () => this.openQuickRecord()).open();
   }
 
   render(displayOnly = false): void {
     const root = this.contentEl;
     const existingShell = displayOnly ? root.querySelector<HTMLElement>(".wt-shell") : null;
     const endedOpen = root.querySelector<HTMLDetailsElement>(".wt-ended-section")?.open ?? false;
+    const optionsOpen = root.querySelector<HTMLDetailsElement>('.wt-board-options')?.open ?? false;
     const taskPane = root.querySelector<HTMLElement>(".wt-task-column");
     const taskScrollTop = taskPane?.clientHeight ? taskPane.scrollTop : this.taskScrollTop;
     const layoutScrollTop = root.querySelector(".wt-layout")?.scrollTop ?? 0;
@@ -544,6 +561,7 @@ class WorkTimelineView extends ItemView {
     this.masonryCleanups = [];
     if (!existingShell) root.empty();
     root.addClass("work-timeline-view");
+    root.classList.toggle('is-compact-cards', this.plugin.state.compactCards);
     const shell = existingShell ?? root.createDiv({ cls: "wt-shell" });
     shell.dataset.pane = this.narrowPane;
     shell.inert = this.plugin.storageBusy;
@@ -551,13 +569,15 @@ class WorkTimelineView extends ItemView {
     const header = shell.querySelector<HTMLElement>(".wt-header");
     header?.empty();
     this.renderHeader(shell, header ?? undefined);
-    if (!existingShell) {
-      const switcher = shell.createDiv({ cls: 'wt-pane-switch', attr: { role: 'group', 'aria-label': '任务与历史' } });
-      for (const [pane, label, accessible] of [['tasks', '任务', '返回任务'], ['history', '历史', '查看历史']] as const) {
-        const button = switcher.createEl('button', { text: label, attr: { type: 'button', 'aria-label': accessible, 'aria-pressed': String(this.narrowPane === pane), 'data-pane': pane } });
+    if (!shell.querySelector('.wt-pane-switch')) {
+      const panes = shell.createDiv({ cls: 'wt-pane-switch' });
+      for (const [pane, label] of [['tasks', '任务看板'], ['history', '时间线']] as const) {
+        const button = panes.createEl('button', { text: label, attr: { type: 'button', 'aria-pressed': String(this.narrowPane === pane) } });
         button.onclick = () => this.showPane(pane);
       }
     }
+    const options = shell.querySelector<HTMLDetailsElement>('.wt-board-options');
+    if (options) options.open = optionsOpen;
     const layout = shell.querySelector<HTMLElement>(".wt-layout") ?? shell.createDiv({ cls: "wt-layout" });
     const tasks = layout.querySelector<HTMLElement>(".wt-task-column") ?? layout.createEl("main", { cls: "wt-task-column" });
     tasks.empty();
@@ -579,7 +599,11 @@ class WorkTimelineView extends ItemView {
       }
     });
     tasks.querySelectorAll<HTMLElement>(".wt-card-body").forEach((body) => this.cardObserver?.observe(body));
-    if (!existingShell) this.renderTimeline(layout.createEl("aside", { cls: "wt-timeline-column" }), timelineReading);
+    if (!existingShell) {
+      const history = layout.createEl('aside', { cls: 'wt-timeline-column', attr: { 'aria-label': this.selectedTaskId ? '任务历史' : '每日时间线' } });
+      this.renderTimeline(history, timelineReading);
+      history.createDiv({ cls: 'wt-history-foot', text: '记录按时间保留，变化有迹可循' });
+    }
     tasks.scrollTop = taskScrollTop;
     layout.scrollTop = layoutScrollTop;
   }
@@ -587,44 +611,69 @@ class WorkTimelineView extends ItemView {
   private showPane(pane: 'tasks' | 'history'): void {
     const tasks = this.contentEl.querySelector<HTMLElement>('.wt-task-column');
     if (tasks?.clientHeight) this.taskScrollTop = tasks.scrollTop;
-    const reading = this.captureTimelineReading();
     this.narrowPane = pane;
-    const shell = this.contentEl.querySelector<HTMLElement>('.wt-shell');
-    if (shell) shell.dataset.pane = pane;
-    shell?.querySelectorAll<HTMLElement>('.wt-pane-switch button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.pane === pane)));
-    if (tasks) tasks.scrollTop = this.taskScrollTop;
-    const timeline = this.contentEl.querySelector<HTMLElement>('.wt-timeline-scroll');
-    if (timeline?.clientHeight) {
-      timeline.parentElement?.querySelector('.wt-new-progress')?.remove();
-      this.restoreTimelineReading(timeline, reading);
-    } else this.hiddenTimelineReading = reading;
+    this.render();
+  }
+
+  private openHistory(taskId: string | null): void {
+    this.selectedTaskId = taskId;
+    this.showPane('history');
   }
 
   private renderHeader(shell: HTMLElement, existingHeader?: HTMLElement): void {
+    if (!['all', 'ungrouped', ...this.plugin.groups.map(group => group.id)].includes(this.boardFilter)) this.boardFilter = 'all';
     const header = existingHeader ?? shell.createEl("header", { cls: "wt-header" });
     const brand = header.createDiv({ cls: "wt-brand" });
-    brand.createSpan({ cls: "wt-brand-mark", attr: { "aria-hidden": "true" } });
+    setIcon(brand.createSpan({ cls: "wt-brand-mark", attr: { "aria-hidden": "true" } }), 'workflow');
     const identity = brand.createDiv();
-    identity.createEl("h1", { text: this.plugin.manifest.name });
-    const active = this.plugin.tasks.filter(({ status }) => status === "active").length;
-    identity.createEl("p", { text: `${active} 项进行中 · 今天 ${eventsForDay(this.plugin.tasks, dayKey(new Date())).length} 条记录` });
+    identity.createEl("h1", { text: 'Tracelo' });
+    const activeTasks = this.plugin.tasks.filter(({ status }) => status === "active");
+    identity.createEl("p", { text: '工作时间线' });
 
     const viewTools = header.createDiv({ cls: "wt-view-tools", attr: { role: "group", "aria-label": "看板显示设置" } });
     const viewSwitch = viewTools.createDiv({ cls: "wt-view-switch", attr: { role: "group", "aria-label": "任务视图" } });
-    for (const [mode, label] of [["group", "分组"], ["quadrant", "四象限"]] as const) {
+    for (const [mode, label] of [["group", "分组看板"], ["quadrant", "四象限"]] as const) {
       const button = viewSwitch.createEl("button", {
         text: label,
         cls: this.plugin.state.viewMode === mode ? "is-active" : "",
         attr: { type: "button", "aria-pressed": String(this.plugin.state.viewMode === mode) },
       });
+      const mark = button.createSpan(); setIcon(mark, mode === 'group' ? 'columns-3' : 'grid-2x2'); button.prepend(mark);
       button.addEventListener("click", () => void runWithNotice(async () => {
         await this.plugin.setViewMode(mode);
         this.contentEl.querySelector<HTMLButtonElement>('.wt-view-switch button[aria-pressed="true"]')?.focus({ preventScroll: true });
       }));
     }
-    this.renderBoardControls(viewTools);
 
-    const actions = header.createDiv({ cls: "wt-header-actions" });
+    viewTools.createSpan({ cls: 'wt-navigation-divider', attr: { 'aria-hidden': 'true' } });
+    const filters = viewTools.createEl('nav', { cls: 'wt-group-navigation', attr: { 'aria-label': '按分组筛选任务' } });
+    const groups = [{ id: 'all', name: '全部' }, ...this.plugin.groups, { id: 'ungrouped', name: UNGROUPED_TASKS }];
+    groups.forEach((group, index) => {
+      const count = group.id === 'all' ? activeTasks.length : activeTasks.filter(task => (task.groupId ?? 'ungrouped') === group.id).length;
+      const button = filters.createEl('button', { cls: 'wt-group-tab', attr: { type:'button', 'data-group-id':group.id, 'aria-pressed':String(this.boardFilter === group.id), 'aria-label':`${group.name} ${count}` } });
+      if (group.id !== 'all') {
+        const dot = button.createSpan({ cls:'wt-group-dot', attr:{'aria-hidden':'true'} });
+        dot.style.backgroundColor = group.id === 'ungrouped' ? 'var(--wt-muted)' : ['var(--wt-g1)','var(--wt-g2)','var(--wt-g3)'][(index - 1) % 3]!;
+      }
+      button.createSpan({ text:group.name }); button.createSpan({ cls:'wt-group-count', text:String(count) });
+      button.onclick = () => {
+        this.boardFilter = group.id; this.searchQuery = ''; this.searchTarget = undefined;
+        this.selectedTaskId = null; this.narrowPane = 'tasks'; this.taskScrollTop = 0;
+        const pane = this.contentEl.querySelector('.wt-task-column'); if (pane) pane.scrollTop = 0;
+        this.render();
+        this.contentEl.querySelector<HTMLButtonElement>('.wt-group-tab[aria-pressed="true"]')?.focus({preventScroll:true});
+      };
+    });
+    const contextActions = viewTools.createDiv({ cls:'wt-context-actions' });
+    const today = iconButton(contextActions, 'calendar-clock', '仅看今天截止');
+    today.addClass('wt-due-filter'); today.setAttr('aria-pressed',String(this.dueTodayOnly));
+    today.onclick = () => { this.dueTodayOnly = !this.dueTodayOnly; this.searchQuery = ''; this.render(); this.contentEl.querySelector<HTMLButtonElement>('.wt-due-filter')?.focus({preventScroll:true}); };
+    const manage = contextActions.createEl('button', { cls:'wt-manage-groups', attr:{type:'button','aria-label':'管理分组',title:'管理分组'} });
+    setIcon(manage.createSpan(),'folder-cog'); manage.createSpan({text:'管理分组'});
+    manage.onclick = () => new GroupManagerModal(this.app, this.plugin).open();
+
+    const actions = header.createDiv({ cls: "wt-header-actions", attr:{'aria-label':'全局工具'} });
+    header.insertBefore(actions, viewTools);
     const calendar = iconButton(actions, 'calendar-days', '截止日历');
     calendar.addClass('wt-calendar-trigger');
     calendar.addEventListener('click', () => {
@@ -642,12 +691,89 @@ class WorkTimelineView extends ItemView {
       modal.onClose = () => { dispose?.(); if (!navigating) requestAnimationFrame(() => this.contentEl.querySelector<HTMLButtonElement>('[aria-label="截止日历"]')?.focus({ preventScroll: true })); };
       modal.open();
     });
-    iconButton(actions, "archive", "导入与导出").addEventListener("click", () => this.plugin.openTransfer());
-    iconButton(actions, "folders", "管理分组").addEventListener("click", () => new GroupManagerModal(this.app, this.plugin).open());
-    const create = actions.createEl("button", { cls: "wt-new-task-button", attr: { type: "button", "aria-label": "新建任务" } });
+    const quick = iconButton(actions, 'zap', '快捷记录'); quick.onclick = () => this.openQuickRecord(); actions.insertBefore(quick, calendar);
+    const more = actions.createEl('details', { cls: 'wt-board-options' });
+    const summary = more.createEl('summary', { attr: { 'aria-label': '界面与工具设置' } }); setIcon(summary, 'settings-2');
+    const tools = more.createDiv({ cls: 'wt-board-options-body' });
+    this.plugin.renderAppearanceControls(tools);
+    this.renderBoardControls(tools);
+    tools.createEl('button', { text: '导入与导出', attr: { type: 'button' } }).onclick = () => { more.open = false; this.plugin.openTransfer(); };
+    summary.onclick = event => {
+      event.preventDefault();
+      const modal = new Modal(this.app); modal.setTitle('界面与快捷工具'); modal.modalEl.addClass('wt-modal','wt-settings-modal');
+      const body = modal.contentEl.createDiv({cls:'wt-settings-body'});
+      const display = body.createEl('section', {cls:'wt-settings-section',attr:{'aria-label':'界面显示'}});
+      display.createEl('h3',{text:'界面显示'});
+      this.plugin.renderAppearanceControls(display);
+      display.querySelectorAll('select').forEach(select => {
+        const control = document.createElement('span'); control.className = 'wt-settings-select';
+        select.before(control); control.append(select);
+        setIcon(control.createSpan({attr:{'aria-hidden':'true'}}),'chevron-down');
+      });
+      const board = body.createEl('section', {cls:'wt-settings-section',attr:{'aria-label':'任务看板'}});
+      board.createEl('h3',{text:'任务看板'});
+      const compact = board.createEl('label', {cls:'wt-collection-setting'});
+      const compactCopy = compact.createDiv(); compactCopy.createEl('strong',{text:'紧凑任务卡片'}); compactCopy.createEl('p',{text:'减少辅助内容，优先显示最新进展'});
+      const compactToggle = compact.createEl('input',{type:'checkbox',attr:{'aria-label':'紧凑任务卡片'}}); compactToggle.checked = this.plugin.state.compactCards;
+      compactToggle.onchange = () => void runWithNotice(async () => {
+        const previous = this.plugin.state.compactCards; this.plugin.state.compactCards = compactToggle.checked;
+        try { await this.plugin.persistState(); } catch(error) { this.plugin.state.compactCards = previous; compactToggle.checked = previous; throw error; }
+        this.app.workspace.getLeavesOfType(VIEW_TYPE).forEach(leaf => { if (leaf.view instanceof WorkTimelineView) leaf.view.render(); });
+      });
+      this.renderBoardControls(board);
+      const shortcuts = body.createEl('section', {cls:'wt-settings-section wt-settings-shortcuts',attr:{'aria-label':'桌面快捷键'}});
+      shortcuts.createEl('h3',{text:'桌面快捷键'});
+      for (const [label, key] of [['新建任务','Space'],['记录进展','P']]) {
+        const row = shortcuts.createDiv({cls:'wt-settings-shortcut'}); row.createSpan({text:label});
+        const keys = row.createSpan({cls:'wt-settings-keys',attr:{'aria-label':`Control + ${Platform.isWin ? 'Alt' : 'Option'} + ${key}`}});
+        for (const text of [Platform.isWin ? 'Ctrl' : '⌃', Platform.isWin ? 'Alt' : '⌥', key!]) keys.createEl('kbd',{text,attr:{'aria-hidden':'true'}});
+      }
+      shortcuts.createEl('p',{cls:'wt-settings-help',text:'以上为默认快捷键，可在桌面工具设置中修改。'});
+      const footer = modal.contentEl.createDiv({cls:'wt-settings-footer'});
+      const transfer = footer.createEl('button', {cls:'wt-settings-transfer',attr:{type:'button'}});
+      setIcon(transfer.createSpan({attr:{'aria-hidden':'true'}}),'arrow-right-left'); transfer.createSpan({text:'导入与导出'});
+      transfer.onclick = () => { modal.close(); this.plugin.openTransfer(); };
+      footer.createEl('button', {text:'完成', cls:'wt-primary-action',attr:{type:'button'}}).onclick = () => modal.close();
+      modal.open();
+    };
+    more.addEventListener('keydown', event => { if (event.key === 'Escape') { more.open = false; summary.focus(); } });
+    const create = contextActions.createEl("button", { cls: "wt-new-task-button", attr: { type: "button", "aria-label": "新建任务" } });
     setIcon(create, "plus");
     create.createSpan({ text: "新建任务" });
     create.addEventListener("click", () => this.openNewTask({}, create));
+  }
+
+  private openQuickRecord(): void {
+    const modal = new Modal(this.app);
+    modal.setTitle('Tracelo'); modal.modalEl.addClass('wt-modal', 'wt-quick-modal', 'wt-capture-dialog');
+    const brand = modal.titleEl.createSpan({cls:'wt-capture-brand'}); setIcon(brand,'workflow'); modal.titleEl.prepend(brand);
+    const tabs = modal.contentEl.createDiv({ cls: 'wt-capture-tabs' });
+    const createTab = tabs.createEl('button', { attr: { type:'button', 'aria-pressed':'false' } });
+    setIcon(createTab.createSpan(),'square-pen'); createTab.createSpan({text:'新建任务'}); createTab.onclick = () => { modal.close(); this.openNewTask(); };
+    const progressTab = tabs.createEl('button', { attr: { type:'button', 'aria-pressed':'true' } });
+    setIcon(progressTab.createSpan(),'message-square-plus'); progressTab.createSpan({text:'记录进展'});
+    const content = modal.contentEl.createDiv({ cls: 'work-timeline-view wt-quick-progress' });
+    const controller = mountQuickProgress(content, {
+      setIcon, resize: () => {}, isWin: Platform.isWin, getLocation: () => this.plugin.state.taskDirectory,
+      openSettings: () => this.plugin.openTransfer(),
+      send: message => {
+        if (message.action === 'progressDismiss' || message.action === 'progressComplete') modal.close();
+        if (message.action === 'progressDraft') {
+          this.plugin.state.quickDrafts[String(message.taskId)] = String(message.text);
+          void this.plugin.persistState().catch(() => controller.setError('草稿未能保存，请保留窗口并重试'));
+        }
+        if (message.action === 'operation') {
+          const operation = message.operation as QuickOperation;
+          void this.plugin.submitQuickOperation(operation).then(() => controller.update({
+            tasks: this.plugin.tasks.map(task => ({ markdown: serializeTaskMarkdown(task) })),
+            receipts: [{ id:operation.id, status:'applied', message:'已写入任务' }],
+          }), error => controller.update({ receipts:[{id:operation.id,status:'failed',message:String(error)}] }));
+        }
+        if (message.action === 'openTaskFolder') void runWithNotice(() => this.plugin.accessTaskFolder(String(message.taskId), true));
+      },
+    });
+    controller.update({ groups:this.plugin.groups, tasks:this.plugin.tasks.map(task => ({markdown:serializeTaskMarkdown(task)})), progressDrafts:this.plugin.state.quickDrafts });
+    modal.open(); controller.show();
   }
 
   private renderTasks(container: HTMLElement): void {
@@ -661,6 +787,7 @@ class WorkTimelineView extends ItemView {
       attr: { placeholder: "搜索任务和进展", "aria-label": "搜索任务和进展" },
     });
     input.value = this.searchQuery;
+    this.contentEl.querySelector('.wt-header-actions')?.prepend(search);
     let composing = false;
     const updateSearch = () => {
       if (composing || !input.isConnected || this.searchQuery === input.value) return;
@@ -687,13 +814,22 @@ class WorkTimelineView extends ItemView {
       return;
     }
 
-    const matches = searchTasks(this.plugin.tasks, this.searchQuery);
+    const matches = searchTasks(this.plugin.tasks, this.searchQuery).filter(task =>
+      (this.boardFilter === 'all' || (task.groupId ?? 'ungrouped') === this.boardFilter) && (!this.dueTodayOnly || task.dueDate === dayKey(new Date())));
     const sections = this.plugin.state.viewMode === "group"
       ? groupTasks(matches, this.plugin.groups, this.plugin.state.orders.group)
       : quadrantTasks(matches, this.plugin.state.orders.quadrant);
-    const board = container.createDiv({ cls: `wt-board is-${this.plugin.state.viewMode}` });
+    const board = container.createDiv({ cls: `wt-board is-${this.plugin.state.viewMode}${this.boardFilter !== 'all' ? ' is-filtered-group' : ''}` });
+    if (this.dueTodayOnly && !matches.some(task => task.status === 'active')) {
+      const empty = container.createEl('p', { text: '今天没有到期的进行中任务。', cls: 'wt-filter-empty', attr: { role: 'status' } });
+      board.before(empty);
+    }
     board.style.setProperty("zoom", String(zoom / 100));
-    for (const section of sections) this.renderSection(board, section);
+    for (const section of sections) {
+      if (this.plugin.state.viewMode === 'group' && this.boardFilter === 'all' && section.id === null && !section.tasks.length && this.plugin.groups.length >= 3) continue;
+      if (this.plugin.state.viewMode === 'group' && this.boardFilter !== 'all' && (section.id ?? 'ungrouped') !== this.boardFilter) continue;
+      this.renderSection(board, section);
+    }
 
     const ended = matches.filter(isTaskEnded).sort((left, right) =>
       (right.events.at(-1)?.at ?? "").localeCompare(left.events.at(-1)?.at ?? ""),
@@ -703,9 +839,36 @@ class WorkTimelineView extends ItemView {
     const summary = endedSection.createEl("summary");
     summary.createSpan({ text: "已结束" });
     summary.createSpan({ text: `已完成 ${ended.filter(({ status }) => status === "completed").length} · 异常关闭 ${ended.filter(({ status }) => status === "closed").length}` });
+    summary.onclick = event => {
+      event.preventDefault();
+      const modal = new Modal(this.app); modal.setTitle('已结束的任务'); modal.modalEl.addClass('wt-modal','wt-archive-modal');
+      const renderArchive = () => {
+        modal.contentEl.empty();
+        modal.contentEl.createEl('p',{text:'完成和关闭的任务保留详情与历史。',cls:'wt-settings-help'});
+        const tasks = this.plugin.tasks.filter(isTaskEnded).sort((a,b)=>(b.events.at(-1)?.at ?? '').localeCompare(a.events.at(-1)?.at ?? ''));
+        if (!tasks.length) modal.contentEl.createEl('p',{text:'暂无已结束任务',cls:'wt-empty'});
+        for (const task of tasks) {
+          const row = modal.contentEl.createDiv({cls:'wt-archive-row'}); setIcon(row.createSpan(),task.status === 'completed' ? 'circle-check' : 'circle-x');
+          const copy = row.createDiv();
+          const title = copy.createEl('button',{text:task.title,attr:{type:'button','aria-label':`查看已结束任务：${task.title}`}});
+          title.onclick = () => {
+            modal.close(); this.boardFilter = 'all'; this.dueTodayOnly = false; this.searchQuery = ''; this.narrowPane = 'tasks'; this.render();
+            const section = this.contentEl.querySelector<HTMLDetailsElement>('.wt-ended-section'); if(section) section.open = true;
+            requestAnimationFrame(() => { const card = this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"]`); card?.scrollIntoView({block:'nearest'}); card?.querySelector<HTMLElement>('.wt-card-open')?.focus({preventScroll:true}); });
+          };
+          copy.createEl('small',{text:`${task.status === 'completed' ? '已完成' : '异常关闭'} · ${formatDay(task.events.at(-1)!.day)}`});
+          const restore = row.createEl('button',{text:'重新打开',attr:{type:'button','aria-label':`重新打开：${task.title}`}});
+          restore.onclick = () => void runWithNotice(async () => { restore.disabled = true; try { await this.plugin.reopenTask(task.id); renderArchive(); } finally {restore.disabled = false;} });
+        }
+        modal.contentEl.createEl('button',{text:'完成',cls:'wt-primary-action',attr:{type:'button'}}).onclick = () => modal.close();
+      };
+      renderArchive(); modal.open();
+    };
     const endedGrid = endedSection.createDiv({ cls: "wt-card-grid" });
     if (!ended.length) endedGrid.createEl("p", { text: "暂无已结束任务", cls: "wt-empty" });
     for (const task of ended) this.renderCard(endedGrid, task, "ended");
+    const history = container.createEl('button', { text: '全部进展', cls: 'wt-all-history', attr: { type: 'button' } });
+    history.onclick = () => this.openHistory(null);
   }
 
   private clearSearch(): void {
@@ -754,6 +917,8 @@ class WorkTimelineView extends ItemView {
   private openSearchMatch(task: WorkTask, match: TaskMatch): void {
     this.selectedTaskId = task.id;
     if (!match.eventId) {
+      this.boardFilter = 'all';
+      this.dueTodayOnly = false;
       this.expandedTaskId = task.id;
       this.searchQuery = '';
       this.searchTarget = undefined;
@@ -791,13 +956,18 @@ class WorkTimelineView extends ItemView {
     const zoom = this.plugin.state.boardZoom;
     const changeZoom = (value: number, selector: string) => runWithNotice(async () => {
       await this.plugin.setBoardZoom(value);
-      const target = this.contentEl.querySelector<HTMLButtonElement>(selector);
-      (target?.disabled ? this.contentEl.querySelector<HTMLButtonElement>(".wt-zoom-reset") : target)?.focus({ preventScroll: true });
+      const scope = shell.closest('.wt-settings-modal') ? shell : this.contentEl;
+      if (scope === shell) {
+        smaller.disabled = this.plugin.state.boardZoom <= 60; larger.disabled = this.plugin.state.boardZoom >= 120;
+        reset.textContent = `${this.plugin.state.boardZoom}%`;
+      }
+      const target = scope.querySelector<HTMLButtonElement>(selector);
+      (target?.disabled ? scope.querySelector<HTMLButtonElement>(".wt-zoom-reset") : target)?.focus({ preventScroll: true });
     });
     const smaller = iconButton(stepper, "minus", "缩小看板", "wt-icon-button wt-zoom-out");
     smaller.disabled = zoom <= 60;
     smaller.title = "缩小看板（每次 5%）";
-    smaller.onclick = () => void changeZoom(zoom - 5, ".wt-zoom-out");
+    smaller.onclick = () => void changeZoom(this.plugin.state.boardZoom - 5, ".wt-zoom-out");
     const reset = stepper.createEl("button", {
       text: `${zoom}%`, cls: "wt-zoom-reset",
       attr: { type: "button", "aria-label": "恢复看板缩放为100%", "aria-description": `当前缩放 ${zoom}%`, title: `当前 ${zoom}%，点击恢复 100%` },
@@ -806,7 +976,7 @@ class WorkTimelineView extends ItemView {
     const larger = iconButton(stepper, "plus", "放大看板", "wt-icon-button wt-zoom-in");
     larger.disabled = zoom >= 120;
     larger.title = "放大看板（每次 5%）";
-    larger.onclick = () => void changeZoom(zoom + 5, ".wt-zoom-in");
+    larger.onclick = () => void changeZoom(this.plugin.state.boardZoom + 5, ".wt-zoom-in");
   }
 
   private renderSection(container: HTMLElement, section: TaskGroup): void {
@@ -816,8 +986,16 @@ class WorkTimelineView extends ItemView {
       attr: { "data-area": area, "aria-label": section.name },
     });
     const heading = wrapper.createDiv({ cls: "wt-section-heading" });
+    const index = section.id ? Math.max(0, this.plugin.groups.findIndex(group => group.id === section.id)) : this.plugin.groups.length;
+    const quadrantStyle: Record<string, [string, string]> = { important_urgent: ['red', 'flame'], important_not_urgent: ['accent', 'flag'], not_important_urgent: ['warning', 'timer'], not_important_not_urgent: ['muted', 'coffee'] };
+    const quadrant = this.plugin.state.viewMode === 'quadrant' ? quadrantStyle[area] : undefined;
+    wrapper.style.setProperty('--wt-group', `var(--wt-${quadrant?.[0] ?? `g${index % 3 + 1}`})`);
+    const groupIcon = heading.createSpan({ cls: 'wt-group-icon' });
+    if (quadrant) setIcon(groupIcon, quadrant[1]!);
+    else setContentIcon(groupIcon, this.plugin.groups.find(group => group.id === section.id)?.icon ?? ['briefcase-business', 'code-2', 'coffee'][index % 3]!);
     heading.createEl("h3", { text: section.name });
     heading.createSpan({ text: String(section.tasks.length) });
+    const add = iconButton(heading, 'plus', `向${section.name}添加任务`);
     const grid = wrapper.createDiv({ cls: "wt-card-grid" });
     grid.addEventListener("dragover", (event) => { event.preventDefault(); grid.addClass("is-drag-over"); });
     grid.addEventListener("dragleave", () => grid.removeClass("is-drag-over"));
@@ -841,6 +1019,7 @@ class WorkTimelineView extends ItemView {
       ? { groupId: section.id }
       : { quadrant: QUADRANTS.find(item => item.id === section.id)!.id };
     create.addEventListener("click", () => this.openNewTask(context, create));
+    add.onclick = () => this.openNewTask(context, add);
   }
 
   private renderCard(container: HTMLElement, task: WorkTask, area: string): void {
@@ -854,9 +1033,23 @@ class WorkTimelineView extends ItemView {
       setIcon, iconButton, notice: (message, duration) => new Notice(message, duration),
       prompt: (heading, initial, placeholder, multiline, submit) => new TextPromptModal(this.app, heading, initial, placeholder, multiline, submit).open(),
       showTaskMenu: (event, task) => this.showTaskMenu(event, task), openDueDate: task => this.openDueDate(task),
-      collapseCard: id => this.collapseCard(id), focusCard: id => this.focusCard(id), render: () => this.render(),
+      collapseCard: id => this.collapseCard(id), focusCard: id => this.focusCard(id, true), render: () => this.render(),
       renderNotes: (body, task) => this.renderNotes(body, task),
+      openHistory: task => this.openHistory(task.id),
+      completeTask: task => this.confirmComplete(task),
     }, container, task, area);
+  }
+
+  private confirmComplete(task: WorkTask): void {
+    const finish = async () => {
+      await this.plugin.finishTask(task.id);
+      const notice = new Notice('任务已完成', 8000);
+      const undo = notice.messageEl.createEl('button', { text: '撤销', cls: 'wt-undo-button' });
+      undo.onclick = () => void runWithNotice(async () => { await this.plugin.reopenTask(task.id); notice.hide(); });
+    };
+    const remaining = task.todos?.filter(todo => !todo.done).length ?? 0;
+    if (remaining) new CompleteTaskModal(this.app, remaining, finish).open();
+    else void runWithNotice(finish);
   }
 
   private collapseCard(taskId: string): void {
@@ -1060,7 +1253,7 @@ class WorkTimelineView extends ItemView {
       });
       const body = container.createDiv({ cls: "wt-timeline-scroll", attr: { "data-timeline-key": `task:${task.id}`, tabindex: "-1", "aria-label": "任务历史" } });
       const stream = body.createDiv({ cls: "wt-event-stream" });
-      for (const section of eventsByDay(task.events)) {
+      for (const section of eventsByDay(task.events).reverse()) {
         const day = stream.createEl("section", { cls: "wt-timeline-day" });
         day.createEl("h3", { text: formatDay(section.day) });
         this.renderEvents(day, section.events, false);
@@ -1099,6 +1292,16 @@ class WorkTimelineView extends ItemView {
       this.render();
       this.contentEl.querySelector<HTMLInputElement>('.wt-date-controls input')?.focus({ preventScroll: true });
     });
+    const week = header.createDiv({ cls: 'wt-week', attr: { 'aria-label': '本周日期' } });
+    const monday = new Date(`${this.selectedDay}T12:00:00`);
+    monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(monday); day.setDate(day.getDate() + i);
+      const key = dayKey(day);
+      const button = week.createEl('button', { cls: key === this.selectedDay ? 'is-active' : '', attr: { type: 'button', 'aria-label': key, 'aria-pressed': String(key === this.selectedDay) } });
+      button.createSpan({ text: ['一','二','三','四','五','六','日'][i] }); button.createEl('b', { text: String(day.getDate()) });
+      button.onclick = () => { this.selectedDay = key; this.render(); this.contentEl.querySelector<HTMLButtonElement>(`.wt-week button[aria-label="${key}"]`)?.focus(); };
+    }
     const dueTasks = dueTasksForDay(this.plugin.tasks, this.selectedDay);
     if (dueTasks.length) {
       const due = container.createEl("section", { cls: "wt-timeline-due", attr: { "aria-label": "当日截止" } });
@@ -1123,7 +1326,7 @@ class WorkTimelineView extends ItemView {
 
   private renderEventStream(container: HTMLElement, entries: { event: TaskEvent; taskId?: string }[], showTask: boolean): void {
     const list = container.createEl("ol", { cls: "wt-event-list" });
-    for (const { event, taskId } of entries) {
+    for (const { event, taskId } of [...entries].reverse()) {
       this.renderEvent(list, event, showTask, taskId);
     }
   }
@@ -1157,6 +1360,10 @@ class WorkTimelineView extends ItemView {
         text.createEl('mark', { text: value.slice(start, start + query.length) });
         text.append(value.slice(start + query.length));
       } else text.setText(value);
+    } else if (event.kind === 'progress' && /!\[[^\]]*\]\(/.test(event.text)) {
+      const task = this.plugin.tasks.find(task => task.id === (taskId ?? this.selectedTaskId));
+      if (task) void MarkdownRenderer.render(this.app, event.text, text, this.plugin.taskArchivePath(task.id), this).catch(() => text.setText(event.text));
+      else text.setText(event.text);
     } else text.setText(event.text);
   }
 
@@ -1170,7 +1377,7 @@ class WorkTimelineView extends ItemView {
     return {
       key: body.dataset.timelineKey ?? "",
       top: body.scrollTop,
-      nearBottom: body.scrollHeight - body.clientHeight - body.scrollTop <= 48,
+      nearStart: body.scrollTop <= 48,
       eventIds: new Set(items.map(item => item.dataset.eventId!)),
       anchorId: anchor?.dataset.eventId,
       anchorOffset: anchor ? anchor.getBoundingClientRect().top - top : 0,
@@ -1186,30 +1393,30 @@ class WorkTimelineView extends ItemView {
     // Read the previous DOM before replacement, then restore synchronously so a
     // later animation frame cannot override a user's scroll or another render.
     if (!reading || reading.key !== body.dataset.timelineKey) {
-      body.scrollTop = body.scrollHeight;
+      body.scrollTop = 0;
       return;
     }
     const items = Array.from(body.querySelectorAll<HTMLElement>("[data-event-id]"));
     const newActivity = items.some(item => !item.classList.contains("is-muted") && !reading.eventIds.has(item.dataset.eventId!));
-    if (newActivity && reading.nearBottom) {
-      body.scrollTop = body.scrollHeight;
+    if (newActivity && reading.nearStart) {
+      body.scrollTop = 0;
       return;
     }
     const anchor = items.find(item => item.dataset.eventId === reading.anchorId);
     body.scrollTop = anchor
       ? body.scrollTop + anchor.getBoundingClientRect().top - body.getBoundingClientRect().top - reading.anchorOffset
       : reading.top;
-    if (!reading.nearBottom && (newActivity || reading.pendingProgress)) {
+    if (!reading.nearStart && (newActivity || reading.pendingProgress)) {
       const button = body.parentElement!.createEl("button", { cls: "wt-new-progress", attr: { type: "button", "aria-label": "有新进展" } });
       button.createSpan({ text: "有新进展", attr: { role: "status" } });
-      setIcon(button.createSpan({ attr: { "aria-hidden": "true" } }), "arrow-down");
+      setIcon(button.createSpan({ attr: { "aria-hidden": "true" } }), "arrow-up");
       button.addEventListener("click", () => {
         body.focus({ preventScroll: true });
-        body.scrollTop = body.scrollHeight;
+        body.scrollTop = 0;
         button.remove();
       });
       body.addEventListener("scroll", () => {
-        if (body.scrollHeight - body.clientHeight - body.scrollTop <= 48) button.remove();
+        if (body.scrollTop <= 48) button.remove();
       }, { passive: true });
     }
   }
@@ -1223,6 +1430,7 @@ class WorkTimelineSettingTab extends PluginSettingTab {
   display(): void {
     this.containerEl.empty();
     this.containerEl.createEl("h2", { text: this.timeline.manifest.name });
+    this.timeline.renderAppearanceControls(this.containerEl);
     new Setting(this.containerEl)
       .setName("卡片布局")
       .setDesc("顶部对齐：卡片按行排列，每行顶部齐平。瀑布流：卡片等宽，每列独立向下排列，展开时不跨列移动。")
@@ -1365,6 +1573,8 @@ export default class WorkTimelinePlugin extends Plugin {
     }
     this.state.pluginVersion = this.manifest.version;
     await this.saveData(this.state);
+    this.applyAppearance();
+    await this.publishAppearance().catch(() => new Notice('快捷工具主题暂未同步，插件主题已生效'));
     this.registerView(VIEW_TYPE, (leaf) => new WorkTimelineView(leaf, this));
     this.addRibbonIcon("history", "打开 Tracelo", () => void this.activateView());
     this.addCommand({ id: "open-work-timeline", name: "打开 Tracelo", callback: () => void this.activateView() });
@@ -1391,6 +1601,8 @@ export default class WorkTimelinePlugin extends Plugin {
     if (this.draftTimer !== null) window.clearTimeout(this.draftTimer);
     await this.saveData(this.state);
     this.app.workspace.detachLeavesOfType(VIEW_TYPE);
+    delete document.body.dataset.traceloTheme;
+    delete document.body.dataset.traceloAppearance;
   }
 
   private createStore(directory: string): ArchiveStore {
@@ -1473,8 +1685,13 @@ export default class WorkTimelinePlugin extends Plugin {
         try {
           if (!op.id || path !== `${directory}/${op.id}.request.json`) throw Error('操作身份与文件名不匹配');
           const current = this.requireTask(op.taskId);
+          const images = await decodeQuickImages(op);
+          if (op.attachments) op = { ...op, attachments: op.attachments.map((image,i) => ({ ...image, sha256: images[i]!.sha256 })) };
           const next = applyQuickOperation(current, op, this.groups);
           if (next !== current) {
+            if (images.length) await this.store.saveProgressAttachments(current, images);
+            // Storage may have assigned a folder while migrating a legacy task.
+            next.archiveName = current.archiveName; next.materialFolder = current.materialFolder;
             await this.persistTask(next);
             this.tasks = this.tasks.map(task => task.id === next.id ? next : task);
           }
@@ -1486,6 +1703,25 @@ export default class WorkTimelinePlugin extends Plugin {
         await adapter.write(receipt, JSON.stringify({ version: 1, id: op.id, ...result }));
       });
     }
+  }
+
+  async submitQuickOperation(operation: QuickOperation): Promise<void> {
+    if (!/^quick-[a-f0-9]{32}$/.test(operation.id)) throw Error('快捷操作身份无效');
+    const directory = `${this.state.taskDirectory}/${QUICK_DIRECTORY}`;
+    const adapter = this.app.vault.adapter;
+    if (!await adapter.exists(directory)) await adapter.mkdir(directory);
+    const request = `${directory}/${operation.id}.request.json`;
+    const receipt = `${directory}/${operation.id}.result.json`;
+    const source = JSON.stringify(operation);
+    if (await adapter.exists(request) && await adapter.read(request) !== source) throw Error('快捷操作 ID 冲突');
+    await adapter.write(request, source);
+    if (await adapter.exists(receipt)) {
+      const previous = JSON.parse(await adapter.read(receipt));
+      if (previous.status === 'failed') await adapter.remove(receipt);
+    }
+    await this.processQuickOperations();
+    const result = JSON.parse(await adapter.read(receipt));
+    if (result.status !== 'applied') throw Error(result.message);
   }
 
   updateDraft(taskId: string, value: string): void {
@@ -1792,6 +2028,7 @@ export default class WorkTimelinePlugin extends Plugin {
         throw reason;
       }
       this.store = next; this.state = nextState; this.tasks = copied;
+      await this.publishAppearance().catch(() => new Notice('任务已迁移，快捷工具主题暂未同步'));
       try {
         for (const path of [...this.tasks.map(t => previous.taskPath(t.id)), ...["agent.md", "_groups.md"].map(name => `${previous.taskDirectory}/${name}`)]) {
           this.guardWrite(path);
@@ -1804,6 +2041,36 @@ export default class WorkTimelinePlugin extends Plugin {
 
   async persistState(): Promise<void> {
     await this.saveData(this.state);
+  }
+
+  private applyAppearance(): void {
+    document.body.dataset.traceloTheme = this.state.theme;
+    document.body.dataset.traceloAppearance = this.state.appearance;
+  }
+
+  private async publishAppearance(): Promise<void> {
+    await this.app.vault.adapter.write(`${this.state.taskDirectory}/.tracelo-ui.json`, JSON.stringify({ version: 1, theme: this.state.theme, appearance: this.state.appearance }));
+  }
+
+  async setAppearance(theme: PluginState['theme'], appearance: PluginState['appearance']): Promise<void> {
+    const previous = { theme: this.state.theme, appearance: this.state.appearance };
+    Object.assign(this.state, { theme, appearance });
+    try { await this.persistState(); } catch (error) { Object.assign(this.state, previous); throw error; }
+    this.applyAppearance();
+    await this.publishAppearance().catch(() => new Notice('主题已保存，快捷工具同步失败；重新加载插件后重试'));
+    this.renderViews();
+  }
+
+  renderAppearanceControls(container: HTMLElement): void {
+    const fields = container.createDiv({ cls: 'wt-appearance-controls' });
+    const theme = fields.createEl('label', { text: '主题' }).createEl('select', { attr: { 'aria-label': '界面主题' } });
+    for (const [id, name] of [['evergreen','A 矿物绿'],['graphite','D 石墨紫'],['glacier','E 冰川蓝'],['vermilion','F 暖白朱砂']]) theme.createEl('option', { text: name, attr: { value: id! } });
+    theme.value = this.state.theme;
+    const mode = fields.createEl('label', { text: '外观' }).createEl('select', { attr: { 'aria-label': '界面外观' } });
+    for (const [id, name] of [['system','跟随宿主'],['light','浅色'],['dark','深色']]) mode.createEl('option', { text: name, attr: { value: id! } });
+    mode.value = this.state.appearance;
+    const change = () => void runWithNotice(() => this.setAppearance(theme.value as PluginState['theme'], mode.value as PluginState['appearance']));
+    theme.onchange = mode.onchange = change;
   }
 
   private requireTask(taskId: string): WorkTask {

@@ -9,7 +9,7 @@ internal sealed class CaptureWindow : Form {
     internal event Action<int>? Hotkey;
     internal bool AllowClose;
     internal CaptureWindow(string profileDirectory) {
-        Theme.Apply(this, "Tracelo · 新建任务", new Size(560, 540));
+        Theme.Apply(this, "Tracelo · 新建任务", new Size(554, 540));
         Surface = new CaptureSurface(profileDirectory); Controls.Add(Surface);
         TopMost = true; ShowInTaskbar = false; MaximizeBox = false; MinimizeBox = false;
         FormClosing += (_, e) => { if (!AllowClose) { e.Cancel = true; Dismiss?.Invoke(); } };
@@ -104,7 +104,7 @@ internal sealed class CaptureApplication : ApplicationContext {
         var area = Screen.FromPoint(Cursor.Position).WorkingArea;
         var border = Window.Size - Window.ClientSize;
         var fit = WindowPlacement.Fit(area.Left, area.Top, area.Width, area.Height,
-            (int)(600 * Window.DeviceDpi / 96d) + border.Width, (int)(desiredHeight * Window.DeviceDpi / 96d) + border.Height);
+            (int)(554 * Window.DeviceDpi / 96d) + border.Width, (int)(desiredHeight * Window.DeviceDpi / 96d) + border.Height);
         var bounds = new Rectangle(fit.X, fit.Y, fit.Width, fit.Height);
         if (Window.Bounds != bounds) Window.Bounds = bounds;
     }
@@ -116,7 +116,7 @@ internal sealed class CaptureApplication : ApplicationContext {
     }
     private void ShowProgress() { Show(); Window.Surface.Update(new() { ["mode"] = "progress" }); }
     private void RefreshQuick() {
-        try { var workspace = new QuickWorkspace(new CaptureConfiguration(State.Vault, State.TaskDirectory).Destination()); Window.Surface.Update(new() { ["tasks"] = workspace.Tasks(), ["receipts"] = workspace.Receipts() }); }
+        try { var workspace = new QuickWorkspace(new CaptureConfiguration(State.Vault, State.TaskDirectory).Destination()); Window.Surface.Update(new() { ["tasks"] = workspace.Tasks(), ["receipts"] = workspace.Receipts(), ["uiSettings"] = workspace.UiSettings() }); }
         catch (Exception error) { Window.Surface.Update(new() { ["quickError"] = error.Message }); }
     }
     private async Task SnapshotDraftAsync() {

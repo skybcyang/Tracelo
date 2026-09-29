@@ -96,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if CommandLine.arguments.contains("--show") { show() }
     }
     private func buildPanel() {
-        panel = CapturePanel(contentRect: NSRect(x: 0, y: 0, width: 560, height: 360), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel = CapturePanel(contentRect: NSRect(x: 0, y: 0, width: 530, height: 360), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.title = "Tracelo · 新建任务"
         panel.delegate = self
         panel.isReleasedWhenClosed = false
@@ -107,7 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         surface = CaptureSurface()
-        surface.view.frame = NSRect(x: 0, y: 0, width: 560, height: 360)
+        surface.view.frame = NSRect(x: 0, y: 0, width: 530, height: 360)
         surface.view.wantsLayer = true
         surface.view.layer?.cornerRadius = 10
         surface.view.layer?.masksToBounds = true
@@ -125,7 +125,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         surface.action = { [weak self] name, value in self?.receive(name, value) }
         do { try surface.load() }
         catch { fputs("Capture interface could not load: \(error)\n", stderr); if smoke { exit(1) }; alert("无法打开快捷记录", error.localizedDescription); NSApp.terminate(nil) }
-        refreshSurface()
+        // Smoke tests supply isolated sample state after WebKit is ready.
+        // Loading a real vault here can override their appearance and drafts.
+        if !smoke { refreshSurface() }
     }
     private func receive(_ name: String, _ value: [String: Any]) {
         if ["change", "submit", "dismiss", "settings"].contains(name) {
@@ -206,7 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func refreshQuick() {
         do {
             let workspace = try QuickWorkspace(directory: configuration().destination())
-            surface.update(["tasks": try workspace.tasks(), "receipts": try workspace.receipts(), "dark": NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua])
+            surface.update(["tasks": try workspace.tasks(), "receipts": try workspace.receipts(), "uiSettings": workspace.uiSettings(), "dark": NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua])
         } catch { surface.update(["quickError": error.localizedDescription]) }
     }
     private func configuration() -> CaptureConfiguration {

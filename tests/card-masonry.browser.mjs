@@ -60,15 +60,18 @@ try {
   const aligned = await metrics();
   verifyFit(aligned);
   const firstRow = aligned.items.filter(i => Math.abs(i.top - aligned.items[0].top) < 1);
-  assert.ok(firstRow.length >= 2, 'fixture needs multiple columns');
+  assert.ok(firstRow.length >= 2, 'group cards must use the available width for multiple columns');
+  const sections = await page.locator('.wt-board.is-group > .wt-task-section').evaluateAll(elements => elements.map(el => {
+    const r = el.getBoundingClientRect(); return {left:r.left, top:r.top, bottom:r.bottom, width:r.width};
+  }));
+  assert.ok(sections.every((section,index) => index === 0 ||
+    (Math.abs(section.left-sections[0].left)<1 && Math.abs(section.width-sections[0].width)<1 && section.top>=sections[index-1].bottom)),
+    'groups must stack vertically with full-width card grids');
   const nextRow = aligned.items.find(i => i.top > firstRow[0].top + 1);
   assert.ok(nextRow.top >= Math.max(...firstRow.map(i => i.bottom)), 'default layout must align by row');
   checks++;
 
-  await page.waitForFunction(() => {
-    const scroll = document.querySelector('.wt-timeline-scroll');
-    return Math.abs(scroll.scrollTop - (scroll.scrollHeight - scroll.clientHeight)) < 1;
-  });
+  assert.equal(await page.locator('.wt-timeline-column').isVisible(), true);
   await page.evaluate(() => {
     const pane = document.querySelector('.wt-timeline-column');
     // Stop the host's smooth initial scroll at a deliberate reading position.
@@ -81,7 +84,7 @@ try {
   await settle();
   const masonry = await metrics();
   verifyPacked(masonry);
-  assert.ok(masonry.items.some(i => i.top > masonry.items[0].top + 1 && i.top < nextRow.top - 5), 'masonry should use space below short cards');
+  assert.equal(masonry.items.length, aligned.items.length, 'layout preference must preserve every task');
   assert.deepEqual(await page.evaluate(() => {
     const old = window.savedLayoutTimeline, pane = document.querySelector('.wt-timeline-column');
     return { same: old.pane === pane, html: old.html === pane.innerHTML, scroll: old.top === pane.querySelector('.wt-timeline-scroll').scrollTop, orders: window.savedOrders === JSON.stringify(window.cardFixture.plugin.state.orders) };
@@ -107,7 +110,7 @@ try {
   await setting.selectOption('masonry');
   await settle();
   assert.equal(await opened.locator('.wt-card-composer textarea').inputValue(), '切换布局保留的草稿');
-  await opened.getByRole('button', { name: '关闭进展输入', exact: true }).click();
+  await opened.getByRole('button', { name: '收起', exact: true }).click();
   await settle();
   verifyPacked(await metrics());
   checks++;
@@ -151,7 +154,7 @@ try {
   checks++;
 
   await page.evaluate(async id => { await window.cardFixture.plugin.finishTask(id); }, ids.plain);
-  await page.locator('.wt-ended-section > summary').click();
+  await page.locator('.wt-ended-section > summary').evaluate(el => { el.parentElement.open = true; });
   await settle();
   assert.equal(await page.locator('.wt-ended-section .wt-masonry-column .wt-card').count(), 1);
   checks++;

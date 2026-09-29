@@ -1,5 +1,6 @@
 // Host boundary only: real plugin rendering, domain operations and archive storage run unchanged.
 // setIcon deliberately models Obsidian 1.13.7's first-child replacement behavior.
+import { createElement, icons } from 'lucide';
 HTMLElement.prototype.createEl = function (tag, options = {}) {
   const el = document.createElement(tag);
   if (options.cls) el.className = options.cls;
@@ -13,16 +14,15 @@ HTMLElement.prototype.createEl = function (tag, options = {}) {
 HTMLElement.prototype.createDiv = function (options) { return this.createEl("div", options); };
 HTMLElement.prototype.createSpan = function (options) { return this.createEl("span", options); };
 HTMLElement.prototype.empty = function () { this.replaceChildren(); };
-HTMLElement.prototype.addClass = function (name) { this.classList.add(name); };
+HTMLElement.prototype.addClass = function (...names) { this.classList.add(...names); };
 HTMLElement.prototype.removeClass = function (name) { this.classList.remove(name); };
 HTMLElement.prototype.setText = function (text) { this.textContent = text; };
 HTMLElement.prototype.setAttr = function (name, value) { this.setAttribute(name, value); };
 
 export function setIcon(el, name) {
   el.firstChild?.remove();
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("class", name);
-  svg.setAttribute("viewBox", "0 0 24 24");
+  const key = name.replace(/^lucide-/, '').replace(/(^|-)(\w)/g, (_, separator, letter) => letter.toUpperCase());
+  const svg = createElement(icons[key] ?? icons.Circle, { class: name + ' svg-icon', 'aria-hidden': 'true' });
   el.appendChild(svg);
 }
 // Obsidian lists built-in IDs with the lucide- prefix, while setIcon accepts short names.

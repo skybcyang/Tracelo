@@ -38,7 +38,7 @@ try {
     if (trigger === 'title') await item.locator('.wt-card-open').click();
     if (trigger === 'body') await item.locator('.wt-card-latest').click();
     if (trigger === 'keyboard') await item.locator('.wt-card-open').press('Enter');
-    if (trigger === 'close') await item.getByRole('button', { name: '关闭进展输入', exact: true }).click();
+    if (trigger === 'close') await item.getByRole('button', { name: '收起', exact: true }).click();
     if (trigger === 'escape') await item.locator('.wt-card-composer textarea').press('Escape');
     await settle();
     assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
@@ -50,9 +50,11 @@ try {
   });
   await check('collapsing an ended task returns to the previously selected daily date', async ids => {
     await page.evaluate(async id => window.cardFixture.plugin.finishTask(id), ids.dateOnly);
+    await page.getByRole('button', { name: '全部进展', exact: true }).click();
     await page.getByRole('button', { name: '前一天', exact: true }).click();
     const day = await page.getByLabel('选择时间线日期').inputValue();
-    await page.locator('.wt-ended-section > summary').click();
+
+    await page.locator('.wt-ended-section > summary').evaluate(el => { el.parentElement.open = true; });
     const title = card(ids.dateOnly).locator('.wt-card-open');
     await title.click();
     assert.equal(await page.locator('.wt-timeline-column h2').textContent(), '提交本周项目周报');
@@ -120,7 +122,7 @@ try {
     assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
     await item.locator('.wt-card-open').press('Enter');
     assert.equal(await input.inputValue(), '键盘关闭仍保留草稿');
-    await item.getByRole('button', { name: '关闭进展输入', exact: true }).click();
+    await item.getByRole('button', { name: '收起', exact: true }).click();
     await settle();
     assert.equal(await item.locator('.wt-card-open').evaluate(el => el === document.activeElement), true);
   });
@@ -200,10 +202,10 @@ try {
     await item.getByRole('textbox', { name: '任务详情', exact: true }).fill('完整短详情');
     await item.getByRole('button', { name: '保存详情', exact: true }).click();
     await item.locator('.wt-notes-preview').waitFor();
-    await item.getByRole('button', { name: '关闭进展输入', exact: true }).click();
+    await item.getByRole('button', { name: '收起', exact: true }).click();
     await settle();
-    assert.equal(await item.locator('.wt-notes-preview').textContent(), '完整短详情');
-    assert.equal(await item.locator('.wt-read-more').isVisible(), false);
+    assert.equal(await item.locator('.wt-notes-preview').count(), 1);
+    assert.equal(await item.locator('.wt-read-more').isVisible(), true);
     assert.equal(await item.locator('.wt-card-composer').count(), 0);
   });
 
@@ -211,10 +213,10 @@ try {
     await page.evaluate(async id => window.cardFixture.plugin.saveTaskNotes(id, '长详情\n'.repeat(160)), ids.payment);
     const item = card(ids.payment);
     await item.locator('.wt-card-open').click();
-    await item.getByRole('button', { name: '关闭进展输入', exact: true }).scrollIntoViewIfNeeded();
+    await item.getByRole('button', { name: '收起', exact: true }).scrollIntoViewIfNeeded();
     const wasAbove = await item.evaluate(el => el.querySelector('.wt-card-heading').getBoundingClientRect().bottom < document.querySelector('.wt-task-column').getBoundingClientRect().top);
     assert.equal(wasAbove, true);
-    await item.getByRole('button', { name: '关闭进展输入', exact: true }).click();
+    await item.getByRole('button', { name: '收起', exact: true }).click();
     await settle();
     const bounds = await item.evaluate(el => {
       const title = el.querySelector('.wt-card-heading').getBoundingClientRect(), pane = document.querySelector('.wt-task-column').getBoundingClientRect();

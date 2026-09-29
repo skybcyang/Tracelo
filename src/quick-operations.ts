@@ -5,11 +5,29 @@ export interface QuickOperation {
   version: 1; id: string; taskId: string;
   kind: 'progress' | 'todo_add' | 'todo_toggle' | 'todo_edit' | 'todo_remove' | 'todo_restore' | 'rename' | 'notes' | 'due' | 'group' | 'quadrant' | 'complete' | 'close' | 'reopen' | 'icon';
   text?: string; todoId?: string; done?: boolean; todo?: TaskTodo; index?: number;
+  attachments?: { name: string; base64: string; sha256?: string }[];
+}
+export async function decodeQuickImages(op: QuickOperation) {
+  if (!op.attachments) return [];
+  if (op.kind !== 'progress' || !Array.isArray(op.attachments) || op.attachments.length > 40) throw Error('图片操作无效');
+  let total = 0;
+  const names = new Set<string>();
+  return Promise.all(op.attachments.map(async image => {
+    if (!image || !/^image-[a-zA-Z0-9-]+\.(png|jpg|webp|gif|bmp)$/.test(image.name) || typeof image.base64 !== 'string' || image.base64.length > 14_000_000 || names.has(image.name) || !op.text?.includes(`<${image.name}>`)) throw Error('图片数据或文件名无效');
+    names.add(image.name);
+    const bytes = Uint8Array.from(atob(image.base64), c => c.charCodeAt(0));
+    total += bytes.length;
+    if (!bytes.length || bytes.length > 10 * 1024 * 1024 || total > 40 * 1024 * 1024) throw Error('图片超过容量限制');
+    const sha256 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(b => b.toString(16).padStart(2,'0')).join('');
+    if (image.sha256 && image.sha256 !== sha256) throw Error('图片校验失败');
+    return { name:image.name, bytes, sha256 };
+  }));
 }
 export function applyQuickOperation(task: WorkTask, op: QuickOperation, groups: WorkGroup[], now = new Date()): WorkTask {
   if (!op || op.version !== 1 || typeof op.id !== 'string' || !safeSegment(op.id) || op.taskId !== task.id) throw Error('操作身份无效，未修改任务');
   if (op.text !== undefined && (typeof op.text !== 'string' || op.text.length > 200_000)) throw Error('操作内容无效');
-  const signature = JSON.stringify(op);
+  if (op.attachments?.some(image => !image.sha256 || !/^[a-f0-9]{64}$/.test(image.sha256))) throw Error('图片尚未校验');
+  const signature = JSON.stringify(op.attachments ? { ...op, attachments: op.attachments.map(({ name, sha256 }) => ({ name, sha256 })) } : op);
   const existing = task.events.find(event => event.id === op.id);
   if (existing) {
     if (existing.meta?.quickOperation !== signature) throw Error('操作 ID 冲突，未重复写入');

@@ -28,6 +28,7 @@ try {
     const title = page.locator('#task-title'), details = page.getByRole('textbox', { name: '任务详情', exact: true });
     const submit = page.locator('#submit');
     assert.equal(await submit.isDisabled(), true);
+    assert.equal(await page.locator('.wt-quadrant-picker').isVisible(), true, 'quadrants are visible even without a restored draft');
     await page.evaluate(() => window.capture.update({ configured: true, groupsSource: '', draft: { title: '独立标题', notes: '独立详情\n第二行', quadrant: 'important_urgent' }, focus: true }));
     assert.equal(await title.inputValue(), '独立标题');
     assert.equal(await details.inputValue(), '独立详情\n第二行');
@@ -51,11 +52,11 @@ try {
     await page.getByRole('combobox', { name: '任务分组', exact: true }).selectOption('group-1');
     await details.press('End'); await details.press('Enter');
     assert.equal(await page.evaluate(() => window.messages.filter(m => m.action === 'submit').length), 0);
+    await page.locator('.wt-capture-extra > summary').click();
     await page.getByRole('button', { name: '添加待办', exact: true }).click();
     assert.equal(await page.getByRole('textbox', { name: '待办内容', exact: true }).count(), 1,
       JSON.stringify({ platform, errors, state: await page.evaluate(() => ({ draft: window.capture.getDraft(), active: document.activeElement?.outerHTML, messages: window.messages.slice(-3) })) }));
     await page.getByRole('textbox', { name: '待办内容', exact: true }).fill('验收完整任务');
-    await page.getByRole('button', { name: '截止日期', exact: true }).click();
     await page.locator('input[type=date]').fill('2026-12-01');
     await page.getByRole('button', { name: '初始进展', exact: true }).click();
     await page.getByRole('textbox', { name: '初始进展', exact: true }).fill('已经开始');
@@ -109,7 +110,7 @@ try {
     assert.equal(await page.evaluate(() => window.messages.at(-1).action), 'settings');
     for (const dark of [false, true]) {
       await page.evaluate(dark => window.capture.update({ dark, configured: true, draft: { title: '示例任务', notes: '完整详情', todos: Array(10).fill('待办'), expanded: { todos: true, due: true, progress: true } }, focus: true }), dark);
-      await page.waitForFunction(dark => getComputedStyle(document.querySelector('textarea')).backgroundColor === (dark ? 'rgba(27, 34, 46, 0.9)' : 'rgba(248, 251, 255, 0.9)'), dark);
+      await page.waitForFunction(dark => getComputedStyle(document.querySelector('.capture-modal')).backgroundColor === (dark ? 'rgb(32, 45, 37)' : 'rgb(252, 253, 252)'), dark);
       for (const [width, height] of [[560, 650], [360, 320]]) {
         await page.setViewportSize({ width, height });
         const bounds = await submit.boundingBox();

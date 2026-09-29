@@ -1,77 +1,44 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { chromium } from "playwright";
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { build } from 'esbuild';
+import { chromium } from 'playwright';
 
+const bundle = await build({ entryPoints: ['tests/helpers/card-fixture.mjs'], bundle: true, write: false, format: 'esm', external: ['electron', 'node:child_process'], alias: { obsidian: resolve('tests/helpers/obsidian-browser.mjs') } });
 const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL, headless: true });
-const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, reducedMotion: "reduce" });
 try {
-  await page.setContent(`<style>
-    * { box-sizing: border-box } body { margin: 0; font: 14px Arial }
-    #host { height: 640px; margin-top: 80px; }
-    ${readFileSync("styles.css", "utf8")}
-  </style><div id="host"><div class="work-timeline-view"><div class="wt-shell" data-pane="tasks">
-    <header class="wt-header"><div>Tracelo</div><div class="wt-view-switch">分组 / 四象限</div><button>新建任务</button></header>
-    <div class="wt-layout"><main class="wt-task-column"><div class="wt-card-grid">
-      ${Array.from({ length: 100 }, (_, i) => `<article class="wt-card">任务 ${i}</article>`).join("")}
-    </div></main><aside class="wt-timeline-column"><header class="wt-timeline-header">每日时间线</header>
-      <div class="wt-timeline-scroll"><ul class="wt-event-list">
-        ${Array.from({ length: 100 }, (_, i) => `<li>记录 ${i}</li>`).join("")}
-      </ul></div></aside></div></div></div></div>`);
-  const positions = () => page.evaluate(() => {
-    const get = s => document.querySelector(s);
-    return {
-      left: get('.wt-task-column').scrollTop, right: get('.wt-timeline-scroll').scrollTop,
-      root: get('.work-timeline-view').scrollTop, outer: window.scrollY,
-      header: get('.wt-header').getBoundingClientRect().top,
-      timelineHeader: get('.wt-timeline-header').getBoundingClientRect().top,
-      leftBottom: get('.wt-task-column').getBoundingClientRect().bottom,
-      rightBottom: get('.wt-timeline-column').getBoundingClientRect().bottom,
-      hostBottom: get('#host').getBoundingClientRect().bottom,
-    };
-  });
-  const before = await positions();
-  assert.ok(before.leftBottom <= before.hostBottom + 1, 'task pane exceeds plugin height');
-  assert.ok(before.rightBottom <= before.hostBottom + 1, 'timeline exceeds plugin height');
-  await page.locator('.wt-task-column').hover();
-  await page.mouse.wheel(0, 420);
-  await page.waitForFunction(() => document.querySelector('.wt-task-column').scrollTop > 0);
-  const leftScrolled = await positions();
-  assert.equal(leftScrolled.right, 0, 'left wheel moved timeline');
-  assert.equal(leftScrolled.header, before.header, 'toolbar moved');
-  await page.locator('.wt-timeline-scroll').hover();
-  await page.mouse.wheel(0, 420);
-  await page.waitForFunction(() => document.querySelector('.wt-timeline-scroll').scrollTop > 0);
-  const rightScrolled = await positions();
-  assert.equal(rightScrolled.left, leftScrolled.left, 'right wheel moved tasks');
-  assert.equal(rightScrolled.timelineHeader, before.timelineHeader, 'timeline heading moved');
-  for (const selector of ['.wt-task-column', '.wt-timeline-scroll']) {
-    await page.locator(selector).evaluate(el => { el.scrollTop = el.scrollHeight; });
-    await page.locator(selector).hover();
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, reducedMotion: 'reduce' });
+  page.setDefaultTimeout(4000);
+  await page.route('https://tracelo.test/', route => route.fulfill({ contentType: 'text/html', body: '<style>' + readFileSync('tests/helpers/obsidian-host.css', 'utf8') + readFileSync('styles.css', 'utf8') + '</style><script type="module">' + bundle.outputFiles[0].text + '</script>' }));
+  await page.goto('https://tracelo.test/');
+  await page.waitForFunction(() => window.cardFixture);
+  await page.evaluate(async () => { const { plugin, ids } = window.cardFixture; for (let i = 0; i < 25; i++) await plugin.recordProgress(ids.payment, '可滚动历史 ' + i); });
+  for (const width of [1280, 800, 390]) {
+    await page.setViewportSize({ width, height: 720 });
+    if(width<780) await page.getByRole('button',{name:'任务看板',exact:true}).click();
+    const tasks = page.locator('.wt-task-column');
+    const header = await page.locator('.wt-header').boundingBox();
+    await tasks.hover(); await page.mouse.wheel(0, 420);
+    await page.waitForFunction(() => document.querySelector('.wt-task-column').scrollTop > 0);
+    assert.deepEqual(await page.locator('.wt-header').boundingBox(), header);
+    await page.getByRole('button', { name: '全部进展', exact: true }).click();
+    const before = await tasks.evaluate(el => el.scrollTop);
+    const scroll = page.locator('.wt-timeline-scroll');
+    await scroll.evaluate(el => { el.scrollTop = 100; });
+    const title = await page.locator('.wt-timeline-header').boundingBox();
+    await scroll.hover(); await page.mouse.wheel(0, 300);
+    await page.waitForFunction(() => document.querySelector('.wt-timeline-scroll').scrollTop > 100);
+    assert.deepEqual(await page.locator('.wt-timeline-header').boundingBox(), title);
+    assert.equal(await tasks.evaluate(el => el.scrollTop), before, 'dialog scroll must not move the board');
+    await scroll.evaluate(el => { el.scrollTop = el.scrollHeight; });
     await page.mouse.wheel(0, 800);
-    await page.waitForTimeout(150);
-    const atEnd = await positions();
-    assert.equal(atEnd.root, 0, 'wheel at pane bottom scrolled root');
-    assert.equal(atEnd.outer, 0, 'wheel at pane bottom scrolled window');
+    assert.equal(await page.evaluate(() => window.scrollY), 0);
+    const dialog = await page.locator('.wt-timeline-column').boundingBox();
+    assert.ok(dialog.x >= 0 && dialog.x + dialog.width <= width && dialog.y >= 0 && dialog.y + dialog.height <= 720);
+    if(width<780) await page.getByRole('button', {name:'任务看板',exact:true}).click();
+    assert.equal(await page.locator('.wt-timeline-column').isVisible(), width>=780);
+    if(width>=780) assert.equal(await tasks.evaluate(el => el.scrollTop), before);
+    assert.equal(await page.locator('.view-content').evaluate(el => el.scrollWidth <= el.clientWidth), true);
   }
-  for (const width of [800, 390, 1600]) {
-    await page.setViewportSize({ width, height: 1000 });
-    await page.evaluate(() => {
-      document.querySelector('.wt-shell').dataset.pane = 'history';
-    });
-    const state = await page.evaluate(() => {
-      const root = document.querySelector('.work-timeline-view');
-      const layout = document.querySelector('.wt-layout');
-      const timeline = document.querySelector('.wt-timeline-column').getBoundingClientRect();
-      const host = document.querySelector('#host').getBoundingClientRect();
-      return { overflow: root.scrollWidth > root.clientWidth, timelineBottom: timeline.bottom, hostBottom: host.bottom, scrolled: layout.scrollTop };
-    });
-    assert.equal(state.overflow, false, `horizontal overflow at ${width}`);
-    assert.ok(state.timelineBottom <= state.hostBottom + 1, `timeline inaccessible at ${width}`);
-    if (width <= 900) {
-      assert.equal(state.scrolled, 0, 'pane layout must not scroll as a whole');
-      assert.equal(await page.locator('.wt-task-column').isVisible(), false);
-      assert.equal(await page.locator('.wt-timeline-column').isVisible(), true);
-    }
-  }
-  console.log('Independent wheel scrolling, fixed headings, boundary containment, and narrow layouts passed.');
+  console.log('PASS board and dialog scrolling: fixed headings, background isolation, containment, reading position, narrow panes');
 } finally { await browser.close(); }

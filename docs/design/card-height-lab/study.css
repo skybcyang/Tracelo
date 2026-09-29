@@ -1,0 +1,25 @@
+body {background:#f2f5f2;color:#263c32;}
+.height-lab {padding:16px 22px 12px;background:#fafcfb;border-bottom:1px solid #d5ded7;}
+.height-lab header {display:flex;align-items:baseline;gap:14px;margin-bottom:10px;}
+.height-lab h1 {font-size:17px;margin:0;letter-spacing:-.3px;}
+.height-lab p {margin:0;color:#61766a;font-size:11px;}
+.lab-controls {display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.height-lab button {height:31px;font-size:11px;background:transparent;box-shadow:none;border:1px solid #d5ded7;color:#50675b;}
+.height-lab button[aria-pressed=true] {background:#356c55;color:white;border-color:#356c55;}
+.height-lab .lab-scenes {margin-left:auto;display:flex;gap:6px;}
+.lab-stats {margin-top:10px;display:flex;gap:18px;flex-wrap:wrap;font-size:11px;color:#657b6e;font-variant-numeric:tabular-nums;}
+.lab-stats strong {font-weight:600;color:#263c32;}
+.view-content {height:calc(100dvh - var(--lab-toolbar,135px));}
+.lab-column {display:flex;flex-direction:column;gap:12px;min-width:0;}
+.lab-card {position:relative;flex:none;}
+.lab-card .wt-card-body {display:flex;flex-direction:column;}
+.lab-card .wt-card-body > * {flex-shrink:0;}
+.lab-card .wt-card-footer {margin-top:var(--lab-slack,0px)!important;}
+.lab-card.is-expanded .wt-card-footer {margin-top:0!important;}
+.lab-card::after {content:attr(data-height-label);position:absolute;right:30px;top:3px;color:var(--wt-muted);font-size:8px;line-height:12px;font-variant-numeric:tabular-nums;pointer-events:none;}
+.lab-image {display:block;width:100%;height:auto;margin:10px 0;}
+.lab-image-caption {font-size:10px;color:var(--wt-muted);margin-bottom:10px;}
+.lab-long-content {font-size:11px;line-height:1.8;margin:10px 0;color:var(--wt-muted);}
+.lab-guide .wt-card-grid {background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--lab-pitch) - 1px),#356c551c calc(var(--lab-pitch) - 1px),#356c551c var(--lab-pitch));}
+@media(max-width:620px){.height-lab{padding:12px}.height-lab header{align-items:start;flex-direction:column;gap:3px}.height-lab .lab-scenes{margin-left:0}.lab-stats{gap:6px 12px}}
+@media(prefers-reduced-motion:reduce){.lab-card{animation:none!important}}

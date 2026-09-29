@@ -1,5 +1,7 @@
 # Tracelo 任务记录
 
+> 2026-09-29 整合补充：四组功能及后续四主题、双层导航、瀑布流恢复、Noto 图标与任务切换已整合到本地 `main`；最新证据见[一致性与合并记录](docs/validation/2026-09-29-consistency-integration.md)。下文保留原需求及分阶段验收记录，后续界面变化以[当前差异报告](docs/releases/plugin-collection-vs-0.9.0.md)为准。完整实机验收项继续保持未勾选。
+
 > 2026-09-29 实施记录：以下四组功能已接入代码并完成自动验证；已按用户要求在本仓安装插件并将新版 macOS 快捷工具安装到 `/Applications/Tracelo Capture.app`，未发布。真实 Obsidian 已验证图文创建、草稿恢复、详情保存与日历跳转；已安装快捷工具的进展成功写回本仓。完整实机矩阵仍待补齐，Windows 无实机。证据见 [本轮验证记录](docs/validation/2026-09-29-all-tasks.md)。
 
 ## 截止日历大弹窗

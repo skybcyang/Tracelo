@@ -4,6 +4,14 @@ using System.Text.RegularExpressions;
 namespace Tracelo;
 public sealed class QuickWorkspace(string directory) {
     private string Queue => Path.Combine(directory, ".tracelo-operations");
+    public object UiSettings() {
+        var path = Path.Combine(directory, ".tracelo-ui.json");
+        try {
+            if (!File.Exists(path) || !Plain(path) || new FileInfo(path).Length >= 4096) return new { };
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            return document.RootElement.Clone();
+        } catch (Exception error) when (error is IOException or JsonException or UnauthorizedAccessException) { return new { }; }
+    }
     private static bool Plain(string path) => (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0;
     public object[] Tasks() {
         var candidates = new List<string>();

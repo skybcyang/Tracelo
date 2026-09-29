@@ -97,6 +97,23 @@ export class ArchiveStore {
     return operation;
   }
 
+  saveProgressAttachments(task: WorkTask, attachments: { name: string; bytes: Uint8Array }[]): Promise<void> {
+    const operation = this.queue.then(async () => {
+      if (!this.adapter.writeBinary || !this.adapter.readBinary) throw Error('当前文件系统不支持图片附件');
+      await this.writeTask(task, new Date(), true);
+      for (const image of attachments) {
+        if (!/^image-[a-zA-Z0-9-]+\.(png|jpg|webp|gif|bmp)$/.test(image.name)) throw Error('图片文件名无效');
+        const path = join(this.taskFolderPath(task), image.name);
+        if (!await this.adapter.exists(path)) await this.adapter.writeBinary(path, image.bytes.slice().buffer as ArrayBuffer);
+        const saved = new Uint8Array(await this.adapter.readBinary(path));
+        if (saved.length !== image.bytes.length || saved.some((byte,i) => byte !== image.bytes[i])) throw Error('图片写入校验失败，未覆盖已有文件');
+      }
+      await this.backupMaterials(task, join(this.backupDirectory, 'daily', dayKey(new Date())));
+    });
+    this.queue = operation.then(() => {}, () => {});
+    return operation;
+  }
+
   private async writeNoteAttachment(task: WorkTask, filename: string, data: ArrayBuffer): Promise<{ task: WorkTask; path: string }> {
     if (!this.adapter.writeBinary || !this.adapter.readBinary) throw new Error("当前文件系统不支持图片附件");
     const extension = filename.split(".").at(-1)?.toLowerCase();

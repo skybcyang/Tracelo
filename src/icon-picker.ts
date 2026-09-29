@@ -19,15 +19,16 @@ export class IconPickerModal extends Modal {
     this.modalEl.addClass('wt-modal');
     this.modalEl.addClass('wt-icon-picker');
     this.contentEl.createEl('p', { text: 'Noto Emoji · 彩色图标', cls: 'wt-icon-library-label' });
-    const field = this.contentEl.createEl('label', { cls: 'wt-field' });
+    const toolbar = this.contentEl.createDiv({ cls: 'wt-icon-toolbar' });
+    const field = toolbar.createEl('label', { cls: 'wt-field' });
     field.createSpan({ text: '搜索图标', cls: 'wt-field-label' });
     const search = field.createEl('input', { type: 'search', cls: 'wt-icon-search', attr: { 'aria-label': '搜索图标', placeholder: '常用中文分类或图标英文名称' } });
-    const modes = this.contentEl.createDiv({ cls: 'wt-icon-modes' });
-    const results = this.contentEl.createDiv({ cls: 'wt-icon-results' });
-    const more = this.contentEl.createEl('button', { text: '显示更多', cls: 'wt-icon-more', attr: { type: 'button' } });
-    const status = this.contentEl.createEl('p', { cls: 'wt-icon-result-count', attr: { role: 'status' } });
+    const modes = toolbar.createDiv({ cls: 'wt-icon-modes' });
+    const results = this.contentEl.createDiv({ cls: 'wt-icon-results', attr: { 'aria-label': '可选图标' } });
+    const footer = this.contentEl.createDiv({ cls: 'wt-icon-footer' });
+    const more = footer.createEl('button', { text: '显示更多', cls: 'wt-icon-more', attr: { type: 'button' } });
+    const status = footer.createEl('p', { cls: 'wt-icon-result-count', attr: { role: 'status' } });
     const error = this.contentEl.createEl('p', { cls: 'wt-form-error', attr: { role: 'alert' } });
-    const footer = this.contentEl.createDiv({ cls: 'wt-modal-actions' });
     footer.createEl('button', { text: '取消', cls: 'wt-secondary-action', attr: { type: 'button' } }).onclick = () => this.close();
     const select = async (icon: string | null | undefined) => {
       if (this.saving) return;

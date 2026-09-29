@@ -1,5 +1,5 @@
 Noto Emoji SVG artwork
-Copyright 2013 Google LLC
+Copyright 2013 Google, Inc. All Rights Reserved.
 Source: https://github.com/googlefonts/noto-emoji
 Bundled dataset: @iconify-json/noto 1.2.9 (Apache-2.0)
 Only SVG identifiers are scoped at render time to prevent duplicate gradient/filter IDs.

@@ -1,8 +1,10 @@
 import { parseTaskMarkdown, normalizePluginState } from './archive';
-import { QUADRANTS, type WorkTask, type WorkGroup } from './domain';
-import { renderTaskCard, type CardHost } from './task-card';
+import { QUADRANTS, dayKey, taskIcon, type WorkTask, type WorkGroup } from './domain';
+import { setContentIcon } from './content-icons';
+import { renderCardTodos, renderCardComposer, cardDueLabel, formatDateTime, formatTime, type CardHost } from './task-card';
 import type { QuickOperation } from './quick-operations';
 import MarkdownIt from 'markdown-it';
+import { mountDraftImages, prepareImages, type DraftImage } from './draft-images';
 
 /** The native webview supplies the small DOM convenience API used by shared cards. */
 function installCardDOM() {
@@ -24,22 +26,32 @@ function installCardDOM() {
 }
 type Receipt = { id: string; status: 'queued' | 'applied' | 'failed'; message: string; operation?: QuickOperation };
 type TaskSource = { markdown: string; images?: Record<string, string> };
-interface Options { send(value: Record<string, unknown>): void; setIcon(element: HTMLElement, name: string): void; resize(): void }
+interface Options { send(value: Record<string, unknown>): void; setIcon(element: HTMLElement, name: string): void; resize(): void; isWin?: boolean; getLocation?(): string; openSettings?(): void }
 export function mountQuickProgress(container: HTMLElement, options: Options) {
   installCardDOM();
   let tasks: WorkTask[] = [], groups: WorkGroup[] = [], images = new Map<string, Record<string, string>>();
   const state = normalizePluginState(null);
+  const draftImages = new Map<string, DraftImage[]>();
   const pending = new Map<string, { operation: QuickOperation; resolve(): void; reject(reason: Error): void }>();
   const attempts = new Map<string, QuickOperation>();
-  let active = false, sourcesKey = '', workspace = '';
+  let active = false, sourcesKey = '', workspace = '', choosing = false;
+  const expandedExtras = new Set<string>();
   const handled = new Set<string>();
   const toolbar = container.createDiv({ cls: 'wt-quick-toolbar' });
-  const back = toolbar.createEl('button', { text: '切换任务', attr: { type: 'button' } });
+  const back = toolbar.createEl('button', { text: '返回记录', attr: { type: 'button' } });
   back.hidden = true;
   const search = toolbar.createEl('input', { type: 'search', attr: { placeholder: '搜索任务、分组或进展', 'aria-label': '搜索已有任务' } });
   const status = container.createDiv({ cls: 'wt-quick-status', attr: { role: 'status', 'aria-live': 'polite' } });
   const body = container.createDiv({ cls: 'wt-quick-body' });
-  function setDraft(id: string, text: string) { state.drafts[id] = text; options.send({ action: 'progressDraft', taskId: id, text }); }
+  function setDraft(id: string, text: string) {
+    state.drafts[id] = text;
+    if (!text) draftImages.delete(id);
+    const images = draftImages.get(id);
+    options.send({ action: 'progressDraft', taskId: id, text: images?.length ? JSON.stringify({ format:'tracelo-progress-draft-v1',text,images }) : text });
+  }
+  function matchesDraft(op: QuickOperation) {
+    try { return prepareImages(state.drafts[op.taskId] ?? '', draftImages.get(op.taskId) ?? []).notes === op.text; } catch { return false; }
+  }
   function notice(message: string) { status.textContent = message; return { messageEl: status, hide: () => { status.textContent = ''; } }; }
   function perform(taskId: string, kind: QuickOperation['kind'], values: Partial<QuickOperation> = {}): Promise<void> {
     const key = JSON.stringify({ taskId, kind, ...values });
@@ -99,7 +111,8 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       restoreTaskTodo: (id, todo, index) => perform(id, 'todo_restore', { todo, index }),
       updateDraft: setDraft,
       recordProgress: async (id, text) => {
-        await perform(id, 'progress', { text });
+        const prepared = prepareImages(text, draftImages.get(id) ?? []);
+        await perform(id, 'progress', { text: prepared.notes, ...(prepared.attachments.length ? { attachments: prepared.attachments.map(({name,base64}) => ({name,base64})) } : {}) });
         if (state.drafts[id] === text) { setDraft(id, ''); if (active && host.selectedTaskId === id) options.send({ action: 'progressComplete' }); }
       },
     },
@@ -138,47 +151,143 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
     },
   };
   function render() {
-    body.replaceChildren(); back.hidden = !host.selectedTaskId; search.hidden = !!host.selectedTaskId;
-    const task = tasks.find(task => task.id === host.selectedTaskId);
+    body.replaceChildren();
+    // Reopen the last task, or the most recently updated active task on first use.
+    // The picker is an explicit secondary state, never an extra mandatory step.
+    let task = tasks.find(task => task.id === host.selectedTaskId);
+    if (!task && !choosing) task = tasks.filter(task => task.status === 'active').sort((a, b) => b.events.at(-1)!.at.localeCompare(a.events.at(-1)!.at))[0];
+    if (task) host.selectedTaskId = host.expandedTaskId = task.id;
+    toolbar.hidden = !!task && !choosing;
+    back.hidden = !task;
+    search.hidden = false;
+    container.classList.toggle('is-choosing', choosing || !task);
+    const togglePicker = () => {
+      choosing = !choosing;
+      if (choosing) search.value = '';
+      render();
+      if (choosing) search.focus();
+      else body.querySelector<HTMLButtonElement>('.wt-quick-target')?.focus();
+    };
     if (task) {
-      renderTaskCard(host, body, task, 'quick');
-      body.querySelector<HTMLElement>('.wt-card')?.setAttribute('draggable', 'false');
-      if (pending.size) body.querySelectorAll<HTMLButtonElement>('.wt-card-composer button[type=submit]').forEach(button => { button.disabled = true; });
-    } else {
-      const query = search.value.toLocaleLowerCase();
-      const candidates = tasks.filter(task => (query || task.status === 'active') && [task.title, task.groupName, ...task.events.filter(e => e.kind === 'progress').map(e => e.text)].join('\n').toLocaleLowerCase().includes(query)).sort((a,b) => b.events.at(-1)!.at.localeCompare(a.events.at(-1)!.at));
-      if (!candidates.length) body.createEl('p', { text: tasks.length ? '没有匹配的任务' : '当前目录还没有任务', cls: 'wt-empty' });
-      for (const item of candidates) {
-        const b = body.createEl('button', { cls: 'wt-quick-task', attr: { type: 'button', 'aria-label': `选择任务：${item.title}` } });
-        b.createSpan({ text: item.title }); b.createEl('small', { text: `${item.groupName} · ${item.status === 'active' ? '进行中' : item.status === 'completed' ? '已完成' : '已关闭'}` });
-        b.onclick = () => { host.selectedTaskId = host.expandedTaskId = item.id; render(); host.focusCard(item.id); };
+      const card = body.createEl('article', { cls: 'wt-card wt-quick-editor is-expanded', attr: { 'data-task-id': task.id } });
+      const cardBody = card.createDiv({ cls: 'wt-card-body' });
+      const target = cardBody.createDiv({ cls: 'wt-record-target' });
+      const title = target.createEl('button', { cls: 'wt-quick-target', attr: { type: 'button', 'aria-label': `切换任务：${task.title}`, 'aria-expanded': String(choosing) } });
+      const selectedIcon = taskIcon(task, groups);
+      if (selectedIcon) setContentIcon(title.createSpan({ cls: 'wt-task-icon', attr: { 'aria-hidden': 'true' } }), selectedIcon);
+      const targetCopy = title.createSpan({ cls: 'wt-quick-target-copy' });
+      targetCopy.createEl('strong', { text: task.title });
+      targetCopy.createEl('small', { text: `${task.groupName} · ${task.dueDate ? cardDueLabel(task) : '未设置截止日期'}` });
+      options.setIcon(title.createSpan({ cls: 'wt-target-switch', attr: { 'aria-hidden': 'true' } }), 'chevrons-up-down');
+      title.onclick = togglePicker;
+      if (choosing) {
+        const picker = cardBody.createDiv({ cls: 'wt-inline-picker' });
+        picker.append(toolbar);
+        renderCandidates(picker);
+      } else container.prepend(toolbar);
+      const latest = [...task.events].reverse().find(event => event.kind === 'progress');
+      const context = cardBody.createDiv({ cls: 'wt-quick-context' });
+      const today = dayKey(new Date());
+      context.createEl('small', { text: latest ? `上次进展 / ${latest.day === today ? formatTime(latest.at) : formatDateTime(latest.at)}` : '上次进展' });
+      context.createEl('p', { text: latest?.text ?? '还没有进展，从这一步开始。' });
+      // Share editing and persistence behavior, not the board card's navigation/layout.
+      renderCardComposer(host, cardBody, task);
+      const form = cardBody.querySelector<HTMLFormElement>('.wt-card-composer')!;
+      form.id = 'quick-progress-form';
+      form.querySelector('label > span')!.textContent = '这次推进了什么？';
+      form.querySelector('textarea')!.setAttribute('aria-label','这次推进了什么？');
+      form.querySelector('textarea')!.placeholder = '记下结果、问题，或下一步要做的事';
+      const input = form.querySelector('textarea')!;
+      const imageHost = form.createDiv({ cls: 'wt-progress-images' });
+      let imagesReady = false;
+      const editor = mountDraftImages(input, imageHost, () => {
+        if (!imagesReady) return;
+        draftImages.set(task!.id, editor.read()); setDraft(task!.id, input.value); options.resize();
+      });
+      editor.set(draftImages.get(task.id) ?? []); imagesReady = true;
+      const extras = cardBody.createEl('details', { cls: 'wt-quick-extras' });
+      const summary = extras.createEl('summary', { text: '顺手更新待办 ' });
+      summary.createSpan({ cls: 'wt-quick-todo-count', text: `${task.todos?.filter(todo => todo.done).length ?? 0}/${task.todos?.length ?? 0}` });
+      extras.open = expandedExtras.has(task.id);
+      renderCardTodos(host, extras, task, true, true);
+      host.renderNotes(extras, task);
+      const menu = extras.createEl('button', { cls: 'wt-quick-more', text: '更多任务操作', attr: { type: 'button' } });
+      menu.onclick = event => taskMenu(event, task);
+      extras.addEventListener('toggle', () => { if (extras.open) expandedExtras.add(task.id); else expandedExtras.delete(task.id); options.resize(); });
+      const footer = form.querySelector<HTMLElement>('.wt-composer-footer')!;
+      footer.querySelector('.wt-composer-close')?.remove();
+      const submit = footer.querySelector<HTMLButtonElement>('button[type=submit]')!;
+      submit.setAttribute('form', form.id);
+      submit.setAttribute('aria-label', '记录进展');
+      submit.createEl('kbd', { text: options.isWin ? 'Ctrl ↵' : '⌘ ↵' });
+      const location = footer.createEl('button', { cls: 'wt-quick-location', text: options.getLocation?.() || '工作记录', attr: { type: 'button', 'aria-label': '设置保存位置' } });
+      location.onclick = () => options.openSettings?.();
+      footer.prepend(location);
+      card.append(footer);
+      if (task.status !== 'active') {
+        form.querySelector('label > span')!.textContent = '任务已结束，可在更多任务操作中重新打开';
+        form.querySelector('textarea')!.disabled = submit.disabled = true;
       }
-    }
+      if (pending.size) body.querySelectorAll<HTMLButtonElement>('.wt-composer-footer button[type=submit]').forEach(button => { button.disabled = true; });
+    } else { container.prepend(toolbar); renderCandidates(body); }
     options.resize();
   }
-  search.oninput = () => render();
+  function renderCandidates(parent: HTMLElement) {
+      const list = parent.querySelector<HTMLElement>('.wt-quick-results') ?? parent.createDiv({ cls: 'wt-quick-results', attr: { role: 'group', 'aria-label': '可切换的任务' } });
+      list.replaceChildren();
+      const query = search.value.toLocaleLowerCase();
+      const candidates = tasks.filter(task => (query || task.status === 'active') && [task.title, task.groupName, ...task.events.filter(e => e.kind === 'progress').map(e => e.text)].join('\n').toLocaleLowerCase().includes(query)).sort((a,b) => b.events.at(-1)!.at.localeCompare(a.events.at(-1)!.at));
+      if (!candidates.length) list.createEl('p', { text: tasks.length ? '没有匹配的任务' : '当前目录还没有任务', cls: 'wt-empty', attr: { role: 'status' } });
+      for (const item of candidates) {
+        const b = list.createEl('button', { cls: 'wt-quick-task', attr: { type: 'button', 'aria-label': `选择任务：${item.title}` } });
+        const iconSlot = b.createSpan({ cls: 'wt-quick-task-icon', attr: { 'aria-hidden': 'true' } });
+        const itemIcon = taskIcon(item, groups);
+        if (itemIcon) setContentIcon(iconSlot, itemIcon);
+        const copy = b.createSpan({ cls: 'wt-quick-task-copy' });
+        copy.createSpan({ cls: 'wt-quick-task-title', text: item.title });
+        copy.createEl('small', { text: `${item.groupName} · ${item.status === 'active' ? '进行中' : item.status === 'completed' ? '已完成' : '已关闭'}` });
+        if (item.id === host.selectedTaskId) {
+          b.setAttribute('aria-current', 'true');
+          options.setIcon(b.createSpan({ cls: 'wt-quick-task-check', attr: { 'aria-hidden': 'true' } }), 'check');
+        }
+        b.onclick = () => { choosing = false; host.selectedTaskId = host.expandedTaskId = item.id; render(); host.focusCard(item.id); };
+      }
+  }
+  // Keep the search field mounted so filtering preserves focus and IME composition.
+  search.oninput = () => { renderCandidates(search.closest<HTMLElement>('.wt-inline-picker') ?? body); options.resize(); };
   container.addEventListener('keydown', event => {
-    if (event.isComposing || !['ArrowDown','ArrowUp'].includes(event.key) || host.selectedTaskId) return;
+    if (event.isComposing || !['ArrowDown','ArrowUp'].includes(event.key) || toolbar.hidden) return;
     const list = [...body.querySelectorAll<HTMLButtonElement>('.wt-quick-task')];
     const index = list.indexOf(document.activeElement as HTMLButtonElement);
     if (list.length) { event.preventDefault(); list[(index + (event.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length]?.focus(); }
   });
-  back.onclick = () => { host.selectedTaskId = host.expandedTaskId = null; render(); search.focus(); };
+  back.onclick = () => { choosing = false; render(); if (host.selectedTaskId) host.focusCard(host.selectedTaskId); };
   return {
     setError: (message: string) => { status.textContent = message; },
-    show: () => { active = true; container.hidden = false; host.selectedTaskId = host.expandedTaskId = null; render(); search.focus(); },
+    show: () => { active = true; choosing = false; container.hidden = false; render(); if (host.selectedTaskId) host.focusCard(host.selectedTaskId); else search.focus(); },
     hide: () => { active = false; container.hidden = true; },
-    update(value: { workspace?: string; quickError?: string; tasks?: TaskSource[]; groups?: WorkGroup[]; progressDrafts?: Record<string,string>; receipts?: Receipt[] }) {
+    update(value: { workspace?: string; location?: string; quickError?: string; tasks?: TaskSource[]; groups?: WorkGroup[]; progressDrafts?: Record<string,string>; receipts?: Receipt[] }) {
       if (value.workspace !== undefined && value.workspace !== workspace) {
-        workspace = value.workspace; state.drafts = {}; tasks = []; sourcesKey = ''; images.clear(); attempts.clear(); handled.clear();
+        workspace = value.workspace; state.drafts = {}; draftImages.clear(); tasks = []; sourcesKey = ''; images.clear(); attempts.clear(); handled.clear();
         for (const item of pending.values()) item.reject(Error('保存位置已切换，原草稿保留在原仓库'));
-        pending.clear(); host.selectedTaskId = host.expandedTaskId = null; status.textContent = '';
+        pending.clear(); choosing = false; host.selectedTaskId = host.expandedTaskId = null; status.textContent = '';
         if (active) render();
       }
       if (value.quickError) { status.textContent = value.quickError; tasks = []; sourcesKey = ''; if (active) render(); }
-      if (value.progressDrafts) state.drafts = { ...value.progressDrafts };
+      if (value.progressDrafts) {
+        state.drafts = { ...value.progressDrafts }; draftImages.clear();
+        for (const [id, source] of Object.entries(value.progressDrafts)) {
+          try {
+            const draft = JSON.parse(source);
+            if (draft?.format === 'tracelo-progress-draft-v1' && typeof draft.text === 'string' && Array.isArray(draft.images)) {
+              state.drafts[id] = draft.text;
+              draftImages.set(id, draft.images.map((image: DraftImage) => image.state === 'processing' ? { ...image, state:'failed',error:'图片处理已中断，请重试' } : image));
+            }
+          } catch { /* Existing plain-text drafts remain readable. */ }
+        }
+      }
       if (value.groups) groups = value.groups;
-      let changed = false;
+      let changed = !!value.groups || value.location !== undefined;
       if (value.tasks && JSON.stringify(value.tasks) !== sourcesKey) {
         sourcesKey = JSON.stringify(value.tasks); images = new Map(); tasks = [];
         for (const item of value.tasks) { try { const task = parseTaskMarkdown(item.markdown); if (!tasks.some(t => t.id === task.id)) { tasks.push(task); images.set(task.id, item.images ?? {}); } } catch { notice('部分任务无法读取，请在插件中检查存档'); } }
@@ -193,10 +302,10 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
             // Reopened hosts attach to durable commands rather than enqueueing a duplicate.
             const key = JSON.stringify({ taskId: op.taskId, kind: op.kind, ...Object.fromEntries(Object.entries(op).filter(([key]) => !['version','id','taskId','kind'].includes(key))) });
             attempts.set(key, op); status.textContent = receipt.message;
-            pending.set(op.id, { operation: op, resolve: () => { if (op.kind === 'progress' && state.drafts[op.taskId] === op.text) setDraft(op.taskId, ''); }, reject: error => notice(error.message) });
+            pending.set(op.id, { operation: op, resolve: () => { if (op.kind === 'progress' && matchesDraft(op)) setDraft(op.taskId, ''); }, reject: error => notice(error.message) });
           } else {
             handled.add(receipt.id);
-            if (receipt.status === 'applied' && op.kind === 'progress' && state.drafts[op.taskId] === op.text) { setDraft(op.taskId, ''); status.textContent = receipt.message; }
+            if (receipt.status === 'applied' && op.kind === 'progress' && matchesDraft(op)) { setDraft(op.taskId, ''); status.textContent = receipt.message; }
           }
           continue;
         }

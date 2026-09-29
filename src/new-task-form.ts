@@ -59,8 +59,8 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   };
   const title = el(field(body, '任务名称', false, 'wt-title-field'), 'input', 'wt-modal-title', '', { id: 'task-title', type: 'text', placeholder: '例如：验证自动备份', maxlength: '160', required: '' });
   const details = el(field(body, '详情', true), 'textarea', '', '', { id: 'task-details', rows: '2', 'aria-label': '任务详情', placeholder: '补充目标、要求或参考资料，可直接粘贴图片' });
-  const images = mountDraftImages(details, el(body, 'div', 'wt-new-images'), changed);
-  const groupControl = el(field(body, '任务分组'), 'span', 'wt-select-control');
+  const metadata = el(body, 'div', 'wt-capture-meta');
+  const groupControl = el(field(metadata, '任务分组'), 'span', 'wt-select-control');
   const group = el(groupControl, 'select', '', '', { 'aria-label': '任务分组' });
   options.setIcon(el(groupControl, 'span', 'wt-select-icon', '', { 'aria-hidden': 'true' }), 'chevron-down');
   const quadrant = el(body, 'fieldset', 'wt-quadrant-picker');
@@ -73,10 +73,13 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
     return input;
   });
   const selectedQuadrantId = () => (quadrantInputs.find(input => input.checked)?.value ?? '') as QuadrantId;
-  const optional = el(body, 'div', 'wt-new-optional');
+  const advanced = el(body, 'details', 'wt-capture-extra');
+  el(advanced, 'summary', '', '待办与初始进展');
+  const extraBody = el(advanced, 'div', 'wt-capture-extra-body');
+  const optional = el(extraBody, 'div', 'wt-new-optional');
   const action = (parent: HTMLElement, text = '') => el(parent, 'button', 'wt-secondary-action', text, { type: 'button' });
   const todoButton = action(optional);
-  const todoSection = el(body, 'div', 'wt-new-todo-section');
+  const todoSection = el(extraBody, 'div', 'wt-new-todo-section');
   const todoList = el(todoSection, 'div', 'wt-new-todos');
   function addTodoRow(value = '') {
     const row = el(todoList, 'div', 'wt-new-todo-row');
@@ -88,13 +91,21 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
     return input;
   }
   action(todoSection, '再加一条').onclick = () => { const input = addTodoRow(); changed(); input.focus(); };
-  const dateButton = action(optional);
-  const dueField = field(body, '截止日期', false, 'wt-new-due');
-  const due = el(dueField, 'input', '', '', { type: 'date' });
+  const dateControl = el(metadata, 'div', 'wt-date-field');
+  el(dateControl, 'span', 'wt-field-label', '截止日期');
+  const dateButton = action(dateControl);
+  const dueField = field(dateControl, '选择截止日期', false, 'wt-new-due');
+  const due = el(dueField, 'input', '', '', { type: 'date', 'aria-label': '截止日期' });
   const progressButton = action(optional);
-  const progressField = field(body, '初始进展', true);
+  const progressField = field(extraBody, '初始进展', true);
   const progress = el(progressField, 'textarea', '', '', { rows: '3', 'aria-label': '初始进展', maxlength: '2000', placeholder: '例如：已完成需求梳理，准备开始实现' });
+  const imageHost = el(body, 'div', 'wt-new-images');
+  metadata.before(imageHost);
+  const images = mountDraftImages(details, imageHost, changed);
+  advanced.addEventListener('toggle', () => options.onResize?.());
   const footer = el(form, 'div', 'wt-new-task-footer');
+  footer.append(draftRow);
+  extraBody.append(clear);
   const error = el(footer, 'p', 'wt-form-error', '', { role: 'alert' });
   const actions = el(footer, 'div', 'wt-modal-actions');
   el(actions, 'span', 'wt-new-shortcut', options.isWin ? 'Ctrl Enter 创建' : '⌘ Enter 创建');
@@ -135,6 +146,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
     due.value = draft?.dueDate ?? ''; progress.value = draft?.initialProgress ?? '';
     todoList.replaceChildren(); for (const value of draft?.todos ?? []) addTodoRow(value);
     Object.assign(expanded, { todos: false, due: false, progress: false }, draft?.expanded);
+    advanced.open = Boolean(draft && (draft.todos?.length || draft.initialProgress || draft.images?.length || draft.expanded?.todos || draft.expanded?.progress));
     draftStatus.textContent = draft ? '已恢复草稿' : '关闭后保留本次草稿';
     refresh();
   }

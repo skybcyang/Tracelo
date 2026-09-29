@@ -33,13 +33,14 @@ try {
   async function check(name, fn) { try { await fn(); checks++; } catch (error) { failures.push(name + ': ' + error.message); } }
 
   await check('latest progress and deadline precede a full-height reference image', async () => {
+    await card(ids.payment).locator('.wt-card-open').click();
     const positions = await card(ids.payment).evaluate(el => {
       const box = selector => el.querySelector(selector).getBoundingClientRect();
       const progress = box('.wt-card-latest'), notes = box('.wt-task-notes'), due = box('.wt-due-chip');
       const image = el.querySelector('.wt-notes-preview img');
       return { progressBottom: progress.bottom, notesTop: notes.top, dueBottom: due.bottom, progressTop: progress.top, imageHeight: image.getBoundingClientRect().height, naturalRatio: image.naturalHeight / image.naturalWidth, imageWidth: image.getBoundingClientRect().width };
     });
-    assert.ok(positions.progressBottom <= positions.notesTop, 'latest progress is buried below the image');
+    assert.ok(positions.notesTop <= positions.progressTop, 'details excerpt precedes latest progress, as in the collection mockup');
     assert.ok(positions.dueBottom <= positions.progressTop, 'deadline is buried below the image');
     assert.ok(Math.abs(positions.imageHeight / positions.imageWidth - positions.naturalRatio) < .01, 'reference image must remain uncropped');
     assert.match(await card(ids.payment).locator('.wt-due-chip').innerText(), /9月30日截止/);
@@ -60,19 +61,21 @@ try {
     }, ids.plain);
     assert.equal(await card(ids.plain).locator('.wt-card-time').getAttribute('datetime'), before);
     assert.match(await card(ids.plain).locator('.wt-card-time').innerText(), /进展.*9\/28/);
-    assert.equal(await card(ids.plain).locator('.wt-latest-label').innerText(), '最新进展');
+    assert.match(await card(ids.plain).locator('.wt-latest-label').innerText(), /^最新进展/);
+    assert.doesNotMatch(await card(ids.plain).locator('.wt-latest-label').innerText(), /今天/);
   });
-  await check('selected card identifies task history and closing returns to daily history', async () => {
-    await card(ids.payment).locator('.wt-card-open').click();
-    assert.equal(await card(ids.payment).locator('.wt-card-selection').innerText(), '正在查看历史');
+  await check('history opens separately and closing retains the expanded task', async () => {
+    // Selection already shows task history in the permanent column.
+    assert.equal(await page.locator('.wt-timeline-column').isVisible(), true);
     assert.equal(await page.locator('.wt-timeline-header h2').innerText(), '完成支付模块');
-    assert.equal(await page.locator('.wt-card-selection').count(), 1);
+    assert.equal(await page.locator('.wt-card-selection').count(), 0);
     await page.locator('.wt-task-column').evaluate(el => { el.scrollTop = 0; });
     await page.screenshot({ path: resolve(output, '5-selected-history.png') });
+    await page.getByRole('button', { name: '返回每日时间线', exact: true }).click();
     await card(ids.plain).locator('.wt-card-open').click();
     assert.equal(await card(ids.payment).locator('.wt-card-selection').count(), 0);
     assert.equal(await page.locator('.wt-timeline-header h2').innerText(), '整理客户反馈');
-    await card(ids.plain).getByRole('button', { name: '关闭进展输入', exact: true }).click();
+    await card(ids.plain).getByRole('button', { name: '收起', exact: true }).click();
     assert.equal(await page.locator('.wt-card-selection').count(), 0);
     assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
   });
@@ -109,7 +112,7 @@ try {
   }
   await check('ending an overdue task removes deadline urgency without losing its date', async () => {
     await page.evaluate(async id => window.cardFixture.plugin.finishTask(id), ids.dateOnly);
-    await page.locator('.wt-ended-section > summary').click();
+    await page.locator('.wt-ended-section > summary').evaluate(el => { el.parentElement.open = true; });
     assert.equal(await card(ids.dateOnly).locator('.wt-due-chip.is-overdue').count(), 0);
     assert.equal(await card(ids.dateOnly).locator('.wt-due-chip').innerText(), '9月26日截止');
   });
