@@ -5,6 +5,7 @@ import { renderCardTodos, renderCardComposer, cardDueLabel, formatDateTime, form
 import type { QuickOperation } from './quick-operations';
 import MarkdownIt from 'markdown-it';
 import { mountDraftImages, prepareImages, type DraftImage } from './draft-images';
+import { confirmQuickSave, revealQuickContent } from './quick-feedback';
 
 /** The native webview supplies the small DOM convenience API used by shared cards. */
 function installCardDOM() {
@@ -31,10 +32,15 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
   installCardDOM();
   let tasks: WorkTask[] = [], groups: WorkGroup[] = [], images = new Map<string, Record<string, string>>();
   const state = normalizePluginState(null);
+  // Quick capture always edits its single selected card, independently of board presentation.
+  state.presentationMode = false;
   const draftImages = new Map<string, DraftImage[]>();
   const pending = new Map<string, { operation: QuickOperation; resolve(): void; reject(reason: Error): void }>();
+  const confirming = new Set<string>();
   const attempts = new Map<string, QuickOperation>();
   let active = false, sourcesKey = '', workspace = '', choosing = false;
+  let renderedTarget = '', feedback: 'idle' | 'saving' | 'queued' | 'success' | 'failed' = 'idle';
+  let composing = false, visibility = 0;
   const expandedExtras = new Set<string>();
   const handled = new Set<string>();
   const toolbar = container.createDiv({ cls: 'wt-quick-toolbar' });
@@ -43,6 +49,11 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
   const search = toolbar.createEl('input', { type: 'search', attr: { placeholder: '搜索任务、分组或进展', 'aria-label': '搜索已有任务' } });
   const status = container.createDiv({ cls: 'wt-quick-status', attr: { role: 'status', 'aria-live': 'polite' } });
   const body = container.createDiv({ cls: 'wt-quick-body' });
+  function setFeedback(value: typeof feedback, message: string) {
+    feedback = value; container.dataset.feedback = value; status.textContent = message;
+    status.setAttribute('aria-busy', String(value === 'saving'));
+    options.resize();
+  }
   function setDraft(id: string, text: string) {
     state.drafts[id] = text;
     if (!text) draftImages.delete(id);
@@ -52,7 +63,7 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
   function matchesDraft(op: QuickOperation) {
     try { return prepareImages(state.drafts[op.taskId] ?? '', draftImages.get(op.taskId) ?? []).notes === op.text; } catch { return false; }
   }
-  function notice(message: string) { status.textContent = message; return { messageEl: status, hide: () => { status.textContent = ''; } }; }
+  function notice(message: string) { status.textContent = message; options.resize(); return { messageEl: status, hide: () => setFeedback('idle', '') }; }
   function perform(taskId: string, kind: QuickOperation['kind'], values: Partial<QuickOperation> = {}): Promise<void> {
     const key = JSON.stringify({ taskId, kind, ...values });
     let op = attempts.get(key);
@@ -61,7 +72,7 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
     if (pending.has(op.id)) return Promise.reject(Error('此操作正在等待写入，请勿重复提交'));
     return new Promise((resolve, reject) => {
       pending.set(operation.id, { operation, resolve, reject });
-      status.textContent = '正在保存…'; options.send({ action: 'operation', operation });
+      setFeedback('saving', '正在保存…'); options.send({ action: 'operation', operation });
     });
   }
   function prompt(heading: string, initial: string, placeholder: string, multiline: boolean, submitValue: (value: string) => Promise<void>) {
@@ -73,14 +84,18 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
     const feedback = form.createDiv({ attr: { role: 'status' } });
     const cancel = form.createEl('button', { text: '取消', attr: { type: 'button' } });
     const submit = form.createEl('button', { text: '保存', attr: { type: 'submit' } });
+    let saving = false, composing = false;
     const close = () => { dialog.close(); dialog.remove(); };
     cancel.onclick = close;
-    dialog.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); if (!event.isComposing) { event.preventDefault(); close(); } } });
-    input.addEventListener('keydown', raw => { const event = raw as KeyboardEvent; if (event.isComposing && event.key === 'Enter') event.preventDefault(); });
+    dialog.addEventListener('cancel', event => { if (saving || composing) event.preventDefault(); });
+    dialog.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); if (!event.isComposing && !composing && event.keyCode !== 229) { event.preventDefault(); if (!saving) close(); } } });
+    input.addEventListener('compositionstart', () => { composing = true; });
+    input.addEventListener('compositionend', () => { composing = false; });
+    input.addEventListener('keydown', raw => { const event = raw as KeyboardEvent; if ((event.isComposing || composing || event.keyCode === 229) && event.key === 'Enter') event.preventDefault(); });
     form.onsubmit = async event => {
-      event.preventDefault(); if (submit.disabled) return; submit.disabled = true; feedback.textContent = '正在保存；Obsidian 未运行时将暂存';
+      event.preventDefault(); if (saving || composing) return; saving = true; submit.disabled = cancel.disabled = input.disabled = true; feedback.textContent = '正在保存；Obsidian 未运行时将暂存';
       try { await submitValue(input.value); close(); render(); }
-      catch (error) { feedback.textContent = String(error); submit.disabled = false; }
+      catch (error) { feedback.textContent = String(error); saving = false; submit.disabled = cancel.disabled = input.disabled = false; input.focus(); }
     };
     document.body.append(dialog); dialog.showModal(); input.focus();
   }
@@ -111,9 +126,16 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       restoreTaskTodo: (id, todo, index) => perform(id, 'todo_restore', { todo, index }),
       updateDraft: setDraft,
       recordProgress: async (id, text) => {
+        const currentVisibility = visibility;
         const prepared = prepareImages(text, draftImages.get(id) ?? []);
         await perform(id, 'progress', { text: prepared.notes, ...(prepared.attachments.length ? { attachments: prepared.attachments.map(({name,base64}) => ({name,base64})) } : {}) });
-        if (state.drafts[id] === text) { setDraft(id, ''); if (active && host.selectedTaskId === id) options.send({ action: 'progressComplete' }); }
+        if (state.drafts[id] === text) {
+          setDraft(id, '');
+          // Only an applied receipt resolves perform; queued commands never reach here.
+          await confirmQuickSave(status);
+          if (active && visibility === currentVisibility && host.selectedTaskId === id && !state.drafts[id] && feedback === 'success') options.send({ action: 'progressComplete' });
+        }
+        confirming.delete(id);
       },
     },
     selectedTaskId: null, expandedTaskId: null, addingTodoTaskId: null, recordedTaskId: null,
@@ -122,7 +144,7 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
     iconButton: (parent, icon, label, cls = 'wt-icon-button') => { const b = parent.createEl('button', { cls, attr: { type: 'button', 'aria-label': label } }); options.setIcon(b, icon); return b; },
     showTaskMenu: taskMenu,
     openDueDate: task => prompt('截止日期（YYYY-MM-DD，留空清除）', task.dueDate ?? '', 'YYYY-MM-DD', false, text => perform(task.id, 'due', { text })),
-    collapseCard: () => options.send({ action: 'progressDismiss' }),
+    collapseCard: () => { if (!pending.size && !composing) options.send({ action: 'progressDismiss' }); },
     focusCard: () => body.querySelector<HTMLTextAreaElement>('.wt-card-composer textarea')?.focus(),
     render, notice, prompt,
     renderNotes: (parent, task) => {
@@ -157,6 +179,9 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
     let task = tasks.find(task => task.id === host.selectedTaskId);
     if (!task && !choosing) task = tasks.filter(task => task.status === 'active').sort((a, b) => b.events.at(-1)!.at.localeCompare(a.events.at(-1)!.at))[0];
     if (task) host.selectedTaskId = host.expandedTaskId = task.id;
+    const nextTarget = `${task?.id ?? ''}:${choosing}`;
+    const reveal = nextTarget !== renderedTarget;
+    renderedTarget = nextTarget;
     toolbar.hidden = !!task && !choosing;
     back.hidden = !task;
     search.hidden = false;
@@ -213,7 +238,7 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       host.renderNotes(extras, task);
       const menu = extras.createEl('button', { cls: 'wt-quick-more', text: '更多任务操作', attr: { type: 'button' } });
       menu.onclick = event => taskMenu(event, task);
-      extras.addEventListener('toggle', () => { if (extras.open) expandedExtras.add(task.id); else expandedExtras.delete(task.id); options.resize(); });
+      extras.addEventListener('toggle', () => { if (extras.open) { expandedExtras.add(task.id); for (const child of extras.children) if (child !== summary) revealQuickContent(child as HTMLElement); } else expandedExtras.delete(task.id); options.resize(); });
       const footer = form.querySelector<HTMLElement>('.wt-composer-footer')!;
       footer.querySelector('.wt-composer-close')?.remove();
       const submit = footer.querySelector<HTMLButtonElement>('button[type=submit]')!;
@@ -228,8 +253,12 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
         form.querySelector('label > span')!.textContent = '任务已结束，可在更多任务操作中重新打开';
         form.querySelector('textarea')!.disabled = submit.disabled = true;
       }
-      if (pending.size) body.querySelectorAll<HTMLButtonElement>('.wt-composer-footer button[type=submit]').forEach(button => { button.disabled = true; });
+      if (confirming.has(task.id) || [...pending.values()].some(item => item.operation.taskId === task.id)) {
+        submit.disabled = input.disabled = true;
+        submit.setAttribute('aria-busy', 'true');
+      }
     } else { container.prepend(toolbar); renderCandidates(body); }
+    if (reveal) revealQuickContent(body);
     options.resize();
   }
   function renderCandidates(parent: HTMLElement) {
@@ -261,19 +290,23 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
     const index = list.indexOf(document.activeElement as HTMLButtonElement);
     if (list.length) { event.preventDefault(); list[(index + (event.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length]?.focus(); }
   });
+  container.addEventListener('compositionstart', () => { composing = true; });
+  container.addEventListener('compositionend', () => { composing = false; });
   back.onclick = () => { choosing = false; render(); if (host.selectedTaskId) host.focusCard(host.selectedTaskId); };
   return {
-    setError: (message: string) => { status.textContent = message; },
-    show: () => { active = true; choosing = false; container.hidden = false; render(); if (host.selectedTaskId) host.focusCard(host.selectedTaskId); else search.focus(); },
-    hide: () => { active = false; container.hidden = true; },
+    setError: (message: string) => { setFeedback('failed', message); },
+    isSaving: () => pending.size > 0,
+    isComposing: () => composing,
+    show: () => { visibility++; active = true; choosing = false; container.hidden = false; render(); if (host.selectedTaskId) host.focusCard(host.selectedTaskId); else search.focus(); },
+    hide: () => { visibility++; active = false; container.hidden = true; },
     update(value: { workspace?: string; location?: string; quickError?: string; tasks?: TaskSource[]; groups?: WorkGroup[]; progressDrafts?: Record<string,string>; receipts?: Receipt[] }) {
       if (value.workspace !== undefined && value.workspace !== workspace) {
         workspace = value.workspace; state.drafts = {}; draftImages.clear(); tasks = []; sourcesKey = ''; images.clear(); attempts.clear(); handled.clear();
         for (const item of pending.values()) item.reject(Error('保存位置已切换，原草稿保留在原仓库'));
-        pending.clear(); choosing = false; host.selectedTaskId = host.expandedTaskId = null; status.textContent = '';
+        pending.clear(); confirming.clear(); choosing = false; host.selectedTaskId = host.expandedTaskId = null; setFeedback('idle', '');
         if (active) render();
       }
-      if (value.quickError) { status.textContent = value.quickError; tasks = []; sourcesKey = ''; if (active) render(); }
+      if (value.quickError) { setFeedback('failed', value.quickError); tasks = []; sourcesKey = ''; if (active) render(); }
       if (value.progressDrafts) {
         state.drafts = { ...value.progressDrafts }; draftImages.clear();
         for (const [id, source] of Object.entries(value.progressDrafts)) {
@@ -288,6 +321,7 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       }
       if (value.groups) groups = value.groups;
       let changed = !!value.groups || value.location !== undefined;
+      const savedTodos: string[] = [];
       if (value.tasks && JSON.stringify(value.tasks) !== sourcesKey) {
         sourcesKey = JSON.stringify(value.tasks); images = new Map(); tasks = [];
         for (const item of value.tasks) { try { const task = parseTaskMarkdown(item.markdown); if (!tasks.some(t => t.id === task.id)) { tasks.push(task); images.set(task.id, item.images ?? {}); } } catch { notice('部分任务无法读取，请在插件中检查存档'); } }
@@ -301,23 +335,31 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
           if (receipt.status === 'queued') {
             // Reopened hosts attach to durable commands rather than enqueueing a duplicate.
             const key = JSON.stringify({ taskId: op.taskId, kind: op.kind, ...Object.fromEntries(Object.entries(op).filter(([key]) => !['version','id','taskId','kind'].includes(key))) });
-            attempts.set(key, op); status.textContent = receipt.message;
-            pending.set(op.id, { operation: op, resolve: () => { if (op.kind === 'progress' && matchesDraft(op)) setDraft(op.taskId, ''); }, reject: error => notice(error.message) });
+            attempts.set(key, op); setFeedback('queued', receipt.message);
+            pending.set(op.id, { operation: op, resolve: () => { if (op.kind === 'progress' && matchesDraft(op)) setDraft(op.taskId, ''); confirming.delete(op.taskId); }, reject: error => notice(error.message) });
+            changed = true;
           } else {
             handled.add(receipt.id);
-            if (receipt.status === 'applied' && op.kind === 'progress' && matchesDraft(op)) { setDraft(op.taskId, ''); status.textContent = receipt.message; }
+            if (receipt.status === 'applied' && op.kind === 'progress' && matchesDraft(op)) { setDraft(op.taskId, ''); setFeedback('success', receipt.message); }
+            else if (receipt.status === 'failed') setFeedback('failed', receipt.message);
           }
           continue;
         }
-        status.textContent = receipt.message;
+        setFeedback(receipt.status === 'applied' ? 'success' : receipt.status === 'failed' ? 'failed' : 'queued', receipt.message);
         if (receipt.status === 'applied') {
           pending.delete(receipt.id); handled.add(receipt.id);
           for (const [key, value] of attempts) if (value.id === receipt.id) attempts.delete(key);
+          if (operation.operation.kind === 'progress') confirming.add(operation.operation.taskId);
+          if (operation.operation.kind === 'todo_toggle' && operation.operation.todoId) savedTodos.push(operation.operation.todoId);
           operation.resolve(); changed = true;
         }
-        else if (receipt.status === 'failed') { pending.delete(receipt.id); handled.add(receipt.id); operation.reject(Error(receipt.message)); }
+        else if (receipt.status === 'failed') { pending.delete(receipt.id); handled.add(receipt.id); operation.reject(Error(receipt.message)); changed = true; }
       }
       if (active && changed) { const focused = document.activeElement?.className; render(); if (focused === '') body.querySelector<HTMLTextAreaElement>('.wt-card-composer textarea')?.focus(); }
+      for (const id of savedTodos) {
+        const row = body.querySelector<HTMLElement>(`[data-todo-id="${CSS.escape(id)}"]`);
+        if (row) revealQuickContent(row);
+      }
     },
   };
 }

@@ -14,10 +14,10 @@
 | `PluginState.cardLayout` | 顶部对齐 `aligned`／稳定瀑布流 `masonry` | `aligned` |
 | `PluginState.theme` | `evergreen`／`graphite`／`glacier`／`vermilion` | `evergreen` |
 | `PluginState.appearance` | `system`／`light`／`dark` | `system` |
-| `PluginState.compactCards` | 收起卡片隐藏详情与待办 | false |
+| `PluginState.presentationMode` | 完整展示全部卡片内容，编辑仍限一张；false 为等高紧凑模式 | false |
 | `PluginState.quickDrafts` | 按任务 ID 保存的快捷进展草稿 | 空记录 |
 
-`presentationMode` 已在 0.9.0 移除；旧偏好或导入包中的该字段忽略。
+0.9.3 重新引入阅读／编辑分离的 `presentationMode`，只保存这一组显示偏好。读取时显式布尔值优先；缺失时旧 `compactCards: false` 迁为完整展示，`true` 或未设置迁为紧凑模式。空仓导入恢复该偏好，已有任务的仓库保留本地选择。此变更不修改任务 Markdown 协议。
 
 图标选择器仅提供随包内置的 Noto Emoji（`@iconify-json/noto` 1.2.9，3,729 个非隐藏图标）。旧 `circle-dot` 默认显示为 `noto:bookmark-tabs`，常见旧名称映射到语义对应的 Noto 图标，无法匹配时使用默认图标。映射只发生在渲染层，不批量改写任务或追加历史。插件卡片与桌面快捷卡片共用渲染器，不需要联网。仅对常用图标提供中文标签，其余可按英文名称搜索。
 
@@ -47,7 +47,7 @@
 
 桌面实现和兼容性样例见 `desktop/`。发布前先在目标目录完整写入临时文件，再以不覆盖已有文件的原子操作发布正式文件。插件按 ID 去重并验证存档，再登记路径、备份和刷新视图。
 
-## 快捷修改命令 v1（尚未发布）
+## 快捷修改命令 v1（0.9.1 起）
 
 桌面读取当前目录的正式 Markdown，以稳定任务 ID 选定任务。写入 `<任务目录>/.tracelo-operations/quick-<32位十六进制>.request.json`，字段为 `version: 1`、`id`、`taskId`、`kind` 及操作参数。原生宿主完整写入并同步临时文件，再原子发布请求；同 ID 不同内容拒绝写入。
 
@@ -59,7 +59,7 @@
 
 图文进展使用 `attachments: [{ name, base64, sha256? }]`。插件校验文件名、容量与摘要后，以稳定名称保存附件，再写入事件；事件签名只保留名称和 SHA-256，不保存 Base64。重试校验已有字节并复用同一命令 ID，回执丢失不重复追加进展。
 
-## 桌面显示偏好（尚未发布）
+## 桌面显示偏好（0.9.1 起）
 
 插件把 `{ version: 1, theme, appearance }` 写入 `<任务目录>/.tracelo-ui.json`，macOS 与 Windows 宿主读取后交给共享表单。此文件仅为显示偏好投影，不是正式任务，不进入任务历史；源偏好仍由插件数据保存。未知主题回退 `evergreen`，未知外观回退 `system`，不修改图文草稿或进展队列。
 

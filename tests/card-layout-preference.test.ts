@@ -9,13 +9,24 @@ describe("card layout preference", () => {
     }
   });
 
-  it("preserves either layout and zoom while dropping legacy presentation preferences", () => {
+  it("preserves presentation mode independently of layout and zoom", () => {
     for (const cardLayout of ["aligned", "masonry"]) {
       const state = normalizePluginState({ cardLayout, viewMode: "quadrant", presentationMode: true, boardZoom: 80 });
       expect(normalizePluginState(JSON.parse(JSON.stringify(state)))).toMatchObject({
-        cardLayout, viewMode: "quadrant", boardZoom: 80,
+        cardLayout, viewMode: "quadrant", boardZoom: 80, presentationMode: true,
       });
-      expect(state).not.toHaveProperty('presentationMode');
+      expect(state).not.toHaveProperty('compactCards');
     }
+  });
+
+  it("defaults to compact and migrates the old compact preference only once", () => {
+    for (const value of [null, {}, { compactCards: 'false' }]) {
+      expect(normalizePluginState(value).presentationMode).toBe(false);
+    }
+    expect(createDefaultState().presentationMode).toBe(false);
+    expect(normalizePluginState({ compactCards: true }).presentationMode).toBe(false);
+    expect(normalizePluginState({ compactCards: false }).presentationMode).toBe(true);
+    expect(normalizePluginState({ compactCards: false, presentationMode: false }).presentationMode).toBe(false);
+    expect(normalizePluginState({ compactCards: true, presentationMode: true }).presentationMode).toBe(true);
   });
 });

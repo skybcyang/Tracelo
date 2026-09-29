@@ -115,17 +115,25 @@ export class Setting {
   }
 }
 export class Menu {
-  constructor() { this.el = document.createElement('div'); this.el.setAttribute('role', 'menu'); }
+  constructor() { this.el = document.createElement('div'); this.el.className = 'menu'; this.el.setAttribute('role', 'menu'); this.dom = this.el; }
+  setUseNativeMenu() { return this; }
   addItem(build) {
-    const button = this.el.createEl('button', { attr: { role: 'menuitem' } });
+    const button = this.el.createEl('button', { cls: 'menu-item', attr: { role: 'menuitem' } });
+    const icon = button.createSpan({ cls: 'menu-item-icon', attr: { 'aria-hidden': 'true' } });
+    const title = button.createSpan({ cls: 'menu-item-title' });
     const item = {
-      setTitle(text) { button.textContent = text; return item; },
-      setIcon() { return item; }, setChecked(value) { button.setAttribute('aria-checked', String(value)); return item; },
+      setTitle(text) { title.textContent = text; return item; },
+      setIcon(name) { setIcon(icon, name); return item; }, setChecked(value) { button.setAttribute('aria-checked', String(value)); return item; },
       setSubmenu: () => {
         const submenu = new Menu(); submenu.el.hidden = true;
         button.setAttribute('aria-haspopup', 'menu');
+        setIcon(button.createSpan({ cls: 'menu-item-icon mod-submenu', attr: { 'aria-hidden': 'true' } }), 'chevron-right');
         this.el.append(submenu.el);
-        button.onclick = () => { submenu.el.hidden = !submenu.el.hidden; };
+        button.onclick = () => {
+          submenu.el.hidden = !submenu.el.hidden;
+          if (submenu.el.hidden) submenu.el.style.display = 'none';
+          else { const rect = button.getBoundingClientRect(); submenu.position(rect.right, rect.top); }
+        };
         return submenu;
       },
       setDisabled(value) { button.disabled = value; return item; },
@@ -133,8 +141,17 @@ export class Menu {
     };
     build(item); return this;
   }
-  addSeparator() { return this; }
-  showAtMouseEvent() { document.querySelector('[role=menu]')?.remove(); document.body.append(this.el); }
+  addSeparator() { this.el.createDiv({ cls: 'menu-separator' }); return this; }
+  showAtMouseEvent(event) {
+    document.querySelector('[role=menu]')?.remove(); document.body.append(this.el);
+    this.position(event?.clientX ?? 0, event?.clientY ?? 0);
+  }
+  position(x, y) {
+    Object.assign(this.el.style, { position: 'fixed', zIndex: '100', display: 'flex', flexDirection: 'column', maxHeight: `${innerHeight - 16}px`, overflowY: 'auto' });
+    // Preserve inline palette values assigned before opening the host menu.
+    this.el.style.left = `${Math.max(0, Math.min(x, innerWidth - this.el.offsetWidth))}px`;
+    this.el.style.top = `${Math.max(0, Math.min(y, innerHeight - this.el.offsetHeight))}px`;
+  }
 }
 
 export function createApp() {

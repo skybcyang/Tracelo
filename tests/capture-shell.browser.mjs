@@ -96,7 +96,9 @@ try {
     assert.equal(await page.evaluate(markdown => TraceloCreateTask.parseTaskMarkdown(markdown).groupName, regrouped.request.markdown), '研发新名称');
     await page.evaluate(() => window.capture.update({ saving: false, error: '测试写入失败' }));
     await title.press('Escape');
+    await page.waitForFunction(() => window.messages.some(m => m.action === 'dismiss'));
     assert.deepEqual(await page.evaluate(() => window.messages.filter(m => m.action === 'dismiss').at(-1).draft), first.draft);
+    await page.evaluate(() => window.capture.update({ focus: true }));
     // Invalid or removed group never silently becomes Ungrouped.
     await page.evaluate(() => window.capture.update({ groupsSource: 'invalid archive' }));
     assert.equal(await submit.isDisabled(), true);

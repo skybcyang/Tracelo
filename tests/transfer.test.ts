@@ -121,13 +121,13 @@ it("preserves group icons, note drafts and board preferences when importing into
   bundle.groups.groups[0]!.icon = "code";
   bundle.state.noteDrafts = { "task-1": "unsaved note" };
   bundle.state.boardZoom = 115;
-  Object.assign(bundle.state, { presentationMode: true }); // Legacy backup field.
+  bundle.state.presentationMode = true;
   bundle.state.cardLayout = "masonry";
   const result = await importBundle(destination, store, bundle, [], { version: 1, groups: [], events: [] }, createDefaultState());
   expect(result.groups.groups[0]!.icon).toBe("code");
   expect(result.state.noteDrafts["task-1"]).toBe("unsaved note");
   expect(result.state.boardZoom).toBe(115);
-  expect(result.state).not.toHaveProperty('presentationMode');
+  expect(result.state.presentationMode).toBe(true);
   expect(result.state.cardLayout).toBe("masonry");
 });
 

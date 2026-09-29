@@ -23,7 +23,10 @@ try {
     settings.display();
     return ids;
   });
-  const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve)))));
+  const settle = () => page.evaluate(async () => {
+    await Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  });
   const selector = `.wt-task-section:has([data-task-id="${ids.payment}"]) .wt-card-grid`;
   const firstGrid = page.locator(selector).first();
   const metrics = () => firstGrid.evaluate(grid => {
@@ -134,16 +137,35 @@ try {
   }
   checks++;
 
-  for (const mode of ['group', 'quadrant']) {
+  for (const layout of ['aligned', 'masonry']) {
+    await setting.selectOption(layout);
     for (const width of [1680, 375, 1440]) {
       for (const zoom of [60, 100, 120]) {
         await page.setViewportSize({ width, height: 1000 });
-        await page.evaluate(async ({ mode, zoom }) => { await window.cardFixture.plugin.setViewMode(mode); await window.cardFixture.plugin.setBoardZoom(zoom); }, { mode, zoom });
-        await settle();
-        const current = await metrics();
-        verifyPacked(current);
-        if (width === 375) assert.ok(current.items.every(i => Math.abs(i.left - current.items[0].left) < 1), 'narrow view must be one column');
-        checks++;
+        const views = [];
+        for (const mode of ['group', 'quadrant']) {
+          await page.evaluate(async ({ mode, zoom }) => { await window.cardFixture.plugin.setViewMode(mode); await window.cardFixture.plugin.setBoardZoom(zoom); }, { mode, zoom });
+          await settle();
+          const current = await metrics();
+          (layout === 'masonry' ? verifyPacked : verifyFit)(current);
+          if (width === 375) assert.ok(current.items.every(i => Math.abs(i.left - current.items[0].left) < 1), 'narrow view must be one column');
+          const sections = await page.locator('.wt-board > .wt-task-section').evaluateAll(elements => elements.map(el => {
+            const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, bottom: r.bottom, width: r.width };
+          }));
+          assert.ok(sections.every((section, index) => index === 0 ||
+            (Math.abs(section.left - sections[0].left) < 1 && Math.abs(section.width - sections[0].width) < 1 && section.top >= sections[index - 1].bottom)),
+            `${mode} sections must stack vertically with full-width card grids`);
+          views.push(current);
+          checks++;
+        }
+        const [group, quadrant] = views;
+        assert.equal(quadrant.gap, group.gap, 'both views must use the same card gap');
+        assert.equal(quadrant.items.length, group.items.length, 'switching views must preserve all fixture tasks');
+        for (const card of group.items) {
+          const other = quadrant.items.find(item => item.id === card.id);
+          assert.ok(Math.abs(other.width - card.width) < 1, `${layout}/${width}/${zoom}: switching views changes card width`);
+          assert.ok(Math.abs(other.left - card.left) < 1, `${layout}/${width}/${zoom}: switching views changes horizontal placement`);
+        }
       }
     }
   }

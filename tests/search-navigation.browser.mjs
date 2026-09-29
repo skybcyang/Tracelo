@@ -19,19 +19,21 @@ try {
     await page.waitForFunction(() => window.cardFixture);
     try { await fn(); checks++; console.log('PASS ' + name); } catch (e) { failures.push(name + ': ' + e.message); }
   }
-  await check('legacy presentation mode cannot expand cards or expose a mode control', async () => {
+  await check('presentation expands reading without opening editors and keeps drafts', async () => {
     await page.evaluate(async () => {
       const {plugin} = window.cardFixture;
       Object.assign(plugin.state, {presentationMode:true});
       await plugin.setBoardZoom(95);
     });
-    assert.equal(await page.getByRole('button',{name:'展示模式',exact:true}).count(),0);
-    assert.equal(await page.locator('.wt-card.is-expanded').count(),0);
+    assert.equal(await page.getByRole('button',{name:'展示模式',exact:true}).count(),1);
+    assert.equal(await page.locator('.wt-card.is-expanded').count(),await page.locator('.wt-card').count());
+    assert.equal(await page.locator('.wt-card-composer').count(),0);
     await page.getByRole('button',{name:'查看并记录：整理客户反馈',exact:true}).click();
-    assert.equal(await page.locator('.wt-card.is-expanded').count(),1);
+    assert.equal(await page.locator('.wt-card.is-editing').count(),1);
     await page.getByRole('textbox',{name:'记录当前进展',exact:true}).fill('普通卡片草稿');
-    await page.getByRole('button',{name:'收起',exact:true}).click();
-    assert.equal(await page.locator('.wt-card.is-expanded').count(),0);
+    await page.locator('.wt-card.is-editing .wt-read-more').click();
+    assert.equal(await page.locator('.wt-card.is-editing').count(),0);
+    assert.equal(await page.locator('.wt-card.is-expanded').count(),await page.locator('.wt-card').count());
     await page.getByRole('button',{name:'查看并记录：整理客户反馈',exact:true}).click();
     assert.equal(await page.getByRole('textbox',{name:'记录当前进展',exact:true}).inputValue(),'普通卡片草稿');
   });

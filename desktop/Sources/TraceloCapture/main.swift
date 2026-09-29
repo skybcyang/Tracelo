@@ -303,7 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             pending = nil; pendingDraftData = nil
             errorMessage = ""
             surface.update(["draft": NSNull(), "error": "", "restored": false])
-            dismiss()
+            // The shared form confirms this completed write, then requests dismissal.
         } catch { errorMessage = error.localizedDescription }
     }
     private func register(_ key: UInt32, _ modifiers: UInt32) -> Bool {

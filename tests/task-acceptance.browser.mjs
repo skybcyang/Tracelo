@@ -195,7 +195,7 @@ try {
     assert.equal(files.oldExists, false);
   });
 
-  await check('collapsed details do not manufacture a read-more control for short content', async ids => {
+  await check('compact cards keep details behind their existing expand control', async ids => {
     const item = card(ids.plain);
     await item.locator('.wt-card-menu').click();
     await page.getByRole('menuitem', { name: '添加详情', exact: true }).click();
@@ -204,7 +204,7 @@ try {
     await item.locator('.wt-notes-preview').waitFor();
     await item.getByRole('button', { name: '收起', exact: true }).click();
     await settle();
-    assert.equal(await item.locator('.wt-notes-preview').count(), 1);
+    assert.equal(await item.locator('.wt-notes-preview').count(), 0);
     assert.equal(await item.locator('.wt-read-more').isVisible(), true);
     assert.equal(await item.locator('.wt-card-composer').count(), 0);
   });

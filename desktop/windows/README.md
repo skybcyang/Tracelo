@@ -1,6 +1,6 @@
 # Tracelo 快捷创建 · Windows
 
-当前版本为 0.9.1，包含四主题、图文进展、Noto 任务图标及任务选择器切换。下载与升级见[发布说明](../../docs/releases/0.9.1.md)。
+当前版本为 0.9.3，包含四主题、图文进展、Noto 任务图标、任务选择器与真实保存反馈。下载与升级见[发布说明](../../docs/releases/0.9.3.md)。
 
 Windows 10 / 11 x64 原生托盘工具，使用 .NET WinForms 宿主和 WebView2 共享表单。发布构建自带 .NET 运行时，不需要 Obsidian 正在运行；还需要 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。缺失时窗口提供安装入口，不会自动下载或修改系统。任务需由已配置相同目录的 Tracelo 插件读取。
 
@@ -9,8 +9,8 @@ Windows 10 / 11 x64 原生托盘工具，使用 .NET WinForms 宿主和 WebView2
 1. 解压发布包，运行 `TraceloCapture.exe`。首次打开会提示设置保存位置。
 2. 点“设置”，选择 Obsidian vault，再填写插件实际使用的任务相对目录，例如 `工作记录/任务`。目录必须已经存在，不能使用符号链接或目录联接。
 3. 默认全局快捷键为 **Ctrl + Alt + Space**。设置中的快捷键输入框可录入含 Ctrl 或 Alt 的组合；冲突时会保留原快捷键和设置。
-4. 使用与插件一致的完整新建表单：任务名称、详情、分组、四象限，以及可展开的待办、截止日期、初始进展。**Ctrl + Enter** 或“创建任务”保存；文本区 Enter 换行；**Esc** 和关闭窗口保留全部字段。中文输入法选词期间 Enter / Esc 交给输入法。
-5. 托盘双击可打开输入框；右键菜单提供创建、设置与退出。窗口默认出现在鼠标所在屏幕，关闭后尝试恢复此前应用焦点。
+4. 使用与插件一致的完整新建表单：任务名称、详情、分组、四象限、可选截止日期，以及按需展开的待办和初始进展。**Ctrl + Enter** 或“创建任务”保存；文本区 Enter 换行；**Esc** 和关闭窗口保留全部字段。中文输入法选词期间 Enter / Esc 交给输入法。
+5. 托盘双击可打开输入框；右键菜单提供创建、记录进展、设置与退出。窗口默认出现在鼠标所在屏幕，关闭后尝试恢复此前应用焦点。
 
 分组从任务目录的 `_groups.md` 读取；缺少该文件时可用“未分组”，读取或严格解析失败会提示错误。默认象限为不重要、不紧急。共享 TypeScript 模块使用插件相同的任务域模型和存档序列化生成请求；详情不会转成进展，填写初始进展才生成对应事件。Windows 宿主验证任务 ID 和元数据对应关系，将完整文件刷新后以不覆盖方式发布；同名不同内容会报错并保留所有输入。
 
@@ -46,16 +46,19 @@ npx vitest run desktop/windows/archive-compat.test.ts
 Windows PowerShell 一次执行核心测试、发布和原生 smoke test：
 
 ```powershell
-./desktop/windows/scripts/verify.ps1 -OutputDirectory ./dist/windows-verification -Version 0.9.1
+./desktop/windows/scripts/verify.ps1 -OutputDirectory ./dist/windows-verification -Version 0.9.3
 ```
 
 单独测试已发布可执行文件：
 
 ```powershell
-$result = Start-Process ./dist/windows/TraceloCapture.exe -ArgumentList '--smoke-test', 'C:\tracelo-smoke' -Wait -PassThru
+$result = Start-Process ./dist/windows/TraceloCapture.exe -ArgumentList '--smoke-test', 'C:\tracelo-smoke' -PassThru
+if (-not $result.WaitForExit(120000)) { $result.Kill($true); throw 'Native smoke test timed out' }
 if ($result.ExitCode -ne 0) { throw 'Native smoke test failed' }
 Get-Content C:\tracelo-smoke\smoke-result.txt
 ```
+
+当前 `verify.ps1` 的默认版本仍为旧值，必须显式传入 `-Version 0.9.3`；脚本内仍为无上限等待，原生冒烟建议采用上面的 120 秒有界命令，CI 已采用相同超时保护。
 
 Smoke test 在指定输出目录创建隔离 vault、WebView2 配置和偏好，完成后清理；若 WebView2 子进程尚未释放文件，会明确记录保留的测试目录。测试实际加载共享页面，检查完整草稿、分组读取、热键冲突、模拟输入法事件、取消保留、含待办／日期／初始进展的任务发布及失败保留，并生成 `capture-smoke.png`、`settings-smoke.png` 及对应的 `*-dark-smoke.png`。它不替代真实中文输入法选词、多屏及其他应用焦点恢复的人工验收。
 

@@ -25,22 +25,25 @@ try {
     return { ...ids, bare, many };
   });
   const card = id => page.locator(`[data-task-id="${id}"]`);
-  const settle = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const settle = () => page.evaluate(async () => {
+    await Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
   async function check(name, run) { try { await run(); checks++; } catch (error) { failures.push(name + ': ' + error.message); } }
-  await check('equal-width cards use their natural height without row rounding', async () => {
+  await check('compact cards reserve equal height without row rounding', async () => {
     await settle();
     const m = await card(ids.bare).evaluate(el => ({ height: el.getBoundingClientRect().height, content: el.querySelector('.wt-card-body').getBoundingClientRect().height, padding: parseFloat(getComputedStyle(el.querySelector('.wt-card-body')).paddingBottom) }));
     assert.ok(Math.abs(m.height - m.content - 2) < 1, JSON.stringify(m));
     assert.equal(m.padding, 0, JSON.stringify(m));
-    assert.ok(m.height < await card(ids.many).evaluate(el => el.getBoundingClientRect().height));
+    assert.ok(Math.abs(m.height - await card(ids.many).evaluate(el => el.getBoundingClientRect().height)) < 1);
   });
   await check('empty notes reserve neither a section nor a redundant action icon', async () => {
     assert.equal(await card(ids.bare).locator('.wt-task-notes').count(), 0);
     assert.equal(await card(ids.bare).getByRole('button', { name: '添加详情', exact: true }).count(), 0);
     assert.equal(await card(ids.bare).locator('.wt-read-more:visible').count(), 1);
   });
-  await check('collapsed cards show three open todos with one fraction and clear remaining count', async () => {
-    assert.equal(await card(ids.many).locator('.wt-todo-check:visible').count(), 5);
+  await check('collapsed cards keep the completion fraction and defer todo contents to expansion', async () => {
+    assert.equal(await card(ids.many).locator('.wt-todo-check:visible').count(), 0);
     assert.equal(await card(ids.many).getByRole('button', { name: '记录进展', exact: true }).count(), 1);
     assert.equal(await card(ids.many).locator('.wt-checklist-count').count(), 0);
     assert.equal(await card(ids.many).locator('.wt-progress-chip').textContent(), '0/5 项完成');
@@ -50,7 +53,7 @@ try {
     }));
     assert.ok(metrics.every(Number.isFinite), JSON.stringify(metrics));
   });
-  await check('checking a summary todo updates counts without expanding and can be undone from completed items', async () => {
+  await check('opening the completion fraction exposes editable todos and reversible completion', async () => {
     await card(ids.many).locator('.wt-progress-chip').click();
     const first = card(ids.many).locator('.wt-todo-check:visible').first();
     const label = await first.getAttribute('aria-label');
@@ -80,7 +83,7 @@ try {
       const { plugin } = window.cardFixture;
       for (const todo of plugin.tasks.find(t => t.id === id).todos) if (!todo.done) await plugin.toggleTaskTodo(id, todo.id, true);
     }, ids.payment);
-    assert.equal(await card(ids.payment).locator('.wt-todo-check:visible').count(), 4);
+    assert.equal(await card(ids.payment).locator('.wt-todo-check:visible').count(), 0);
     await card(ids.payment).locator('.wt-progress-chip').click();
     assert.equal(await card(ids.payment).locator('.wt-todo-check:visible').count(), 4);
     assert.equal(await card(ids.payment).locator('.wt-card-composer').count(), 1);
@@ -106,7 +109,7 @@ try {
       for (let i=0; i<layout.length; i++) for (let j=i+1; j<layout.length; j++) {
         const a=layout[i], b=layout[j]; assert.ok(a.right <= b.x + 1 || b.right <= a.x + 1 || a.bottom <= b.y + 1 || b.bottom <= a.y + 1, 'overlapping cards');
       }
-      assert.equal(await card(ids.many).locator('.wt-todo-check:visible').count(), 5);
+      assert.equal(await card(ids.many).locator('.wt-todo-check:visible').count(), expanded ? 5 : 0);
     });
   }
   assert.deepEqual(errors, []);

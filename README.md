@@ -20,8 +20,8 @@ Tracelo 将任务看板与工作时间线放在一起：用分组和四象限安
 
 桌面快捷工具的安装与配置见[使用说明](desktop/README.md)。升级时保留 `data.json` 和任务目录，并按对应版本的发布说明操作。
 
-当前版本为 0.9.1，更新内容见[发布说明](docs/releases/0.9.1.md)。
+当前版本为 0.9.3，支持等高卡片、完整展示模式、自动折叠的分组导航与统一菜单。更新内容见[发布说明](docs/releases/0.9.3.md)。
 
 ## 了解更多
 
-[版本更新](docs/releases/0.9.1.md) · [开发与文档](docs/development.md) · [问题反馈](https://github.com/skybcyang/Tracelo/issues)
+[版本更新](docs/releases/0.9.3.md) · [开发与文档](docs/development.md) · [问题反馈](https://github.com/skybcyang/Tracelo/issues)

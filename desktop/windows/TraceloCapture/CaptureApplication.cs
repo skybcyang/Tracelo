@@ -155,7 +155,8 @@ internal sealed class CaptureApplication : ApplicationContext {
             try { State.Save(settingsPath); }
             catch { State.FormDraft = oldDraft; State.PendingRequest = oldPending; throw; }
             Window.Surface.Update(new() { ["draft"] = null, ["saving"] = false, ["error"] = "", ["restored"] = false });
-            saving = false; HideWindow();
+            // The shared form confirms this completed write, then requests dismissal.
+            saving = false;
         } catch (Exception error) {
             saving = false;
             UpdateState(errorMessage: "创建未完成：" + error.Message);

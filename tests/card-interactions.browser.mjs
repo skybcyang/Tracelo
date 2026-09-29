@@ -159,10 +159,10 @@ try {
     assert.equal(await payment.getByRole('button', { name: '编辑标题：完成支付模块', exact: true }).count(), 0);
     assert.equal(await payment.locator('.wt-card-heading-actions button').count(), 1);
   });
-  await check('board controls retain zoom without presentation mode', async () => {
+  await check('board controls retain zoom independently of presentation mode', async () => {
     await page.locator('.wt-board-options').evaluate(el => { el.open = true; });
     assert.equal(await page.getByRole('button', { name: '缩小看板', exact: true }).count(), 1);
-    assert.equal(await page.getByRole('button', { name: '展示模式', exact: true }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: '展示模式', exact: true }).count(), 1);
   });
   await check('view settings fit the top bar across narrow and dark layouts', async () => {
     try {
@@ -236,7 +236,8 @@ try {
     await page.getByRole('menuitem', { name: '添加详情', exact: true }).click();
     await payment.getByRole('textbox', { name: '任务详情', exact: true }).fill('背景信息\nhttps://example.com');
     await card(ids.plain).locator('.wt-card-open').click();
-    assert.equal(await payment.getByRole('textbox', { name: '任务详情', exact: true }).inputValue(), '背景信息\nhttps://example.com');
+    assert.equal(await payment.getByRole('textbox', { name: '任务详情', exact: true }).count(), 0, 'only the current card may show editors');
+    assert.equal(await page.evaluate(id => window.cardFixture.plugin.state.noteDrafts[id], ids.payment), '背景信息\nhttps://example.com');
     await payment.locator('.wt-card-menu').click();
     await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     assert.equal(await payment.getByRole('textbox', { name: '任务详情', exact: true }).inputValue(), '背景信息\nhttps://example.com');
@@ -328,7 +329,7 @@ try {
     });
     await page.waitForFunction(id => window.cardFixture.plugin.tasks.some(task => task.id === id), id);
     assert.equal(await card(id).count(), 1);
-    assert.equal(await card(id).locator('.wt-card-latest').count(), 0);
+    assert.equal(await card(id).locator('.wt-card-latest.is-placeholder').count(), 1);
     await card(id).locator('.wt-card-open').click();
     assert.equal(await card(id).locator('.wt-notes-preview').count(), 1);
     assert.equal(await card(id).locator('.wt-details-heading').count(), 0);

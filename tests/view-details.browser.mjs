@@ -93,7 +93,7 @@ try {
     assert.deepEqual(saved.task.events.map(e => e.kind), ['created']);
     assert.ok(saved.source.includes('## 详情'));
     await card(saved.task.id).getByRole('button', { name: '收起', exact: true }).click();
-    assert.equal(await card(saved.task.id).locator('.wt-notes-preview').count(), 1);
+    assert.equal(await card(saved.task.id).locator('.wt-notes-preview').count(), 0);
     await card(saved.task.id).locator('.wt-card-open').click();
     await page.waitForFunction(id => document.querySelector(`[data-task-id="${id}"] .wt-notes-preview`)?.textContent === window.cardFixture.plugin.tasks.find(t => t.id === id).notes, saved.task.id);
     assert.equal(await card(saved.task.id).locator('.wt-notes-preview').textContent(), saved.task.notes);
@@ -110,7 +110,7 @@ try {
     assert.equal(await picture.evaluate(img => img.getBoundingClientRect().height), 960);
     assert.equal(await card(ids.dateOnly).locator('.wt-card-composer').count(), 1);
     await picture.click();
-    assert.equal(await page.locator('.modal-title').textContent(), '详情图片');
+    assert.equal(await page.locator('.modal-title').textContent(), '图片预览');
     assert.equal(await card(ids.dateOnly).locator('.wt-card-composer').count(), 1);
   });
   assert.deepEqual(errors, []);

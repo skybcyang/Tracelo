@@ -10,6 +10,7 @@ export interface CardHost {
   showTaskMenu(event: MouseEvent, task: WorkTask): void;
   openDueDate(task: WorkTask): void; collapseCard(id: string): void; focusCard(id: string): void; render(): void;
   renderNotes(body: HTMLElement, task: WorkTask): void;
+  renderProgress?(parent: HTMLElement, task: WorkTask, text: string): void;
   openHistory?(task: WorkTask): void;
   completeTask?(task: WorkTask): void;
   notice(message: string, duration?: number): { messageEl: HTMLElement; hide(): void };
@@ -54,7 +55,7 @@ export function cardDueLabel(task: WorkTask): string {
 export function renderTaskCard(host: CardHost, container: HTMLElement, task: WorkTask, area: string): void {
     const selected = host.selectedTaskId === task.id;
     const editing = host.expandedTaskId === task.id;
-    const expanded = editing;
+    const expanded = host.plugin.state.presentationMode || editing;
     const card = container.createEl("article", {
       cls: `wt-card${selected ? " is-selected" : ""}${isTaskEnded(task) ? " is-ended" : ""}${expanded ? " is-expanded" : ""}${editing ? " is-editing" : ""}`,
       attr: { "data-task-id": task.id, draggable: String(task.status === "active") },
@@ -85,10 +86,17 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
       const isToday = latest.day === today;
       const label = body.createEl("span", { text: isToday ? "最新进展 · 今天" : "最新进展", cls: `wt-latest-label${isToday ? " is-today" : ""}` });
       label.createEl('time', { text: isToday ? formatTime(latest.at) : formatDateTime(latest.at), cls: 'wt-latest-time', attr: { datetime: latest.at } });
-      body.createEl("p", { text: latest.text.replace(/!\[([^\]]*)\]\(<?[^)]+>?\)/g, '▧ $1'), cls: "wt-card-latest" });
+      if (expanded && host.renderProgress) {
+        host.renderProgress(body.createDiv({ cls: 'wt-card-latest is-markdown' }), task, latest.text);
+      } else {
+        body.createEl("p", { text: latest.text.replace(/!\[([^\]]*)\]\(<?[^)]+>?\)/g, '▧ $1'), cls: "wt-card-latest" });
+      }
+    } else if (!expanded) {
+      body.createSpan({ cls: 'wt-latest-label is-placeholder', attr: { 'aria-hidden': 'true' } });
+      body.createEl('p', { cls: 'wt-card-latest is-placeholder', attr: { 'aria-hidden': 'true' } });
     }
     if (host.recordedTaskId === task.id) body.createSpan({ text: "✓ 进展已记录", cls: "wt-recorded-feedback", attr: { role: "status" } });
-    if (task.notes || expanded || host.editingNotes.has(task.id)) {
+    if (expanded && (task.notes || Object.prototype.hasOwnProperty.call(host.plugin.state.noteDrafts, task.id) || host.editingNotes.has(task.id))) {
       host.renderNotes(body, task);
       const notes = body.querySelector('.wt-task-notes');
       if (notes) body.insertBefore(notes, body.querySelector('.wt-latest-label'));
@@ -121,7 +129,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     const meta = footer.createDiv({ cls: "wt-card-meta" });
     const context = meta.createDiv({ cls: "wt-card-context" });
     const properties = context.createDiv({ cls: "wt-card-properties" });
-    if (host.plugin.state.viewMode === "quadrant" || isTaskEnded(task)) properties.createSpan({ text: task.groupName });
+    if (host.plugin.state.viewMode === "quadrant" || isTaskEnded(task)) properties.createSpan({ text: task.groupName, cls: 'wt-card-group', attr: { title: task.groupName } });
     if (host.plugin.state.viewMode === "group" || isTaskEnded(task)) {
       const priority = task.important && task.urgent ? "重要且紧急" : task.important ? "重要不紧急" : task.urgent ? "紧急不重要" : "不急不重要";
       properties.createSpan({ text: priority, cls: `wt-tag is-${task.important && task.urgent ? "important-urgent" : task.important ? "important" : task.urgent ? "urgent" : "neutral"}` });
@@ -134,7 +142,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     if (properties.childElementCount) metadata.append(properties);
     const deadline = body.querySelector('.wt-card-deadline');
     if (deadline) metadata.append(deadline);
-    if (!metadata.textContent?.trim()) metadata.remove();
+    if (expanded && !metadata.textContent?.trim()) metadata.remove();
     const updated = latest ?? task.events[0]!;
     const timeText = updated.day === today ? `今天 ${formatTime(updated.at)}` : formatDateTime(updated.at);
     meta.createEl("time", { text: `${latest ? "进展" : "创建"} · ${timeText}`, cls: "wt-card-time", attr: { datetime: updated.at, title: `${latest ? "最近进展" : "创建时间"}：${formatDateTime(updated.at)}` } });
@@ -148,7 +156,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     };
     open.addEventListener("click", toggleCard);
     {
-      const label = expanded ? '收起' : task.status === 'active' ? '记录进展' : '查看任务';
+      const label = editing ? host.plugin.state.presentationMode ? '结束编辑' : '收起' : task.status === 'active' ? '记录进展' : '查看任务';
       const more = footer.createEl('button', { text: label, cls: 'wt-read-more', attr: { type: 'button', 'aria-label': label } });
       more.onclick = () => open.click();
     }
@@ -156,7 +164,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     let dragged = false;
     card.addEventListener("pointerdown", (event) => { pointerStart = { x: event.clientX, y: event.clientY }; dragged = false; });
     card.addEventListener("click", (event) => {
-      if (event.button !== 0 || event.defaultPrevented || dragged || host.editingNotes.has(task.id)) return;
+      if (event.button !== 0 || event.defaultPrevented || dragged || (editing && host.editingNotes.has(task.id))) return;
       if (editing && host.plugin.state.drafts[task.id]?.trim()) return;
       if ((event.target as Element).closest("button, a, img, input, textarea, select, label, [contenteditable], .wt-card-todos, .wt-card-composer, .wt-optional-actions")) return;
       if (pointerStart && Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 5) return;
@@ -195,7 +203,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
         if (moving && moving !== task.id) void host.plugin.dropTask(moving, host.plugin.state.viewMode, area, task.id).catch(reason => { host.notice(String(reason)); });
       });
     }
-    renderCardTodos(host, body, task, editing, true);
+    if (expanded) renderCardTodos(host, body, task, editing, true);
     const checklist = body.querySelector('.wt-card-todos');
     if (checklist) body.insertBefore(checklist, footer);
     if (task.status === "active" && editing) renderCardComposer(host, body, task);
@@ -229,7 +237,7 @@ export function renderCardTodos(host: CardHost, card: HTMLElement, task: WorkTas
           }
           parent = completedSection;
         }
-        const row = parent.createDiv({ cls: "wt-todo-row" });
+        const row = parent.createDiv({ cls: "wt-todo-row", attr: { 'data-todo-id': item.id } });
         const label = row.createEl("label", { cls: "wt-todo-label" });
         const check = label.createEl("input", { type: "checkbox", cls: "wt-todo-check", attr: { "aria-label": item.text } });
         check.checked = item.done;
@@ -333,7 +341,7 @@ export function renderCardComposer(host: CardHost, card: HTMLElement, task: Work
     input.addEventListener('compositionend', () => { composing = false; });
     input.addEventListener("input", () => host.plugin.updateDraft(task.id, input.value));
     const footer = form.createDiv({ cls: "wt-composer-footer" });
-    const close = footer.createEl('button', { text: '收起', cls: 'wt-composer-close', attr: { type: 'button', 'aria-label': '关闭进展输入' } });
+    const close = footer.createEl('button', { text: host.plugin.state.presentationMode ? '结束编辑' : '收起', cls: 'wt-composer-close', attr: { type: 'button', 'aria-label': '关闭进展输入' } });
     close.onclick = () => host.collapseCard(task.id);
     footer.createSpan({ cls:'wt-composer-hint', text:'⌘ / Ctrl + Enter 保存' });
     input.addEventListener("keydown", event => {

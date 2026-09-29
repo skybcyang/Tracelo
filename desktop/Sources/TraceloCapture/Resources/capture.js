@@ -1,9 +1,22 @@
 (() => {
   const shared = TraceloCreateTask;
   shared.setCaptureIcon(document.querySelector('.capture-brand-icon'), 'workflow');
-  const send = message => {
+  const post = message => {
     if (window.chrome?.webview) window.chrome.webview.postMessage(message);
     else window.webkit.messageHandlers.capture.postMessage(message);
+  };
+  let closing = false, completing = false, visibility = 0;
+  const shell = document.querySelector('.capture-modal');
+  async function closeSurface(message) {
+    if (closing) return;
+    closing = true; shell.inert = true;
+    const current = visibility;
+    await shared.leaveQuickContent(shell);
+    if (current === visibility) post(message);
+  }
+  const send = message => {
+    if (message.action === 'progressComplete' || message.action === 'progressDismiss') void closeSurface(message);
+    else post(message);
   };
   let pending = null, resolveSubmit, rejectSubmit, configured = false, groupError = '', resizeScheduled = false, groupsSource, taskDirectory = '工作记录/任务', mode = 'create';
   function resize() {
@@ -55,19 +68,22 @@
     openSettings: () => send({ action: 'settings', draft: controller.read() }),
   });
   function setMode(value) {
-    if (controller.isSaving()) return;
+    if (controller.isSaving() || completing) return;
+    const changed = value !== mode;
     mode = value; controller.form.hidden = mode !== 'create';
     document.querySelector('.capture-modal').classList.toggle('is-progress-mode', mode === 'progress');
     if (mode === 'progress') progress.show(); else { progress.hide(); controller.focus(); }
     tabs.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
     document.title = mode === 'progress' ? 'Tracelo · 记录进展' : 'Tracelo · 新建任务'; resize();
+    if (changed) shared.revealQuickContent(mode === 'progress' ? quickContainer : controller.body);
   }
   for (const [value, text] of [['create', '新建任务'], ['progress', '记录进展']]) {
     const button = document.createElement('button'); button.type = 'button'; const icon = document.createElement('span'); shared.setCaptureIcon(icon, value === 'create' ? 'square-pen' : 'message-square-plus'); button.append(icon, text); button.dataset.mode = value; button.setAttribute('aria-pressed', String(value === mode)); button.onclick = () => setMode(value); tabs.append(button);
   }
   function dismiss() {
-    if (mode === 'progress') { send({ action: 'progressDismiss' }); return; }
-    if (!controller.isSaving() && !controller.isComposing()) send({ action: 'dismiss', draft: controller.read() });
+    if (completing || closing) return;
+    if (mode === 'progress') { if (!progress.isComposing()) send({ action: 'progressDismiss' }); return; }
+    if (!controller.isSaving() && !controller.isComposing()) void closeSurface({ action: 'dismiss', draft: controller.read() });
   }
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229 && !controller.isComposing()) { event.preventDefault(); dismiss(); }
@@ -77,6 +93,11 @@
   window.capture = {
     getDraft: controller.read, dismiss,
     update(state) {
+      if (state.focus || state.mode || state.error || state.progressError || state.quickError) {
+        visibility++; closing = false; shell.inert = false;
+        if (state.focus || state.mode) completing = false;
+        if (state.focus) shared.revealQuickContent(shell);
+      }
       if (state.uiSettings) {
         const ui = state.uiSettings;
         document.body.dataset.traceloTheme = ['evergreen','graphite','glacier','vermilion'].includes(ui.theme) ? ui.theme : 'evergreen';
@@ -114,7 +135,15 @@
         if (rejectSubmit) { rejectSubmit(new Error(message)); resolveSubmit = rejectSubmit = null; }
         controller.setError(message);
       } else if ('error' in state) controller.setError('');
-      if (state.draft === null && resolveSubmit) { resolveSubmit(); resolveSubmit = rejectSubmit = null; pending = null; }
+      if (state.draft === null && resolveSubmit) {
+        const resolve = resolveSubmit; resolveSubmit = rejectSubmit = null; pending = null; completing = true;
+        const currentVisibility = visibility;
+        // Native hosts send draft:null only after the atomic publish and draft cleanup succeed.
+        void controller.confirmSaved().then(async () => {
+          completing = false; resolve();
+          if (currentVisibility === visibility) await closeSurface({ action: 'dismiss', draft: null });
+        });
+      }
       if ('saving' in state) {
         controller.setSaving(state.saving);
         document.querySelector('#close').disabled = document.querySelector('#location').disabled = state.saving;

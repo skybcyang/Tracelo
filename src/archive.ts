@@ -28,7 +28,7 @@ export interface PluginState {
   cardLayout: "aligned" | "masonry";
   theme: "evergreen" | "graphite" | "glacier" | "vermilion";
   appearance: "system" | "light" | "dark";
-  compactCards: boolean;
+  presentationMode: boolean;
   orders: TaskOrders;
   viewMode: ViewMode;
   lastDailyBackup: string | null;
@@ -52,7 +52,7 @@ export function createDefaultState(): PluginState {
     cardLayout: "aligned",
     theme: "evergreen",
     appearance: "system",
-    compactCards: false,
+    presentationMode: false,
     orders: { group: {}, quadrant: {} },
     viewMode: "group",
     lastDailyBackup: null,
@@ -95,7 +95,8 @@ export function normalizePluginState(value: unknown): PluginState {
     cardLayout: value.cardLayout === "masonry" ? "masonry" : "aligned",
     theme: value.theme === "graphite" || value.theme === "glacier" || value.theme === "vermilion" ? value.theme : "evergreen",
     appearance: value.appearance === "light" || value.appearance === "dark" ? value.appearance : "system",
-    compactCards: value.compactCards === true,
+    presentationMode: typeof value.presentationMode === 'boolean'
+      ? value.presentationMode : value.compactCards === false,
     orders: {
       group: orderRecord(orders.group),
       quadrant: orderRecord(orders.quadrant),

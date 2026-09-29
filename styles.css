@@ -2506,7 +2506,7 @@ body[data-tracelo-theme=graphite] .work-timeline-view .wt-card .wt-card-heading 
 .wt-view-tools .wt-view-switch { margin-top:3px; align-self:start; padding:3px; background:var(--wt-bg); }
 .work-timeline-view .wt-view-switch button { font-size:12px; min-height:29px; height:29px; padding:4px 10px; white-space:nowrap; }
 .wt-navigation-divider { width:1px; height:23px; background:var(--wt-line); align-self:start; margin-top:10px; }
-.wt-group-navigation { display:flex; flex-wrap:wrap; align-items:center; gap:1px 5px; min-width:0; }
+.wt-group-navigation { display:flex; flex-wrap:nowrap; align-items:center; gap:5px; min-width:0; height:44px; }
 .work-timeline-view .wt-group-tab { position:relative; display:flex; align-items:center; justify-content:center; gap:7px; height:auto; min-height:44px; max-width:100%; padding:7px 10px; border:0; border-radius:4px; box-shadow:none; background:transparent; color:var(--wt-muted); font-size:12px; font-weight:400; white-space:normal; overflow-wrap:anywhere; }
 .wt-group-tab > span:not(.wt-group-dot):not(.wt-group-count) { min-width:0; }
 .work-timeline-view .wt-group-tab:hover { background:var(--wt-bg); color:var(--wt-text); }
@@ -2515,15 +2515,43 @@ body[data-tracelo-theme=graphite] .work-timeline-view .wt-card .wt-card-heading 
 .wt-group-dot { flex:none; width:6px; height:6px; border-radius:50%; }
 .wt-group-tab .wt-group-count { flex:none; min-width:14px; color:var(--wt-muted); font-size:10px; font-weight:400; font-variant-numeric:tabular-nums; }
 .wt-group-tab[aria-pressed=true] .wt-group-count { background:var(--wt-tint); color:var(--wt-accent-text); padding:0 4px; border-radius:4px; }
+.work-timeline-view .wt-group-navigation > .wt-group-tab { flex:none; max-width:160px; white-space:nowrap; }
+.wt-group-navigation > .wt-group-tab > span:not(.wt-group-dot):not(.wt-group-count) { overflow:hidden; text-overflow:ellipsis; }
+.wt-group-overflow { position:relative; flex:none; max-width:160px; min-width:0; }
+.wt-group-overflow[hidden] { display:none; }
+.wt-group-overflow > summary { display:flex; align-items:center; gap:6px; height:36px; padding:0 10px; border-radius:var(--wt-small-radius); color:var(--wt-muted); font-size:12px; cursor:pointer; list-style:none; }
+.wt-group-overflow > summary::-webkit-details-marker { display:none; }
+.wt-group-overflow > summary > span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wt-group-overflow > summary > span:last-child { display:flex; flex:none; }
+.wt-group-overflow > summary svg { width:14px; height:14px; }
+.wt-group-overflow > summary:is(:hover,.is-active), .wt-group-overflow[open] > summary { background:var(--wt-tint); color:var(--wt-accent-text); }
+.wt-group-overflow > summary:focus-visible { outline:2px solid var(--wt-accent); outline-offset:2px; }
+.wt-group-overflow-panel { position:absolute; z-index:50; top:calc(100% + 6px); right:0; width:240px; max-width:calc(100vw - 32px); max-height:min(360px,50vh); overflow-y:auto; padding:6px; border:1px solid var(--wt-line); border-radius:var(--wt-radius); background:var(--wt-card); box-shadow:0 8px 28px #0002; }
+.wt-group-overflow:not([open]) > .wt-group-overflow-panel { display:none; }
+.work-timeline-view .wt-group-overflow-panel .wt-group-tab { width:100%; min-height:36px; padding:8px 10px; justify-content:flex-start; text-align:left; border-radius:var(--wt-small-radius); }
+.wt-group-overflow-panel .wt-group-count { margin-left:auto; }
+.wt-group-overflow-panel .wt-group-tab[aria-pressed=true] { background:var(--wt-tint); }
+.wt-group-overflow-panel .wt-group-tab[aria-pressed=true]::after { display:none; }
+/* Only Tracelo menus receive these tokens; Obsidian still handles navigation and dismissal. */
+.menu.wt-themed-menu { padding:6px; min-width:204px; border:1px solid var(--wt-line); border-radius:var(--wt-radius); background:var(--wt-card); color:var(--wt-text); box-shadow:0 8px 28px #0002; font-size:12px; }
+.wt-themed-menu .menu-item { display:flex; align-items:center; min-height:34px; padding:7px 10px; gap:10px; border:0; border-radius:var(--wt-small-radius); background:transparent; color:var(--wt-text); box-shadow:none; font:inherit; text-align:left; }
+.wt-themed-menu .menu-item:is(:hover,.selected):not(.is-disabled) { background:var(--wt-tint); color:var(--wt-accent-text); }
+.wt-themed-menu .menu-item:focus-visible { outline:2px solid var(--wt-accent); outline-offset:-2px; }
+.wt-themed-menu .menu-item-icon { display:flex; flex:none; color:var(--wt-muted); }
+.wt-themed-menu .menu-item-title { flex:1; }
+.wt-themed-menu .menu-item-icon svg { width:15px; height:15px; stroke-width:1.7; }
+.wt-themed-menu .menu-item.is-disabled { opacity:.45; }
+.wt-themed-menu .menu-item.is-warning { color:var(--wt-red); }
+.wt-themed-menu .menu-separator { height:0; margin:5px 4px; border:0; border-top:1px solid var(--wt-line); }
 .wt-context-actions { display:flex; align-items:center; align-self:start; gap:10px; padding-top:6px; }
 .work-timeline-view .wt-context-actions .wt-manage-groups { order:0; display:flex; align-items:center; gap:6px; border:0; height:34px; padding:0; font-size:12px; white-space:nowrap; }
 .wt-manage-groups > span { display:flex; }.wt-manage-groups svg { width:15px; height:15px; }
 .work-timeline-view .wt-context-actions .wt-new-task-button { height:34px; min-height:34px; width:auto; margin:0; padding:0 12px; white-space:nowrap; }
 .work-timeline-view .wt-context-actions .wt-due-filter { height:30px; min-width:28px; width:28px; border:0; box-shadow:none; background:transparent; }
 .work-timeline-view .wt-due-filter[aria-pressed=true] { background:var(--wt-tint); color:var(--wt-accent-text); }
-/* Each group owns a full-width grid; stable masonry can pack cards within it. */
-.wt-board.is-group { grid-template-columns:minmax(0,1fr); row-gap:24px; }
-.wt-board.is-group .wt-card-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--wt-card-min)),1fr)); }
+/* Groups and quadrants share full-width sections and the same card tracks. */
+.wt-board:is(.is-group,.is-quadrant) { grid-template-columns:minmax(0,1fr); row-gap:24px; }
+.wt-board:is(.is-group,.is-quadrant) .wt-card-grid { grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--wt-card-min)),1fr)); }
 @container work-timeline (max-width:1250px) {
  .work-timeline-view .wt-view-tools { grid-template-columns:minmax(0,1fr) auto; gap:3px 16px; padding-bottom:0; }
  .wt-view-tools .wt-view-switch { justify-self:start; }
@@ -2550,7 +2578,7 @@ body[data-tracelo-theme=graphite] .work-timeline-view .wt-card .wt-card-heading 
  .work-timeline-view .wt-view-switch button { font-size:11px; padding:4px 7px; }
  .wt-context-actions { gap:4px; }.work-timeline-view .wt-context-actions .wt-new-task-button { font-size:11px; padding:0 8px; }
  .wt-context-actions .wt-new-task-button span { display:inline; }
- .wt-board.is-group .wt-card-grid { grid-template-columns:1fr; }
+ .wt-board:is(.is-group,.is-quadrant) .wt-card-grid { grid-template-columns:1fr; }
 }
 
 /* Content icon picker follows the same theme and shell as the current settings modal. */
@@ -2597,4 +2625,56 @@ body[data-tracelo-theme=graphite] .work-timeline-view .wt-card .wt-card-heading 
 @media (pointer:coarse) {
   .wt-icon-picker .wt-icon-mode,
   .wt-modal.wt-icon-picker .wt-icon-footer :is(.wt-icon-more,.wt-secondary-action) { min-height:44px; }
+}
+
+/* Compact cards reserve the same reading slots; expanded cards flow naturally. */
+.wt-card:not(.is-expanded) .wt-card-title {
+  display:block; height:1.65em; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+}
+.wt-card:not(.is-expanded) .wt-card-labels {
+  display:flex; flex-wrap:nowrap; align-items:center;
+  gap:6px; height:20px; min-width:0; margin:8px 0 10px;
+}
+.wt-card:not(.is-expanded) .wt-card-labels .wt-card-properties {
+  flex:0 1 auto; flex-wrap:nowrap; min-width:0; max-width:100%; white-space:nowrap;
+}
+.wt-card:not(.is-expanded) .wt-card-group { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wt-card:not(.is-expanded) .wt-card-labels .wt-card-deadline { flex:none; min-width:0; flex-wrap:nowrap; }
+.wt-card:not(.is-expanded) .wt-card-labels :is(.wt-tag,.wt-status) { white-space:nowrap; }
+.wt-card:not(.is-expanded) .wt-latest-label { height:18.4px; min-height:18.4px; white-space:nowrap; }
+.wt-card:not(.is-expanded) .wt-card-latest {
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+  height:3.7em; min-height:3.7em; overflow:hidden;
+}
+.wt-card .is-placeholder { visibility:hidden; }
+.wt-card:not(.is-expanded) :is(.wt-task-notes,.wt-card-todos) { display:none; }
+.wt-card:not(.is-expanded) .wt-recorded-feedback { position:absolute; right:14px; bottom:41px; margin:0; background:var(--wt-card); }
+.wt-card .wt-card-footer { flex-wrap:nowrap; min-height:35px; }
+.wt-card .wt-card-status-row { min-width:0; flex-wrap:nowrap; }
+.wt-card .wt-read-more { flex:none; white-space:nowrap; }
+.wt-card.is-expanded:not(.is-selected):not(.is-editing) { border-color:var(--wt-line); box-shadow:var(--wt-card-shadow); }
+.wt-card.is-expanded :is(.wt-card-title,.wt-card-latest,.wt-notes-preview) { height:auto; max-height:none; -webkit-line-clamp:unset; overflow:visible; overflow-wrap:anywhere; }
+.wt-card.is-expanded .wt-card-group { overflow-wrap:anywhere; min-width:0; }
+.wt-card .wt-card-latest.is-markdown { white-space:normal; }
+.wt-card .wt-card-latest.is-markdown > :first-child { margin-top:0; }
+.wt-card .wt-card-latest.is-markdown > :last-child { margin-bottom:0; }
+.wt-card :is(.wt-card-latest,.wt-notes-preview) img { max-width:100%; height:auto; }
+.wt-card :is(.wt-card-latest,.wt-notes-preview) :is(pre,table) { max-width:100%; overflow-wrap:anywhere; }
+.wt-card .wt-card-latest pre { white-space:pre-wrap; }
+.has-focused-task .wt-card:not(.is-selected) { opacity:.76; }
+.has-focused-task .wt-card:not(.is-selected):is(:hover,:focus-within) { opacity:1; }
+.work-timeline-view .wt-presentation-toggle { display:inline-flex; align-items:center; gap:6px; min-height:30px; height:auto; padding:5px 8px; border:0; box-shadow:none; background:transparent; color:var(--wt-muted); font-size:11px; white-space:nowrap; }
+.wt-presentation-toggle > span { display:inline-flex; }
+.wt-presentation-toggle svg { width:14px; height:14px; }
+.work-timeline-view .wt-presentation-toggle[aria-pressed=true] { background:var(--wt-tint); color:var(--wt-accent-text); }
+.work-timeline-view .wt-presentation-toggle:focus-visible { outline:2px solid var(--wt-accent); outline-offset:2px; }
+.wt-submit-feedback:empty { display:none; }
+.wt-submit-feedback { font-size:11px; line-height:1.4; color:var(--wt-muted); }
+.wt-modal-form[data-feedback="success"] .wt-submit-feedback,.wt-quick-progress[data-feedback="success"] .wt-quick-status { color:var(--wt-accent); }
+.wt-quick-progress[data-feedback="failed"] .wt-quick-status { color:var(--text-error,#b94e48); }
+.wt-quick-progress[data-feedback="queued"] .wt-quick-status { border-inline-start:2px solid var(--wt-accent); padding-inline-start:8px; }
+@container work-timeline (max-width:540px) {
+  .work-timeline-view .wt-view-tools { grid-template-columns:minmax(0,1fr); }
+  .wt-view-tools .wt-context-actions { grid-row:2; grid-column:1; flex-wrap:wrap; justify-content:flex-end; }
+  .wt-view-tools .wt-group-navigation { grid-row:3; grid-column:1; }
 }

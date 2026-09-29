@@ -26,6 +26,7 @@ import { findTaskMatches, searchExcerpt, type TaskMatch } from "./search";
 import { IconPickerModal, availableIconIds } from "./icon-picker";
 import { setContentIcon } from './content-icons';
 import { mountMasonryColumns } from "./card-layout";
+import { captureViewMotion, animateViewMotion } from './view-motion';
 import { mountNewTaskForm, buildNewTask, type NewTaskValues, type NewTaskContext, type NewTaskDraft } from "./new-task-form";
 import { normalizePluginState, serializeTaskMarkdown, type PluginState } from "./archive";
 import { mountQuickProgress } from './desktop-progress';
@@ -74,6 +75,9 @@ import {
   type WorkGroup,
   type WorkTask,
 } from "./domain";
+
+import { mountGroupOverflow } from './group-navigation';
+import { themeMenu } from './themed-menu';
 
 const VIEW_TYPE = "work-timeline-view";
 
@@ -177,6 +181,7 @@ class NewTaskModal extends Modal {
       onSubmit: async values => {
         await this.submitTask(values);
         scopedDrafts.delete(this.draftScope);
+        await this.controller?.confirmSaved();
         super.close();
       },
     });
@@ -490,6 +495,7 @@ class WorkTimelineView extends ItemView {
   private searchTarget?: { eventId: string; query: string };
   private addingTodoTaskId: string | null = null;
   private cardObserver: ResizeObserver | null = null;
+  private disposeGroupOverflow?: () => void;
   private masonryCleanups: Array<() => void> = [];
   private openCompletedTodos = new Set<string>();
   private editingNotes = new Set<string>();
@@ -514,20 +520,27 @@ class WorkTimelineView extends ItemView {
     }, 60_000));
   }
   async onClose(): Promise<void> {
+    this.disposeGroupOverflow?.();
     this.cardObserver?.disconnect();
     this.masonryCleanups.forEach(cleanup => cleanup());
     this.masonryCleanups = [];
   }
 
   taskRecorded(taskId: string): void {
+    const editingThisTask = this.expandedTaskId === taskId;
+    const active = this.contentEl.ownerDocument.activeElement;
+    const restoreFocus = editingThisTask && (active === this.contentEl.ownerDocument.body ||
+      active instanceof HTMLElement && active.closest<HTMLElement>('.wt-card')?.dataset.taskId === taskId);
     this.recordedTaskId = taskId;
     window.setTimeout(() => {
       if (this.recordedTaskId !== taskId) return;
       this.recordedTaskId = null;
       this.contentEl.querySelector('.wt-recorded-feedback')?.remove();
     }, 3500);
-    if (this.expandedTaskId === taskId) this.expandedTaskId = null;
-    this.render();
+    if (editingThisTask) this.expandedTaskId = null;
+    if (this.expandedTaskId) this.renderPresentationMode();
+    else this.render();
+    if (restoreFocus) this.focusCard(taskId);
   }
 
   openNewTask(context: NewTaskContext = {}, returnFocus?: HTMLElement): void {
@@ -549,11 +562,26 @@ class WorkTimelineView extends ItemView {
 
   render(displayOnly = false): void {
     const root = this.contentEl;
+    const motion = captureViewMotion(root);
     const existingShell = displayOnly ? root.querySelector<HTMLElement>(".wt-shell") : null;
     const endedOpen = root.querySelector<HTMLDetailsElement>(".wt-ended-section")?.open ?? false;
     const optionsOpen = root.querySelector<HTMLDetailsElement>('.wt-board-options')?.open ?? false;
     const taskPane = root.querySelector<HTMLElement>(".wt-task-column");
     const taskScrollTop = taskPane?.clientHeight ? taskPane.scrollTop : this.taskScrollTop;
+    const visibleCards = taskPane ? Array.from(taskPane.querySelectorAll<HTMLElement>('.wt-card')).filter(card => {
+      const rect = card.getBoundingClientRect(), pane = taskPane.getBoundingClientRect();
+      return rect.bottom > pane.top && rect.top < pane.bottom;
+    }) : [];
+    const readingCard = visibleCards.find(card => card.contains(root.ownerDocument.activeElement)) ?? visibleCards[0];
+    const cardAnchor = readingCard && taskPane ? {
+      id: readingCard.dataset.taskId!, offset: readingCard.getBoundingClientRect().top - taskPane.getBoundingClientRect().top,
+    } : undefined;
+    // Preserve transient input values and selection when only the display preference changes.
+    const active = root.ownerDocument.activeElement;
+    const focusedCard = active instanceof HTMLElement ? active.closest<HTMLElement>('.wt-card') : null;
+    const inputState = displayOnly && focusedCard && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)
+      ? { taskId: focusedCard.dataset.taskId!, label: active.getAttribute('aria-label'), value: active.value,
+          start: active.selectionStart, end: active.selectionEnd } : undefined;
     const layoutScrollTop = root.querySelector(".wt-layout")?.scrollTop ?? 0;
     const timelineReading = existingShell ? undefined : this.captureTimelineReading();
     this.cardObserver?.disconnect();
@@ -561,7 +589,9 @@ class WorkTimelineView extends ItemView {
     this.masonryCleanups = [];
     if (!existingShell) root.empty();
     root.addClass("work-timeline-view");
-    root.classList.toggle('is-compact-cards', this.plugin.state.compactCards);
+    root.classList.toggle('is-compact-cards', !this.plugin.state.presentationMode);
+    root.classList.toggle('is-presentation-mode', this.plugin.state.presentationMode);
+    root.classList.toggle('has-focused-task', this.selectedTaskId !== null);
     const shell = existingShell ?? root.createDiv({ cls: "wt-shell" });
     shell.dataset.pane = this.narrowPane;
     shell.inert = this.plugin.storageBusy;
@@ -606,6 +636,19 @@ class WorkTimelineView extends ItemView {
     }
     tasks.scrollTop = taskScrollTop;
     layout.scrollTop = layoutScrollTop;
+    if (cardAnchor && tasks.clientHeight) {
+      const anchor = tasks.querySelector<HTMLElement>(`.wt-card[data-task-id="${CSS.escape(cardAnchor.id)}"]`);
+      if (anchor) tasks.scrollTop += anchor.getBoundingClientRect().top - tasks.getBoundingClientRect().top - cardAnchor.offset;
+    }
+    if (inputState?.label) {
+      const input = tasks.querySelector<HTMLInputElement | HTMLTextAreaElement>(`.wt-card[data-task-id="${CSS.escape(inputState.taskId)}"] [aria-label="${CSS.escape(inputState.label)}"]`);
+      if (input) {
+        input.value = inputState.value;
+        input.focus({ preventScroll: true });
+        if (inputState.start !== null && inputState.end !== null) input.setSelectionRange(inputState.start, inputState.end);
+      }
+    }
+    animateViewMotion(root, motion, { eventIds: this.plugin.tasks.flatMap(task => task.events.map(event => event.id)), anchorTaskId: cardAnchor?.id });
   }
 
   private showPane(pane: 'tasks' | 'history'): void {
@@ -615,12 +658,54 @@ class WorkTimelineView extends ItemView {
     this.render();
   }
 
+  renderPresentationMode(): void {
+    const root = this.contentEl;
+    const pane = root.querySelector<HTMLElement>('.wt-task-column');
+    if (!pane) { this.render(); return; }
+    const motion = captureViewMotion(root);
+    const visible = Array.from(pane.querySelectorAll<HTMLElement>('.wt-card')).filter(card => {
+      const rect = card.getBoundingClientRect(), bounds = pane.getBoundingClientRect();
+      return rect.bottom > bounds.top && rect.top < bounds.bottom;
+    });
+    const reading = visible.find(card => card.contains(root.ownerDocument.activeElement)) ?? visible[0];
+    const anchor = reading ? { id: reading.dataset.taskId!, offset: reading.getBoundingClientRect().top - pane.getBoundingClientRect().top } : undefined;
+    root.classList.toggle('is-compact-cards', !this.plugin.state.presentationMode);
+    root.classList.toggle('is-presentation-mode', this.plugin.state.presentationMode);
+    const button = root.querySelector<HTMLButtonElement>('.wt-presentation-toggle');
+    button?.setAttribute('aria-pressed', String(this.plugin.state.presentationMode));
+    button?.setAttribute('title', this.plugin.state.presentationMode ? '已完整展示卡片，点击恢复紧凑显示' : '完整展示所有卡片内容');
+    this.cardObserver?.disconnect();
+    for (const card of pane.querySelectorAll<HTMLElement>('.wt-card')) {
+      const task = this.plugin.tasks.find(task => task.id === card.dataset.taskId);
+      if (!task) continue;
+      if (this.expandedTaskId === task.id) {
+        // Keep IME sessions, pending-save closures, selection and unsubmitted todo text alive.
+        const label = this.plugin.state.presentationMode ? '结束编辑' : '收起';
+        const close = card.querySelector<HTMLElement>('.wt-read-more');
+        if (close) { close.setText(label); close.setAttribute('aria-label', label); }
+        card.querySelector<HTMLElement>('.wt-composer-close')?.setText(label);
+        continue;
+      }
+      const scratch = root.ownerDocument.createElement('div');
+      const area = card.closest<HTMLElement>('.wt-task-section')?.dataset.area ?? 'ended';
+      this.renderCard(scratch, task, area);
+      card.replaceWith(scratch.firstElementChild!);
+    }
+    pane.querySelectorAll<HTMLElement>('.wt-card-body').forEach(body => this.cardObserver?.observe(body));
+    if (anchor && pane.clientHeight) {
+      const card = pane.querySelector<HTMLElement>(`.wt-card[data-task-id="${CSS.escape(anchor.id)}"]`);
+      if (card) pane.scrollTop += card.getBoundingClientRect().top - pane.getBoundingClientRect().top - anchor.offset;
+    }
+    animateViewMotion(root, motion, { eventIds: this.plugin.tasks.flatMap(task => task.events.map(event => event.id)), anchorTaskId: anchor?.id });
+  }
+
   private openHistory(taskId: string | null): void {
     this.selectedTaskId = taskId;
     this.showPane('history');
   }
 
   private renderHeader(shell: HTMLElement, existingHeader?: HTMLElement): void {
+    this.disposeGroupOverflow?.();
     if (!['all', 'ungrouped', ...this.plugin.groups.map(group => group.id)].includes(this.boardFilter)) this.boardFilter = 'all';
     const header = existingHeader ?? shell.createEl("header", { cls: "wt-header" });
     const brand = header.createDiv({ cls: "wt-brand" });
@@ -661,10 +746,30 @@ class WorkTimelineView extends ItemView {
         this.selectedTaskId = null; this.narrowPane = 'tasks'; this.taskScrollTop = 0;
         const pane = this.contentEl.querySelector('.wt-task-column'); if (pane) pane.scrollTop = 0;
         this.render();
-        this.contentEl.querySelector<HTMLButtonElement>('.wt-group-tab[aria-pressed="true"]')?.focus({preventScroll:true});
+        const selected = this.contentEl.querySelector<HTMLButtonElement>('.wt-group-tab[aria-pressed="true"]');
+        const overflow = selected?.closest('details');
+        (overflow?.querySelector('summary') ?? selected)?.focus({preventScroll:true});
       };
     });
     const contextActions = viewTools.createDiv({ cls:'wt-context-actions' });
+    const presentation = contextActions.createEl('button', {
+      cls: 'wt-presentation-toggle',
+      attr: { type: 'button', 'aria-label': '展示模式', 'aria-pressed': String(this.plugin.state.presentationMode),
+        title: this.plugin.state.presentationMode ? '已完整展示卡片，点击恢复紧凑显示' : '完整展示所有卡片内容' },
+    });
+    setIcon(presentation.createSpan({ attr: { 'aria-hidden': 'true' } }), 'expand');
+    presentation.createSpan({ text: '展示模式' });
+    presentation.onclick = () => {
+      presentation.disabled = true;
+      void runWithNotice(async () => {
+        try { await this.plugin.setPresentationMode(!this.plugin.state.presentationMode); }
+        finally {
+          presentation.disabled = false;
+          const active = this.contentEl.ownerDocument.activeElement;
+          if (active === presentation || active === this.contentEl.ownerDocument.body) presentation.focus({ preventScroll: true });
+        }
+      });
+    };
     const today = iconButton(contextActions, 'calendar-clock', '仅看今天截止');
     today.addClass('wt-due-filter'); today.setAttr('aria-pressed',String(this.dueTodayOnly));
     today.onclick = () => { this.dueTodayOnly = !this.dueTodayOnly; this.searchQuery = ''; this.render(); this.contentEl.querySelector<HTMLButtonElement>('.wt-due-filter')?.focus({preventScroll:true}); };
@@ -691,7 +796,6 @@ class WorkTimelineView extends ItemView {
       modal.onClose = () => { dispose?.(); if (!navigating) requestAnimationFrame(() => this.contentEl.querySelector<HTMLButtonElement>('[aria-label="截止日历"]')?.focus({ preventScroll: true })); };
       modal.open();
     });
-    const quick = iconButton(actions, 'zap', '快捷记录'); quick.onclick = () => this.openQuickRecord(); actions.insertBefore(quick, calendar);
     const more = actions.createEl('details', { cls: 'wt-board-options' });
     const summary = more.createEl('summary', { attr: { 'aria-label': '界面与工具设置' } }); setIcon(summary, 'settings-2');
     const tools = more.createDiv({ cls: 'wt-board-options-body' });
@@ -712,14 +816,6 @@ class WorkTimelineView extends ItemView {
       });
       const board = body.createEl('section', {cls:'wt-settings-section',attr:{'aria-label':'任务看板'}});
       board.createEl('h3',{text:'任务看板'});
-      const compact = board.createEl('label', {cls:'wt-collection-setting'});
-      const compactCopy = compact.createDiv(); compactCopy.createEl('strong',{text:'紧凑任务卡片'}); compactCopy.createEl('p',{text:'减少辅助内容，优先显示最新进展'});
-      const compactToggle = compact.createEl('input',{type:'checkbox',attr:{'aria-label':'紧凑任务卡片'}}); compactToggle.checked = this.plugin.state.compactCards;
-      compactToggle.onchange = () => void runWithNotice(async () => {
-        const previous = this.plugin.state.compactCards; this.plugin.state.compactCards = compactToggle.checked;
-        try { await this.plugin.persistState(); } catch(error) { this.plugin.state.compactCards = previous; compactToggle.checked = previous; throw error; }
-        this.app.workspace.getLeavesOfType(VIEW_TYPE).forEach(leaf => { if (leaf.view instanceof WorkTimelineView) leaf.view.render(); });
-      });
       this.renderBoardControls(board);
       const shortcuts = body.createEl('section', {cls:'wt-settings-section wt-settings-shortcuts',attr:{'aria-label':'桌面快捷键'}});
       shortcuts.createEl('h3',{text:'桌面快捷键'});
@@ -741,6 +837,7 @@ class WorkTimelineView extends ItemView {
     setIcon(create, "plus");
     create.createSpan({ text: "新建任务" });
     create.addEventListener("click", () => this.openNewTask({}, create));
+    this.disposeGroupOverflow = mountGroupOverflow(filters);
   }
 
   private openQuickRecord(): void {
@@ -1025,6 +1122,7 @@ class WorkTimelineView extends ItemView {
       showTaskMenu: (event, task) => this.showTaskMenu(event, task), openDueDate: task => this.openDueDate(task),
       collapseCard: id => this.collapseCard(id), focusCard: id => this.focusCard(id, true), render: () => this.render(),
       renderNotes: (body, task) => this.renderNotes(body, task),
+      renderProgress: (parent, task, text) => this.renderCardMarkdown(parent, task, text),
       openHistory: task => this.openHistory(task.id),
       completeTask: task => this.confirmComplete(task),
     }, container, task, area);
@@ -1044,7 +1142,8 @@ class WorkTimelineView extends ItemView {
 
   private collapseCard(taskId: string): void {
     this.expandedTaskId = null;
-    this.selectedTaskId = null;
+    if (!this.plugin.state.presentationMode) this.selectedTaskId = null;
+    this.editingNotes.delete(taskId);
     this.addingTodoTaskId = null;
     this.render();
     this.focusCard(taskId);
@@ -1069,7 +1168,7 @@ class WorkTimelineView extends ItemView {
   }
 
   private renderNotes(body: HTMLElement, task: WorkTask): void {
-    const edit = this.editingNotes.has(task.id);
+    const edit = this.editingNotes.has(task.id) && this.expandedTaskId === task.id;
     const pending = Object.prototype.hasOwnProperty.call(this.plugin.state.noteDrafts, task.id);
     if (!task.notes && !pending && !edit) return;
     const section = body.createDiv({ cls: "wt-task-notes" });
@@ -1081,17 +1180,7 @@ class WorkTimelineView extends ItemView {
     if (!edit) {
       if (task.notes) {
         const preview = section.createDiv({ cls: "wt-notes-preview" });
-        void MarkdownRenderer.render(this.app, task.notes, preview, this.plugin.taskArchivePath(task.id), this).catch(() => preview.setText(task.notes ?? ""));
-        preview.addEventListener("click", event => {
-          if (!(event.target instanceof HTMLImageElement)) return;
-          event.preventDefault(); event.stopPropagation();
-          const modal = new Modal(this.app);
-          modal.modalEl.addClass("wt-modal");
-          modal.setTitle("详情图片");
-          const image = modal.contentEl.createEl("img", { attr: { src: event.target.src, alt: event.target.alt || "详情图片" } });
-          image.style.cssText = "max-width:100%;max-height:80vh;object-fit:contain";
-          modal.open();
-        });
+        this.renderCardMarkdown(preview, task, task.notes);
       }
       return;
     }
@@ -1141,9 +1230,27 @@ class WorkTimelineView extends ItemView {
       saving = true; remember(); submit.disabled = cancel.disabled = input.disabled = insert.disabled = true; status.setText("保存中…");
       try {
         await this.plugin.saveTaskNotes(task.id, input.value);
-        this.editingNotes.delete(task.id); this.render(); this.focusCard(task.id);
+        this.editingNotes.delete(task.id);
+        if (this.expandedTaskId === task.id) { this.render(); this.focusCard(task.id); }
+        else if (this.expandedTaskId) this.renderPresentationMode();
+        else this.render();
       } catch (reason) { saving = false; status.setText(`保存失败：${reason instanceof Error ? reason.message : String(reason)}`); submit.disabled = cancel.disabled = input.disabled = insert.disabled = false; }
     };
+  }
+
+  private renderCardMarkdown(parent: HTMLElement, task: WorkTask, text: string): void {
+    void MarkdownRenderer.render(this.app, text, parent, this.plugin.taskArchivePath(task.id), this).catch(() => parent.setText(text));
+    parent.addEventListener('click', event => {
+      if (!(event.target instanceof HTMLImageElement)) return;
+      event.preventDefault(); event.stopPropagation();
+      const source = event.target;
+      const modal = new Modal(this.app);
+      modal.modalEl.addClass('wt-modal'); modal.setTitle('图片预览');
+      const image = modal.contentEl.createEl('img', { attr: { src: source.src, alt: source.alt || '任务图片' } });
+      image.style.cssText = 'max-width:100%;max-height:80vh;object-fit:contain';
+      modal.onClose = () => source.closest<HTMLElement>('.wt-card')?.querySelector<HTMLElement>('.wt-card-open')?.focus({ preventScroll: true });
+      modal.open();
+    });
   }
 
   private openDueDate(task: WorkTask): void {
@@ -1161,7 +1268,7 @@ class WorkTimelineView extends ItemView {
 
   private showTaskMenu(event: MouseEvent, task: WorkTask): void {
     event.stopPropagation();
-    const menu = new Menu();
+    const menu = themeMenu(new Menu(), this.contentEl);
     const exists = this.plugin.hasTaskFolder(task.id);
     menu.addItem((item) => item.setTitle(this.plugin.canOpenTaskFolder ? (exists ? "打开文件夹" : "创建文件夹") : "任务文件夹（仅桌面端）")
       .setIcon(exists ? "folder-open" : "folder-plus")
@@ -1185,7 +1292,7 @@ class WorkTimelineView extends ItemView {
     }
     menu.addSeparator();
     menu.addItem(item => {
-      const groups = submenuFor(item.setTitle('分组').setIcon('folder'));
+      const groups = themeMenu(submenuFor(item.setTitle('分组').setIcon('folder')), this.contentEl);
       for (const group of [...this.plugin.groups, { id: '', name: UNGROUPED_TASKS }]) {
         groups.addItem(choice => choice.setTitle(group.name)
           .setChecked((task.groupId ?? '') === group.id)
@@ -1193,7 +1300,7 @@ class WorkTimelineView extends ItemView {
       }
     });
     menu.addItem(item => {
-      const quadrants = submenuFor(item.setTitle('象限').setIcon('layout-grid'));
+      const quadrants = themeMenu(submenuFor(item.setTitle('象限').setIcon('layout-grid')), this.contentEl);
       for (const quadrant of QUADRANTS) {
         quadrants.addItem(choice => choice.setTitle(quadrant.name)
           .setChecked(quadrantId(task) === quadrant.id)
@@ -1781,6 +1888,18 @@ export default class WorkTimelinePlugin extends Plugin {
       try { await this.persistState(); }
       catch (reason) { this.state.cardLayout = previous; throw reason; }
       this.renderViews(undefined, true);
+    });
+  }
+
+  async setPresentationMode(value: boolean): Promise<void> {
+    return this.enqueueWrite(async () => {
+      const previous = this.state.presentationMode;
+      this.state.presentationMode = value;
+      try { await this.persistState(); }
+      catch (reason) { this.state.presentationMode = previous; throw reason; }
+      for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
+        if (leaf.view instanceof WorkTimelineView) leaf.view.renderPresentationMode();
+      }
     });
   }
 

@@ -29,7 +29,10 @@ try {
     return { ...ids, bare };
   });
   const card = id => page.locator(`.wt-card[data-task-id="${id}"]`);
-  const settle = () => page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+  const settle = () => page.evaluate(async () => {
+    await Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})));
+    await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)));
+  });
   async function check(name, fn) { try { await fn(); checks++; } catch (error) { failures.push(name + ': ' + error.message); } }
 
   await check('latest progress and deadline precede a full-height reference image', async () => {
@@ -49,7 +52,8 @@ try {
     assert.match(await card(ids.payment).locator('.wt-card-time').innerText(), /进展.*今天/);
     assert.match(await card(ids.bare).locator('.wt-card-time').innerText(), /创建.*今天/);
     assert.match(await card(ids.payment).locator('.wt-latest-label').innerText(), /今天/);
-    assert.equal(await card(ids.bare).locator('.wt-latest-label').count(), 0);
+    assert.equal(await card(ids.bare).locator('.wt-latest-label:visible').count(), 0);
+    assert.equal(await card(ids.bare).locator('.wt-latest-label.is-placeholder[aria-hidden=true]').count(), 1);
     assert.equal(await card(ids.bare).locator('.wt-due-chip').innerText(), '今天截止');
     assert.match(await card(ids.dateOnly).locator('.wt-due-chip').innerText(), /已逾期/);
   });

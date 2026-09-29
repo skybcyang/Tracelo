@@ -1,5 +1,6 @@
 import { QUADRANTS, UNGROUPED_TASKS, createTask, setDueDate, addTodo, addProgress, type CreateTaskInput, type QuadrantId, type WorkGroup } from './domain';
 import { mountDraftImages, type DraftImage } from './draft-images';
+import { confirmQuickSave, revealQuickContent } from './quick-feedback';
 
 export interface NewTaskValues extends CreateTaskInput { initialProgress: string; dueDate: string | null; todos: string[]; images?: DraftImage[]; creationId?: string }
 export interface NewTaskContext { groupId?: string | null; quadrant?: QuadrantId }
@@ -42,6 +43,8 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   }
   const context = options.context ?? {};
   let groups = options.groups, saving = false, available = true, composing = false;
+  let feedback: 'idle' | 'saving' | 'success' | 'failed' = 'idle';
+  let submission = 0;
   const expanded = { todos: false, due: false, progress: false };
   const form = el(container, 'form', 'wt-modal-form');
   const body = el(form, 'div', 'wt-new-task-body');
@@ -83,6 +86,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   const todoList = el(todoSection, 'div', 'wt-new-todos');
   function addTodoRow(value = '') {
     const row = el(todoList, 'div', 'wt-new-todo-row');
+    revealQuickContent(row);
     const input = el(row, 'input', '', '', { type: 'text', 'aria-label': '待办内容', placeholder: '待办内容', maxlength: '160' });
     input.value = value;
     const remove = el(row, 'button', 'clickable-icon wt-icon-button', '', { type: 'button', 'aria-label': '移除待办' });
@@ -102,7 +106,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   const imageHost = el(body, 'div', 'wt-new-images');
   metadata.before(imageHost);
   const images = mountDraftImages(details, imageHost, changed);
-  advanced.addEventListener('toggle', () => options.onResize?.());
+  advanced.addEventListener('toggle', () => { if (advanced.open) revealQuickContent(extraBody); options.onResize?.(); });
   const footer = el(form, 'div', 'wt-new-task-footer');
   footer.append(draftRow);
   extraBody.append(clear);
@@ -113,6 +117,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   const submit = el(actions, 'button', 'wt-primary-action', '', { id: 'submit', type: 'submit' });
   options.setIcon(submit, 'plus');
   const submitLabel = el(submit, 'span', '', '创建任务');
+  const feedbackStatus = el(footer, 'span', 'wt-submit-feedback', '', { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
   const read = (): NewTaskDraft => ({ title: title.value, notes: details.value, groupId: group.value, quadrant: selectedQuadrantId(),
     todos: [...todoList.querySelectorAll('input')].map(input => input.value), dueDate: due.value, initialProgress: progress.value, expanded: { ...expanded }, images: images.read(), creationId });
   function refresh() {
@@ -124,12 +129,14 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
       panel.hidden = !open; button.setAttribute('aria-expanded', String(open));
     }
     body.inert = saving; cancel.disabled = saving;
-    submit.disabled = saving || images.blocked() || !available || !title.value.trim();
+    form.dataset.feedback = feedback;
+    submit.disabled = saving || feedback === 'success' || images.blocked() || !available || !title.value.trim();
     submit.setAttribute('aria-busy', String(saving));
-    submitLabel.textContent = saving ? '创建中…' : '创建任务';
+    submitLabel.textContent = feedback === 'success' ? '已创建' : saving ? '创建中…' : '创建任务';
+    feedbackStatus.textContent = feedback === 'success' ? '任务已写入' : saving ? '正在创建任务…' : '';
     options.onResize?.();
   }
-  function changed() { error.textContent = ''; if (container.isConnected) options.onChange?.(read()); refresh(); }
+  function changed() { error.textContent = ''; if (!saving) feedback = 'idle'; if (container.isConnected) options.onChange?.(read()); refresh(); }
   function setGroups(items: Options['groups'], selected = group.value) {
     groups = items; group.replaceChildren();
     el(group, 'option', '', UNGROUPED_TASKS, { value: '' });
@@ -139,6 +146,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
     group.value = selected;
   }
   function setDraft(draft?: Partial<NewTaskDraft> | null) {
+    if (!saving) { feedback = 'idle'; submission++; }
     title.value = draft?.title ?? ''; details.value = draft?.notes ?? '';
     creationId = draft?.creationId ?? newId(); images.set(draft?.images ?? []);
     setGroups(groups, draft?.groupId ?? context.groupId ?? '');
@@ -150,9 +158,9 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
     draftStatus.textContent = draft ? '已恢复草稿' : '关闭后保留本次草稿';
     refresh();
   }
-  todoButton.onclick = () => { expanded.todos = !expanded.todos; if (expanded.todos && !todoList.childElementCount) addTodoRow(); changed(); if (expanded.todos) todoList.querySelector('input')?.focus(); };
-  dateButton.onclick = () => { expanded.due = !expanded.due; changed(); if (expanded.due) due.focus(); };
-  progressButton.onclick = () => { expanded.progress = !expanded.progress; changed(); if (expanded.progress) progress.focus(); };
+  todoButton.onclick = () => { expanded.todos = !expanded.todos; if (expanded.todos && !todoList.childElementCount) addTodoRow(); changed(); if (expanded.todos) { revealQuickContent(todoSection); todoList.querySelector('input')?.focus(); } };
+  dateButton.onclick = () => { expanded.due = !expanded.due; changed(); if (expanded.due) { revealQuickContent(dueField); due.focus(); } };
+  progressButton.onclick = () => { expanded.progress = !expanded.progress; changed(); if (expanded.progress) { revealQuickContent(progressField); progress.focus(); } };
   clear.onclick = () => { cleared = read(); setDraft(null); undoClear.hidden = false; draftStatus.textContent = '草稿已清空'; changed(); title.focus(); };
   undoClear.onclick = () => { setDraft(cleared); cleared = null; undoClear.hidden = true; changed(); };
   form.addEventListener('input', changed); form.addEventListener('change', changed);
@@ -165,23 +173,26 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   cancel.onclick = () => { if (!saving) options.onCancel(); };
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (saving || images.blocked() || !available || composing || !title.value.trim()) return;
+    if (saving || feedback === 'success' || images.blocked() || !available || composing || !title.value.trim()) return;
     const selectedQuadrant = QUADRANTS.find(item => item.id === selectedQuadrantId());
     const selectedGroup = groups.find(item => item.id === group.value);
     if (!selectedQuadrant || (group.value && !selectedGroup)) { error.textContent = '分组或象限不可用，请重新选择'; return; }
-    saving = true; error.textContent = ''; options.onChange?.(read()); refresh();
+    saving = true; feedback = 'saving'; error.textContent = ''; options.onChange?.(read()); refresh();
+    const currentSubmission = ++submission;
     try {
       await options.onSubmit({ title: title.value, notes: details.value, groupId: selectedGroup?.id ?? null, groupName: selectedGroup?.name ?? UNGROUPED_TASKS,
         important: selectedQuadrant.important, urgent: selectedQuadrant.urgent, dueDate: due.value || null,
         initialProgress: progress.value, todos: read().todos.map(value => value.trim()).filter(Boolean), images: images.read(), creationId }, read());
-    } catch (reason) { error.textContent = reason instanceof Error ? reason.message : '无法创建任务'; }
-    finally { saving = false; refresh(); }
+      if (submission === currentSubmission) feedback = 'success';
+    } catch (reason) { if (submission === currentSubmission) { feedback = 'failed'; error.textContent = reason instanceof Error ? reason.message : '无法创建任务'; } }
+    finally { if (submission === currentSubmission) { saving = false; refresh(); } }
   });
   setDraft(options.draft);
   return { form, body, footer, read, setDraft, setGroups, focus: () => title.focus({ preventScroll: true }),
     destroy: () => images.destroy(),
     isSaving: () => saving, isComposing: () => composing,
     setAvailable: (value: boolean) => { available = value; refresh(); },
-    setError: (value: string) => { error.textContent = value; refresh(); },
-    setSaving: (value: boolean) => { saving = value; refresh(); } };
+    confirmSaved: async () => { feedback = 'success'; refresh(); await confirmQuickSave(feedbackStatus); },
+    setError: (value: string) => { error.textContent = value; if (value) feedback = 'failed'; refresh(); },
+    setSaving: (value: boolean) => { saving = value; if (value) feedback = 'saving'; refresh(); } };
 }
