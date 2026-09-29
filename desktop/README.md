@@ -1,21 +1,21 @@
 # Tracelo 桌面快捷工具
 
-当前未发布构建已加入快捷进展，并按插件尺度 A/D/E/F 重排两种窗口：554px 宽、创建／进展标签、直接可见的四象限（宽窗口一排，窄窗口 2×2）、图文草稿及同仓库主题同步。与发布版的区别、实际代码预览及验证边界见 [本次实施报告](../docs/releases/plugin-collection-vs-0.9.0.md)。以下带 0.9.0 的说明对应已发布版本。
+0.9.1 已加入快捷进展，并统一创建与进展窗口：554px 宽、创建／进展标签、直接可见的四象限（宽窗口一排，窄窗口 2×2）、图文草稿及同仓库主题同步。下载与升级见 [0.9.1 发布说明](../docs/releases/0.9.1.md)，界面变化与验证边界见[实施报告](../docs/releases/plugin-collection-vs-0.9.0.md)。
 
-源码现已整合至本地 `main`，包含 Noto 彩色任务图标和可展开／收起的任务选择器。本次合并构建尚未重新安装；[一致性记录](../docs/validation/2026-09-29-consistency-integration.md)区分源码、打包产物和已安装应用。
+源码包含 Noto 彩色任务图标和可展开／收起的任务选择器。2026-09-30 曾将发布前的开发构建安装到本仓插件目录和 `/Applications/Tracelo Capture.app`；该次安装的版本字段为 0.9.0，[安装验证](../docs/validation/2026-09-29-interface-consistency.md)记录备份、哈希与验收范围。当前源码版本已统一为 0.9.1。
 
-0.9.0 的插件、macOS 和 Windows 快捷窗口共用 `src/new-task-form.ts`：任务名称、详情、分组、重要／紧急四象限、待办、截止日期、初始进展及草稿采用同一表单和任务生成逻辑。名称与详情独立填写，象限使用四项直接可见的 2×2 选择区。macOS 使用系统 WebKit，Windows 使用 WebView2。截图与验证见[完整快捷创建](../docs/validation/2026-09-28-capture-shared-ui.md)。
+插件、macOS 和 Windows 快捷窗口共用 `src/new-task-form.ts`：任务名称、详情、分组、重要／紧急四象限、待办、截止日期、初始进展及草稿采用同一表单和任务生成逻辑。名称与详情独立填写，象限使用四项直接可见的选择区。macOS 使用系统 WebKit，Windows 使用 WebView2。早期截图与验证见[完整快捷创建](../docs/validation/2026-09-28-capture-shared-ui.md)。
 
-0.9.0 提供 macOS Universal `.app` 压缩包和 Windows x64 自包含 `.exe` 压缩包，均与同版 Obsidian 插件配套使用。macOS 仅作本地 ad-hoc 签名，尚无开发者签名／公证；Windows 尚无代码签名。系统可能提示发布者未经验证。实际输入法选词、多屏和焦点恢复仍需实机复核，自动协议／输入策略测试不等同于全部系统交互验收。
+0.9.1 提供 macOS Universal `.app` 压缩包和 Windows x64 自包含 `.exe` 压缩包，均与同版 Obsidian 插件配套使用。macOS 仅作本地 ad-hoc 签名，尚无开发者签名／公证；Windows 尚无代码签名。系统可能提示发布者未经验证。实际输入法选词、多屏和焦点恢复仍需实机复核，自动协议／输入策略测试不等同于全部系统交互验收。
 
 ## 下载与安装
 
 从 [GitHub Releases](https://github.com/skybcyang/Tracelo/releases/latest) 下载对应平台的 ZIP，并核对 `SHA256SUMS.txt`。
 
-- **macOS 13+（Intel / Apple Silicon）**：解压 `Tracelo-Capture-0.9.0-macos-universal.zip`，将 `Tracelo Capture.app` 放入应用程序目录并打开。通过菜单栏图标进入设置。应用不会自动注册开机启动。
-- **Windows 10/11 x64**：解压 `Tracelo-Capture-0.9.0-windows-x64.zip`，运行 `TraceloCapture.exe`；无需另装 .NET，需安装 WebView2 Evergreen Runtime。通过托盘菜单进入设置，详见 [Windows 使用与开发](windows/README.md)。
+- **macOS 13+（Intel / Apple Silicon）**：解压 `Tracelo-Capture-0.9.1-macos-universal.zip`，将 `Tracelo Capture.app` 放入应用程序目录并打开。通过菜单栏图标进入设置。应用不会自动注册开机启动。
+- **Windows 10/11 x64**：解压 `Tracelo-Capture-0.9.1-windows-x64.zip`，运行 `TraceloCapture.exe`；无需另装 .NET，需安装 WebView2 Evergreen Runtime。通过托盘菜单进入设置，详见 [Windows 使用与开发](windows/README.md)。
 
-选择 vault 后，填写插件设置中的实际任务相对目录。目录须存在。发布版 0.9.0 仅新增任务；当前开发版另可提交既有任务的修改命令，由插件写入历史。两个系统的创建入口默认使用 Control+Alt/Option+Space，可在设置中更改。
+选择 vault 后，填写插件设置中的实际任务相对目录。目录须存在。新建直接发布任务；既有任务的进展与修改由插件消费命令并写入历史。两个系统的创建入口默认使用 Control+Alt/Option+Space，可在设置中更改。
 
 ## macOS 实现
 
@@ -35,7 +35,7 @@ desktop/.build/release/TraceloCapture
 
 创建快捷键为 `Control+Option+Space`，记录进展为 `Control+Option+P`；菜单栏也提供两个入口。设置中可分别录入组合键，注册冲突时提示并保留原快捷键。设置保存在 `app.tracelo.capture` UserDefaults 域；图文创建与各任务进展草稿按仓库／任务目录隔离，原子保存于 `~/Library/Application Support/TraceloCapture/Drafts/`。旧草稿会迁移。
 
-记录进展先搜索选择任务，再使用与插件共用的快捷编辑区填写图文进展和更新待办。点击当前任务展开搜索，再点一次收起，不清空草稿。Enter 换行，⌘ Enter 提交。插件未运行时显示“已暂存，打开 Obsidian 后写入任务”，确认正式写入后才清空对应草稿。窗口中的两种模式可随时切换；待写入命令不会直接覆盖任务文件。此新增能力需要同时升级插件与桌面工具，详见[未发布更新](../docs/releases/unreleased-2026-09-29.md)。
+记录进展先搜索选择任务，再使用与插件共用的快捷编辑区填写图文进展和更新待办。点击当前任务展开搜索，再点一次收起，不清空草稿。Enter 换行，⌘ Enter 提交。插件未运行时显示“已暂存，打开 Obsidian 后写入任务”，确认正式写入后才清空对应草稿。窗口中的两种模式可随时切换；待写入命令不会直接覆盖任务文件。此新增能力需要同时升级插件与桌面工具，详见[0.9.1 更新](../docs/releases/0.9.1.md)。
 
 ## 输入行为
 

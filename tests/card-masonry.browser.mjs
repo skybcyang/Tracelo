@@ -33,7 +33,7 @@ try {
     gap: parseFloat(getComputedStyle(grid).columnGap),
     zoom: Number(getComputedStyle(grid.closest('.wt-board')).zoom),
     bounds: rect(grid),
-    items: [...grid.querySelectorAll('.wt-card, .wt-card-create')].map(el => ({ id: el.dataset.taskId ?? 'create', ...rect(el), content: el.querySelector('.wt-card-body')?.getBoundingClientRect().height })),
+    items: [...grid.querySelectorAll('.wt-card')].map(el => ({ id: el.dataset.taskId, ...rect(el), content: el.querySelector('.wt-card-body')?.getBoundingClientRect().height })),
   }; });
   function verifyFit({ items, bounds }) {
     assert.ok(items.every(item => Math.abs(item.width - items[0].width) < 1), 'unequal card widths');

@@ -420,15 +420,14 @@ try {
   await page.waitForFunction(() => window.cardFixture);
   Object.assign(ids, await page.evaluate(() => window.cardFixture.ids));
   payment = card(ids.payment);
-  await check('each active section has a dashed base-grid creation card', async () => {
-    assert.equal(await page.locator('.wt-card-create').count(), 2);
-    assert.equal(await page.locator('.wt-ended-section .wt-card-create').count(), 0);
-    const tiles = await page.locator('.wt-card-create').evaluateAll(elements => elements.map(el => ({ h: el.getBoundingClientRect().height, border: getComputedStyle(el).borderStyle, tag: el.tagName })));
-    assert.ok(tiles.every(t => t.h >= 32 && t.border === 'dashed' && t.tag === 'BUTTON'));
+  await check('sections retain header creation buttons without placeholder cards', async () => {
+    assert.equal(await page.locator('.wt-card-create').count(), 0);
+    assert.equal(await page.locator('.wt-section-heading button').count(), 2);
+    assert.equal(await page.getByRole('button', { name: '新建任务', exact: true }).isVisible(), true);
   });
-  if (await page.locator('.wt-card-create').count()) {
+  {
     await check('group creation carries context, cancels without saving and restores keyboard focus', async () => {
-      const tile = page.getByRole('button', { name: '在产品研发中新建任务', exact: true });
+      const tile = page.getByRole('button', { name: '向产品研发添加任务', exact: true });
       await tile.focus(); await tile.press('Enter');
       await page.locator('.wt-capture-extra > summary').click();
       assert.equal(await page.getByRole('combobox', { name: '任务分组' }).inputValue(), await page.evaluate(() => window.cardFixture.plugin.groups[0].id));
@@ -437,16 +436,17 @@ try {
       await settle();
       assert.equal(await tile.evaluate(el => el === document.activeElement), true);
       assert.equal(await page.evaluate(() => window.cardFixture.plugin.tasks.length), 4);
-      await page.getByRole('button', { name: '在未分组中新建任务', exact: true }).click();
+      await page.getByRole('button', { name: '向未分组添加任务', exact: true }).click();
       assert.equal(await page.getByRole('combobox', { name: '任务分组' }).inputValue(), '');
       await page.getByRole('button', { name: '取消', exact: true }).click();
     });
-    await check('all four quadrant creation cards preselect their quadrant and create in it', async () => {
+    await check('all four quadrant header buttons preselect their quadrant and create in it', async () => {
       await page.getByRole('button', { name: '四象限', exact: true }).click();
-      assert.equal(await page.locator('.wt-card-create').count(), 4);
+      assert.equal(await page.locator('.wt-card-create').count(), 0);
+      assert.equal(await page.locator('.wt-section-heading button').count(), 4);
       const areas = await page.locator('.wt-task-section').evaluateAll(els => els.map(el => el.dataset.area));
       for (const area of areas) {
-        await page.locator(`[data-area="${area}"] .wt-card-create`).click();
+        await page.locator(`[data-area="${area}"] .wt-section-heading button`).click();
         assert.equal(await page.locator('.wt-quadrant-picker input:checked').inputValue(), area);
         await page.locator('.wt-modal-title').fill('象限入口 ' + area);
         await page.getByRole('button', { name: '创建任务', exact: true }).click();
@@ -472,10 +472,10 @@ try {
   await page.waitForFunction(() => window.cardFixture);
   Object.assign(ids, await page.evaluate(() => window.cardFixture.ids));
   payment = card(ids.payment);
-  if (await page.locator('.wt-card-create').count()) {
-    await check('dropping onto a creation card moves a task without creating one', async () => {
+  {
+    await check('dropping onto an empty group grid moves a task without creating one', async () => {
       const data = await page.evaluateHandle(id => { const data = new DataTransfer(); data.setData('text/plain', id); return data; }, ids.payment);
-      await page.locator('[data-area="ungrouped"] .wt-card-create').dispatchEvent('drop', { dataTransfer: data });
+      await page.locator('[data-area="ungrouped"] .wt-card-grid').dispatchEvent('drop', { dataTransfer: data });
       await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).groupId === null, ids.payment);
       assert.equal(await page.locator('.wt-new-task-modal').count(), 0);
       assert.equal(await page.evaluate(() => window.cardFixture.plugin.tasks.length), 4);
@@ -507,16 +507,18 @@ try {
           assert.ok(contrast.every(item => item.ratio >= 4.5), JSON.stringify(contrast.filter(item => item.ratio < 4.5)));
         });
         for (const width of [1440, 760, 375]) {
-          await check(`${mode} ${theme} ${width}px: creation tiles preserve the base grid`, async () => {
+          await check(`${mode} ${theme} ${width}px: task cards fit the grid without placeholders`, async () => {
             await page.setViewportSize({ width, height: 1000 });
             await page.emulateMedia({ reducedMotion: 'reduce' });
             await settle();
-            const sizes = await page.locator('.wt-card-create').evaluateAll(els => els.map(el => {
+            assert.equal(await page.locator('.wt-card-create').count(), 0);
+            const sizes = await page.locator('.wt-card-grid .wt-card').evaluateAll(els => els.map(el => {
               const r = el.getBoundingClientRect(), grid = el.parentElement.getBoundingClientRect();
               const other = el.parentElement.querySelector('.wt-card')?.getBoundingClientRect();
               return { h: r.height, w: r.width, sw: el.scrollWidth, sh: el.scrollHeight, top: r.top - grid.top - 9, right: r.right, gridRight: grid.right, other: other?.width };
             }));
-            assert.ok(sizes.every(s => s.h >= 32 && s.sw <= s.w && s.sh <= s.h && s.right <= s.gridRight + 1));
+            assert.ok(sizes.length > 0);
+            assert.ok(sizes.every(s => s.h >= 32 && s.sw <= s.w + 1 && s.right <= s.gridRight + 1));
             assert.ok(sizes.every(s => s.other === undefined || Math.abs(s.other - s.w) < .1));
             if (process.env.TRACELO_ARTIFACT_DIR && [1440, 375].includes(width)) await page.screenshot({ path: `${process.env.TRACELO_ARTIFACT_DIR}/create-${mode}-${theme}-${width}.png` });
           });

@@ -1006,19 +1006,9 @@ class WorkTimelineView extends ItemView {
       if (taskId) void runWithNotice(() => this.plugin.dropTask(taskId, this.plugin.state.viewMode, area, null));
     });
     for (const task of section.tasks) this.renderCard(grid, task, area);
-    const create = grid.createEl("button", {
-      cls: "wt-card-create",
-      attr: { type: "button", "aria-label": `在${section.name}中新建任务` },
-    });
-    setIcon(create.createSpan({ cls: "wt-card-create-icon", attr: { "aria-hidden": "true" } }), "plus");
-    create.createSpan({ text: "新建任务", cls: "wt-card-create-label" });
-    create.createSpan({ text: section.tasks.length
-      ? (this.plugin.state.viewMode === "group" ? "添加到此分组" : "添加到此象限")
-      : "也可拖动任务到这里", cls: "wt-card-create-hint" });
     const context: NewTaskContext = this.plugin.state.viewMode === "group"
       ? { groupId: section.id }
       : { quadrant: QUADRANTS.find(item => item.id === section.id)!.id };
-    create.addEventListener("click", () => this.openNewTask(context, create));
     add.onclick = () => this.openNewTask(context, add);
   }
 

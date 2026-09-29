@@ -1,6 +1,6 @@
 # Tracelo 快捷创建 · Windows
 
-发布基线为 0.9.0；当前本地 `main` 已整合四主题、图文进展、Noto 任务图标及任务选择器切换，尚未发布新版本。下面编号步骤描述发布版创建入口，开发版增量见后文及[一致性记录](../../docs/validation/2026-09-29-consistency-integration.md)。
+当前版本为 0.9.1，包含四主题、图文进展、Noto 任务图标及任务选择器切换。下载与升级见[发布说明](../../docs/releases/0.9.1.md)。
 
 Windows 10 / 11 x64 原生托盘工具，使用 .NET WinForms 宿主和 WebView2 共享表单。发布构建自带 .NET 运行时，不需要 Obsidian 正在运行；还需要 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。缺失时窗口提供安装入口，不会自动下载或修改系统。任务需由已配置相同目录的 Tracelo 插件读取。
 
@@ -16,7 +16,7 @@ Windows 10 / 11 x64 原生托盘工具，使用 .NET WinForms 宿主和 WebView2
 
 提交前会重新读取分组档案。若分组被改名或删除，本次创建会停止、保留完整草稿并刷新选项，确认后可重新创建。草稿与待重试请求按 vault／任务目录隔离，切换后只恢复对应目标的记录；只改快捷键不会清除可安全重试的请求。
 
-开发版快捷进展入口默认 **Ctrl+Alt+P**，可在设置中单独修改，托盘亦提供“记录进展”。先搜索选择已有任务，再使用共享快捷编辑区；点击当前任务展开搜索，再点一次收起。图文进展草稿按任务和仓库持久保存。插件关闭时命令状态为“已暂存”，插件确认写入后才清空对应草稿并收起。新建详情和进展支持多选、粘贴和拖入图片，每张 10 MB、草稿合计 40 MB，支持 PNG/JPEG/WebP/GIF/BMP；创建时整体发布 Markdown 和附件。主题从同仓库 `.tracelo-ui.json` 读取。新增能力需要同时升级插件和 Windows 工具，详见[未发布更新](../../docs/releases/unreleased-2026-09-29.md)。
+快捷进展入口默认 **Ctrl+Alt+P**，可在设置中单独修改，托盘亦提供“记录进展”。先搜索选择已有任务，再使用共享快捷编辑区；点击当前任务展开搜索，再点一次收起。图文进展草稿按任务和仓库持久保存。插件关闭时命令状态为“已暂存”，插件确认写入后才清空对应草稿并收起。新建详情和进展支持多选、粘贴和拖入图片，每张 10 MB、草稿合计 40 MB，支持 PNG/JPEG/WebP/GIF/BMP；创建时整体发布 Markdown 和附件。主题从同仓库 `.tracelo-ui.json` 读取。新增能力需要同时升级插件和 Windows 工具，详见[0.9.1 更新](../../docs/releases/0.9.1.md)。
 
 浮窗直接嵌入 macOS 共享页面、脚本及根目录 `styles.css`，没有独立的 Windows 表单样式副本。窗口遵循 Windows 应用浅色／深色偏好，原生设置遵循高对比度颜色，支持每显示器 DPI 缩放，并将浮窗限制在屏幕可用区域内。
 
@@ -46,7 +46,7 @@ npx vitest run desktop/windows/archive-compat.test.ts
 Windows PowerShell 一次执行核心测试、发布和原生 smoke test：
 
 ```powershell
-./desktop/windows/scripts/verify.ps1 -OutputDirectory ./dist/windows-verification -Version 0.9.0
+./desktop/windows/scripts/verify.ps1 -OutputDirectory ./dist/windows-verification -Version 0.9.1
 ```
 
 单独测试已发布可执行文件：

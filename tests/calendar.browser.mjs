@@ -9,8 +9,9 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   page.setDefaultTimeout(3000);
   await page.route('https://tracelo.test/', route => route.fulfill({ contentType: 'text/html', body: '<style>' + readFileSync('tests/helpers/obsidian-host.css', 'utf8') + readFileSync('styles.css', 'utf8') + '</style><script type="module">' + bundle.outputFiles[0].text + '</script>' }));
-  await page.goto('https://tracelo.test/'); await page.waitForFunction(() => window.cardFixture);
+  // Create fixture events on the same clock as later edits; never rewind real history.
   await page.clock.install({ time: new Date(2026, 8, 29, 23, 59, 58) });
+  await page.goto('https://tracelo.test/'); await page.waitForFunction(() => window.cardFixture);
   await page.getByRole('button', { name: '截止日历', exact: true }).click();
   const modal = page.locator('.wt-calendar-modal');
   await modal.locator('[data-day="2026-09-30"]').click();

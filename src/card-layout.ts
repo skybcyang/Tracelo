@@ -5,7 +5,7 @@
 export function mountMasonryColumns(grid: HTMLElement): () => void {
   const items = Array.from(grid.children) as HTMLElement[];
   const win = grid.ownerDocument.defaultView;
-  if (!win || !items.some(item => item.matches('.wt-card, .wt-card-create'))) return () => {};
+  if (!win || !items.some(item => item.matches('.wt-card'))) return () => {};
   let columnCount = 0;
   const reflow = () => {
     if (!grid.isConnected || grid.clientWidth === 0) return;
