@@ -208,7 +208,7 @@ export function setTaskNotes(task: WorkTask, notes: string, now: Date, eventId: 
 }
 
 export function isTaskIcon(value: unknown): value is string {
-  return typeof value === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(value);
+  return typeof value === "string" && /^(?:[a-z][a-z0-9-]{0,79}|noto:[a-z0-9][a-z0-9-]{0,119})$/.test(value);
 }
 
 export function setTaskIcon(task: WorkTask, icon: string | null | undefined, now: Date, eventId: string): WorkTask {

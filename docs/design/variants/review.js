@@ -1,0 +1,13 @@
+const editions={green:{name:'松绿 · 自然秩序',dir:'studio-reset',theme:'light'},motor:{name:'宝马配色 · 工业秩序',dir:'motorsport-industrial',theme:'light'},neon:{name:'霓虹 · 每一步发光',dir:'neon-workspace',theme:'dark'}};
+const screens={
+  board:['主看板','01-board','01-workspace-light',''],quadrants:['四象限','02-quadrants','03-quadrants','view=quadrant'],detail:['任务详情','03-detail','04-task-detail','screen=detail'],create:['新建任务','04-create','05-create-task','screen=create'],quick:['快捷记录','05-quick','06-quick-capture','screen=quick'],search:['搜索','06-search','07-search','screen=search'],settings:['设置','07-settings','08-settings','page=settings'],archive:['已结束','08-archive','09-archive','page=archive'],transfer:['导入与导出','09-transfer','10-transfer','screen=transfer'],groups:['管理分组','10-groups','11-groups','screen=groups'],timeline:['每日时间线','11-timeline','12-timeline','page=timeline'],mobile:['窄屏看板','12-mobile','13-mobile-board',''],mobileCreate:['窄屏新建','13-mobile-create','14-mobile-create','screen=create'],alternate:['另一种明暗模式','14-alternate','02-workspace-dark','']
+};
+const selector=document.querySelector('#screen');
+const lightbox=document.querySelector('#lightbox');
+function screenData(key){const e=editions[key],s=screens[selector.value];const theme=selector.value==='alternate'?(e.theme==='dark'?'light':'dark'):e.theme;return {src:`../${e.dir}/${s[key==='green'?2:1]}.png`,alt:`${e.name} / ${s[0]}`,url:`../${e.dir}/?theme=${theme}${s[3]?'&'+s[3]:''}`};}
+function update(){document.querySelector('.editions').classList.toggle('mobile',selector.value.startsWith('mobile'));for(const key of Object.keys(editions)){const d=screenData(key),article=document.querySelector(`[data-edition="${key}"]`);const img=article.querySelector('img');img.src=d.src;img.alt=d.alt;const link=article.querySelector('.screen-link');if(link)link.href=d.url;}document.querySelector('#screen-hint').textContent=selector.value.startsWith('mobile')?'375 px 窄屏截图 · 点击可放大':'点击截图可放大查看';}
+selector.addEventListener('change',update);
+document.querySelectorAll('[data-preview]').forEach(button=>button.addEventListener('click',()=>{const d=screenData(button.dataset.preview);document.querySelector('#preview-title').textContent=d.alt;document.querySelector('#large-image').src=d.src;document.querySelector('#large-image').alt=d.alt;document.querySelector('#preview-live').href=d.url;document.querySelector('#preview-caption').textContent='真实浏览器截图 · 可打开交互原型';lightbox.showModal();}));
+document.querySelector('#close').addEventListener('click',()=>lightbox.close());
+lightbox.addEventListener('click',event=>{if(event.target===lightbox){const r=lightbox.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)lightbox.close();}});
+update();

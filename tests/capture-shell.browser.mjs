@@ -59,6 +59,8 @@ try {
     await page.locator('input[type=date]').fill('2026-12-01');
     await page.getByRole('button', { name: '初始进展', exact: true }).click();
     await page.getByRole('textbox', { name: '初始进展', exact: true }).fill('已经开始');
+    await page.locator('input[type=file]').setInputFiles({ name: 'capture.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64') });
+    await page.waitForFunction(() => !document.querySelector('#submit').disabled);
     await title.dispatchEvent('compositionstart');
     await title.press('Control+Enter');
     await page.locator('form').evaluate(form => form.requestSubmit());
@@ -70,7 +72,9 @@ try {
     const task = JSON.parse(first.request.markdown.match(/^<!-- work-timeline-task:v1\n([\s\S]+?)\n-->/)[1]);
     assert.equal(await page.evaluate(markdown => TraceloCreateTask.parseTaskMarkdown(markdown).groupName, first.request.markdown), '产品研发');
     assert.equal(task.title, '独立标题'); assert.equal(task.important, true); assert.equal(task.urgent, true);
-    assert.equal(task.notes, await details.inputValue());
+    assert.equal(first.request.attachments.length, 1);
+    assert.doesNotMatch(task.notes, /tracelo-draft:/);
+    assert.match(task.notes, /image-[a-f0-9]+\.png/);
     assert.equal(task.dueDate, '2026-12-01'); assert.equal(task.todos[0].text, '验收完整任务');
     assert.equal(task.events.at(-1).text, '已经开始');
     await submit.evaluate(el => el.click());
@@ -113,6 +117,9 @@ try {
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       }
     }
+    await page.evaluate(() => window.capture.update({ draft: { title: '中断后恢复', notes: '![截图](<tracelo-draft:interrupted>)', images: [{ id: 'interrupted', name: '截图.png', type: 'image/png', data: '', state: 'processing' }] }, saving: false, error: '' }));
+    assert.equal(await page.getByRole('button', { name: '重试图片：截图.png' }).count(), 1, 'interrupted reads must expose recovery rather than wait forever');
+    assert.equal(await submit.isDisabled(), true);
     await page.evaluate(() => window.capture.update({ draft: null, saving: false, error: '' }));
     assert.equal(await title.inputValue(), ''); assert.equal(await details.inputValue(), '');
     assert.deepEqual(errors, []);

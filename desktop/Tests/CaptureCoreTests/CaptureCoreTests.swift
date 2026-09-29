@@ -36,7 +36,7 @@ final class CaptureCoreTests {
         XCTAssertEqual(inputAction(keyCode: 53, shift: false, marked: false), .dismiss)
     }
     func testPanelFitsAvailableScreenAndGrowsWithContent() {
-        for (content, width, height, expectedWidth, expectedHeight) in [(20.0, 1440.0, 900.0, 560.0, 260.0), (600, 1440, 900, 560, 760), (1000, 1440, 900, 560, 780), (600, 400, 350, 368, 318)] {
+        for (content, width, height, expectedWidth, expectedHeight) in [(20.0, 1440.0, 900.0, 600.0, 260.0), (600, 1440, 900, 600, 760), (1000, 1440, 900, 600, 780), (600, 400, 350, 368, 318)] {
             let size = capturePanelSize(contentHeight: content, available: CGSize(width: width, height: height))
             XCTAssertEqual(size.width, expectedWidth)
             XCTAssertEqual(size.height, expectedHeight)
@@ -81,6 +81,39 @@ final class CaptureCoreTests {
         try Data([0xff, 0xfe, 0xff]).write(to: groups)
         XCTAssertThrowsError(try configuration.groupsSource())
     }
+    func testDurableDraftsAreScopedAndClearOnlyTheirOwnData() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = CapturePersistence(root: root)
+        try store.save("vault-a/tasks", data: Data("图文草稿".utf8))
+        try store.save("vault-a/other", data: Data("另一草稿".utf8))
+        let reopened = CapturePersistence(root: root)
+        XCTAssertEqual(try reopened.load("vault-a/tasks"), Data("图文草稿".utf8))
+        XCTAssertEqual(try reopened.load("vault-b/tasks"), nil)
+        try reopened.save("vault-a/tasks", data: nil)
+        XCTAssertEqual(try reopened.load("vault-a/tasks"), nil)
+        XCTAssertEqual(try reopened.load("vault-a/other"), Data("另一草稿".utf8))
+    }
+    func testImageDirectoryPublicationAndQueuedOperationRecovery() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).resolvingSymlinksInPath()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let request = try CaptureRequest(text: "图片任务\n![截图](image-test.png)", id: "image-task")
+        let images = [["name": "image-test.png", "base64": Data([1,2,3]).base64EncodedString()]]
+        let path = try request.publish(to: directory, attachments: images)
+        XCTAssertEqual(try request.publish(to: directory, attachments: images), path)
+        XCTAssertEqual(try Data(contentsOf: path.deletingLastPathComponent().appendingPathComponent("image-test.png")), Data([1,2,3]))
+        XCTAssertThrowsError(try request.publish(to: directory, attachments: [["name": "../escape.png", "base64": "AQID"]]))
+        let workspace = QuickWorkspace(directory: directory)
+        XCTAssertEqual(try workspace.tasks().count, 1)
+        let op: [String: Any] = ["id": "quick-" + String(repeating: "a", count: 32), "version": 1, "taskId": "image-task", "kind": "progress", "text": "离线进展"]
+        try workspace.enqueue(op); try workspace.enqueue(op)
+        XCTAssertEqual(try workspace.receipts().count, 1)
+        XCTAssertEqual(try workspace.receipts()[0]["status"] as? String, "queued")
+        XCTAssertEqual(try String(contentsOf: path, encoding: .utf8), request.markdown)
+        var different = op; different["text"] = "冲突"
+        XCTAssertThrowsError(try workspace.enqueue(different))
+    }
 }
 let tests = CaptureCoreTests()
 try tests.testFirstLineIsTitleAndNotesKeepOrder()
@@ -91,4 +124,6 @@ tests.testPanelFitsAvailableScreenAndGrowsWithContent()
 try tests.testSharedRequestPreservesBytesAndRejectsMismatchedOrUnsafeHeader()
 try tests.testStructuredDraftRoundTripPreservesAllFieldsAndMigratesLegacy()
 try tests.testGroupsSourceMissingIsEmptyButUnreadableSourceFails()
-print("Capture core: 8 tests passed")
+try tests.testImageDirectoryPublicationAndQueuedOperationRecovery()
+try tests.testDurableDraftsAreScopedAndClearOnlyTheirOwnData()
+print("Capture core: 10 tests passed")

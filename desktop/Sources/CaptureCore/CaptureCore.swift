@@ -39,7 +39,7 @@ public struct CaptureFormDraft {
 }
 public enum InputAction { case system, submit, dismiss }
 public func capturePanelSize(contentHeight: Double, available: CGSize) -> CGSize {
-    CGSize(width: min(560, max(1, available.width - 32)), height: min(max(260, contentHeight + 160), 780, max(1, available.height - 32)))
+    CGSize(width: min(600, max(1, available.width - 32)), height: min(max(260, contentHeight + 160), 780, max(1, available.height - 32)))
 }
 public func inputAction(keyCode: UInt16, shift: Bool, marked: Bool) -> InputAction {
     if marked { return .system }
@@ -165,7 +165,32 @@ public struct CaptureRequest {
         let notes = draft.notes.isEmpty ? "" : "\n\n## 详情\n\n\(draft.notes)"
         markdown = "<!-- work-timeline-task:v1\n{\n" + fields.joined(separator: ",\n") + "\n}\n-->\n\n# \(inline(draft.title))\n\n- 状态：进行中\n- 分组：未分组\n- 象限：不重要 · 不紧急\(notes)\n\n## 时间线\n\n- \(at) · **创建** · 创建任务\n"
     }
-    public func publish(to directory: URL) throws -> URL {
+    public func publish(to directory: URL, attachments: [[String: String]] = []) throws -> URL {
+        if !attachments.isEmpty {
+            let destination = directory.appendingPathComponent(id, isDirectory: true)
+            let decoded = try attachments.map { attachment -> (String, Data) in
+                guard let name = attachment["name"], name.range(of: #"^image-[a-zA-Z0-9-]+\.(png|jpg|webp|gif|bmp)$"#, options: .regularExpression) != nil,
+                    let base64 = attachment["base64"], let data = Data(base64Encoded: base64), !data.isEmpty, data.count <= 10 * 1024 * 1024 else { throw CaptureError.invalid("图片格式或大小无效") }
+                return (name, data)
+            }
+            if FileManager.default.fileExists(atPath: destination.path) {
+                guard (try? String(contentsOf: destination.appendingPathComponent(id + ".md"), encoding: .utf8)) == markdown,
+                    decoded.allSatisfy({ (try? Data(contentsOf: destination.appendingPathComponent($0.0))) == $0.1 }) else { throw CaptureError.invalid("同名目录已存在；没有覆盖") }
+                return destination.appendingPathComponent(id + ".md")
+            }
+            let stage = directory.appendingPathComponent(".tracelo-images-" + UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(at: stage, withIntermediateDirectories: false)
+            defer { try? FileManager.default.removeItem(at: stage) }
+            for (name, data) in decoded {
+                let path = stage.appendingPathComponent(name)
+                try data.write(to: path, options: .withoutOverwriting)
+                let handle = try FileHandle(forWritingTo: path); try handle.synchronize(); try handle.close()
+                guard try Data(contentsOf: path) == data else { throw CaptureError.invalid("图片写入校验失败") }
+            }
+            _ = try publish(to: stage)
+            try FileManager.default.moveItem(at: stage, to: destination)
+            return destination.appendingPathComponent(id + ".md")
+        }
         let destination = directory.appendingPathComponent(id + ".md")
         let temporary = directory.appendingPathComponent(".tracelo-\(UUID().uuidString).tmp")
         let data = Data(markdown.utf8)

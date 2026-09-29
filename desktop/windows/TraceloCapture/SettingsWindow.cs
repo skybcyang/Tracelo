@@ -8,14 +8,20 @@ internal sealed class SettingsWindow : Form {
     private readonly TextBox shortcut = new() { Dock = DockStyle.Fill, ReadOnly = true, AccessibleName = "全局快捷键，聚焦后按组合键" };
     private uint modifiers;
     private uint key;
+    private uint progressModifiers;
+    private uint progressKey;
     internal SettingsWindow(CaptureSettings state, Action<CaptureSettings> apply) {
-        Theme.Apply(this, "Tracelo · 设置", new Size(600, 400));
+        Theme.Apply(this, "Tracelo · 设置", new Size(600, 470));
         MaximizeBox = false; MinimizeBox = false; ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterParent;
         vault.Text = state.Vault; directory.Text = state.TaskDirectory;
         modifiers = state.HotkeyModifiers; key = state.HotkeyKey; shortcut.Text = ShortcutLabel();
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 1, RowCount = 9 };
-        foreach (var height in new[] { 26f, 38f, 26f, 38f, 26f, 38f, 44f }) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+        progressModifiers = state.ProgressHotkeyModifiers; progressKey = state.ProgressHotkeyKey;
+        var progressShortcut = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, AccessibleName = "记录进展快捷键" };
+        string ProgressLabel() => ((progressModifiers & 2) != 0 ? "Ctrl + " : "") + ((progressModifiers & 1) != 0 ? "Alt + " : "") + ((progressModifiers & 4) != 0 ? "Shift + " : "") + ((Keys)progressKey).ToString();
+        progressShortcut.Text = ProgressLabel();
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 1, RowCount = 11 };
+        foreach (var height in new[] { 26f, 38f, 26f, 38f, 26f, 38f, 26f, 38f, 44f }) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
         layout.Controls.Add(Label("Obsidian vault"));
         var vaultRow = new TableLayoutPanel { ColumnCount = 2, Dock = DockStyle.Fill };
@@ -27,6 +33,7 @@ internal sealed class SettingsWindow : Form {
         };
         layout.Controls.Add(vaultRow); layout.Controls.Add(Label("任务目录（相对于 vault）")); layout.Controls.Add(directory);
         layout.Controls.Add(Label("全局快捷键（点击后按 Ctrl / Alt 组合键）")); layout.Controls.Add(shortcut);
+        layout.Controls.Add(Label("记录进展快捷键")); layout.Controls.Add(progressShortcut);
         layout.Controls.Add(new Label { Text = "目录须已存在，并与插件设置一致。新任务默认为未分组、不重要、不紧急。", Dock = DockStyle.Fill, ForeColor = Theme.Muted, Tag = "muted" });
         var error = new Label { Dock = DockStyle.Fill, ForeColor = Theme.Error, Tag = "error", AccessibleName = "设置错误" }; layout.Controls.Add(error);
         shortcut.KeyDown += (_, e) => {
@@ -36,11 +43,18 @@ internal sealed class SettingsWindow : Form {
             modifiers = (uint)((e.Alt ? 1 : 0) | (e.Control ? 2 : 0) | (e.Shift ? 4 : 0));
             key = (uint)e.KeyCode; shortcut.Text = ShortcutLabel(); error.Text = "";
         };
+        progressShortcut.KeyDown += (_, e) => {
+            e.SuppressKeyPress = true;
+            if (e.KeyCode is Keys.ControlKey or Keys.ShiftKey or Keys.Menu) return;
+            if (!e.Control && !e.Alt) { error.Text = "快捷键请至少包含 Ctrl 或 Alt。"; return; }
+            progressModifiers = (uint)((e.Alt ? 1 : 0) | (e.Control ? 2 : 0) | (e.Shift ? 4 : 0)); progressKey = (uint)e.KeyCode;
+            progressShortcut.Text = ProgressLabel(); error.Text = "";
+        };
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
         var save = Theme.Button("保存设置", true); var cancel = Theme.Button("取消");
         save.Click += (_, _) => {
             try {
-                apply(new CaptureSettings { Vault = vault.Text.Trim(), TaskDirectory = directory.Text.Trim(), HotkeyKey = key, HotkeyModifiers = modifiers });
+                apply(new CaptureSettings { Vault = vault.Text.Trim(), TaskDirectory = directory.Text.Trim(), HotkeyKey = key, HotkeyModifiers = modifiers, ProgressHotkeyKey = progressKey, ProgressHotkeyModifiers = progressModifiers });
                 DialogResult = DialogResult.OK; Close();
             } catch (Exception failure) { error.Text = failure.Message; }
         };

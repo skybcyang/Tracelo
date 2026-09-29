@@ -25,16 +25,16 @@ try {
     await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
     const picker = page.locator('.wt-icon-picker');
     assert.ok(await picker.locator('.wt-icon-choice svg').count() >= 5);
-    await picker.getByRole('searchbox', { name: '搜索图标', exact: true }).fill('代码');
-    await picker.getByRole('button', { name: '代码 · code', exact: true }).click();
-    await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).icon === 'code', ids.payment);
-    assert.equal(await payment.locator('.wt-task-icon svg.code').count(), 1);
+    await picker.getByRole('searchbox', { name: '搜索图标', exact: true }).fill('电脑');
+    await picker.getByRole('button', { name: '电脑 · noto:laptop', exact: true }).click();
+    await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).icon === 'noto:laptop', ids.payment);
+    assert.equal(await payment.locator('.wt-task-icon [data-icon="noto:laptop"]').count(), 1);
     assert.equal(await payment.locator('.wt-card-composer').count(), 0);
     const saved = await page.evaluate(async id => {
       const { plugin, app } = window.cardFixture;
-      return { source: await app.vault.adapter.read(plugin.taskArchivePath(id)), changed: plugin.tasks.filter(t => t.icon === 'code').length };
+      return { source: await app.vault.adapter.read(plugin.taskArchivePath(id)), changed: plugin.tasks.filter(t => t.icon === 'noto:laptop').length };
     }, ids.payment);
-    assert.ok(saved.source.includes('"icon": "code"'));
+    assert.ok(saved.source.includes('"icon": "noto:laptop"'));
     assert.equal(saved.changed, 1);
   });
   await check('picker cancellation and empty search do not change task data', async () => {
@@ -42,7 +42,7 @@ try {
     await payment.locator('.wt-card-menu').click();
     await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
     await page.getByRole('searchbox', { name: '搜索图标', exact: true }).fill('nonexistent-xyz');
-    await page.getByText('没有匹配的图标', { exact: true }).waitFor();
+    await page.getByText('没有匹配的图标，试试常用中文词或英文名称', { exact: true }).waitFor();
     await page.getByRole('button', { name: '取消', exact: true }).click();
     assert.equal(await page.evaluate(id => JSON.stringify(window.cardFixture.plugin.tasks.find(t => t.id === id)), ids.payment), before);
     assert.equal(await payment.locator('.wt-card-menu').evaluate(el => el === document.activeElement), true);
@@ -50,7 +50,7 @@ try {
   await check('keyboard escape preserves the selection and returns focus', async () => {
     await payment.locator('.wt-card-menu').click();
     await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
-    assert.equal(await page.getByRole('button', { name: '代码 · code', exact: true }).getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.getByRole('button', { name: '电脑 · noto:laptop', exact: true }).getAttribute('aria-pressed'), 'true');
     await page.getByRole('searchbox', { name: '搜索图标', exact: true }).press('Escape');
     assert.equal(await page.locator('.wt-icon-picker').count(), 0);
     assert.equal(await payment.locator('.wt-card-menu').evaluate(el => el === document.activeElement), true);
@@ -66,24 +66,24 @@ try {
       adapter.write = async () => { throw new Error('测试图标写入失败'); };
     });
     try {
-      await page.getByRole('button', { name: '目标 · target', exact: true }).click();
+      await page.getByRole('button', { name: '目标 · noto:bullseye', exact: true }).click();
       await page.locator('.wt-icon-picker [role=alert]').filter({ hasText: '测试图标写入失败' }).waitFor();
       assert.equal(await page.evaluate(id => JSON.stringify(window.cardFixture.plugin.tasks.find(t => t.id === id)), ids.payment), before);
-      assert.equal(await page.getByRole('button', { name: '目标 · target', exact: true }).isEnabled(), true);
+      assert.equal(await page.getByRole('button', { name: '目标 · noto:bullseye', exact: true }).isEnabled(), true);
     } finally { await page.evaluate(() => window.restoreIconWrite()); }
-    await page.getByRole('button', { name: '文档 · file-text', exact: true }).click();
-    await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).icon === 'file-text', ids.payment);
+    await page.getByRole('button', { name: '文档 · noto:page-facing-up', exact: true }).click();
+    await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).icon === 'noto:page-facing-up', ids.payment);
     await payment.locator('.wt-card-menu').click();
     await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
-    await page.getByRole('button', { name: '代码 · code', exact: true }).click();
+    await page.getByRole('button', { name: '电脑 · noto:laptop', exact: true }).click();
   });
   await check('group picker updates inherited icons while preserving explicit overrides', async () => {
     await page.getByRole('button', { name: '管理分组', exact: true }).click();
     await page.getByRole('button', { name: '设置分组图标', exact: true }).click();
-    await page.getByRole('button', { name: '图层 · layers', exact: true }).click();
-    await page.waitForFunction(() => window.cardFixture.plugin.groups[0].icon === 'layers');
-    assert.equal(await long.locator('.wt-task-icon svg.layers').count(), 1);
-    assert.equal(await payment.locator('.wt-task-icon svg.code').count(), 1);
+    await page.getByRole('button', { name: '书籍 · noto:books', exact: true }).click();
+    await page.waitForFunction(() => window.cardFixture.plugin.groups[0].icon === 'noto:books');
+    assert.equal(await long.locator('.wt-task-icon [data-icon="noto:books"]').count(), 1);
+    assert.equal(await payment.locator('.wt-task-icon [data-icon="noto:laptop"]').count(), 1);
   });
   await check('hidden icon remains configurable through the menu and can inherit again', async () => {
     await payment.locator('.wt-card-menu').click();
@@ -95,7 +95,7 @@ try {
     await page.getByRole('menuitem', { name: '更换图标…', exact: true }).click();
     await page.getByRole('button', { name: '继承分组图标', exact: true }).click();
     await page.waitForFunction(id => window.cardFixture.plugin.tasks.find(t => t.id === id).icon === undefined, ids.payment);
-    assert.equal(await payment.locator('.wt-task-icon svg.layers').count(), 1);
+    assert.equal(await payment.locator('.wt-task-icon [data-icon="noto:books"]').count(), 1);
   });
   await page.evaluate(id => window.cardFixture.plugin.accessTaskFolder(id, true), ids.payment);
   await check('time stays at the footer right edge with optional fields and folder actions', async () => {

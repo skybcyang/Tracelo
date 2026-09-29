@@ -124,8 +124,8 @@ try {
     await page.waitForFunction(() => Boolean(window.rejectImageWrite));
     assert.equal(await notes.isDisabled(), true);
     assert.equal(await payment.getByRole('button', { name: '保存详情', exact: true }).isDisabled(), true);
-    await payment.getByText('图片上传中…', { exact: true }).waitFor();
-    await payment.getByRole('button', { name: '取消详情编辑', exact: true }).click();
+    await payment.getByText('正在插入图片…', { exact: true }).waitFor();
+    await payment.getByRole('button', { name: '取消', exact: true }).click();
     assert.equal(await notes.count(), 1);
     await page.evaluate(() => window.rejectImageWrite());
     await payment.getByText('上传失败：附件磁盘写入失败', { exact: true }).waitFor();
@@ -355,7 +355,7 @@ try {
       const date = new Date(); date.setDate(date.getDate() + 7);
       const day = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
       await window.cardFixture.plugin.setTaskDueDate(id, day);
-      return `${date.getMonth()+1}月${date.getDate()}日`;
+      return `${date.getMonth()+1}月${date.getDate()}日截止`;
     }, ids.payment);
     const summary = payment.getByRole('button', { name: '查看待办，已完成 2/4', exact: true });
     assert.equal((await summary.textContent()).trim(), '2/4');
@@ -384,7 +384,7 @@ try {
     assert.equal(await page.locator('.wt-timeline-scroll details').count(), 0);
     assert.equal(await page.locator('.wt-event-list .is-muted:visible').count(), await page.locator('.wt-event-list .is-muted').count());
     await payment.locator('.wt-card-open').click();
-    await page.getByRole('button', { name: '返回每日时间线', exact: true }).click();
+    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
   });
   await check('complete and empty progress rings track checklist state without replacing progress', async () => {
     const latest = await payment.locator('.wt-card-latest').textContent();
@@ -621,12 +621,12 @@ try {
   await page.waitForFunction(() => window.cardFixture);
   Object.assign(ids, await page.evaluate(() => window.cardFixture.ids));
   payment = card(ids.payment);
-  await check('card whitespace toggles expansion while preserving timeline selection', async () => {
+  await check('card whitespace toggles expansion and returns to daily history on collapse', async () => {
     await payment.click({ position: { x: 5, y: 100 } });
     assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'true');
     await payment.click({ position: { x: 5, y: 100 } });
     assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'false');
-    await page.getByRole('button', { name: '返回每日时间线', exact: true }).click();
+    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
     await payment.click({ position: { x: 5, y: 100 } });
     assert.equal(await page.getByRole('button', { name: '返回每日时间线', exact: true }).count(), 1);
     await payment.locator('.wt-card-open').click();
@@ -783,7 +783,7 @@ try {
     assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'true');
     await input.fill('');
     await payment.locator('.wt-card-open').click();
-    await page.getByRole('button', { name: '返回每日时间线', exact: true }).click();
+    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
   });
   await check("timeline links resist host button backgrounds", async () => {
     const backgrounds = await page.locator(".wt-event-task, .wt-due-row").evaluateAll(elements => elements.map(el => getComputedStyle(el).backgroundColor));

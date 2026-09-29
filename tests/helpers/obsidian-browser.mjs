@@ -48,6 +48,7 @@ export class Plugin {
   addCommand() {}
   addSettingTab(tab) { (this.settingTabs ??= []).push(tab); }
   registerEvent() {}
+  register() {}
 }
 export class ItemView {
   constructor(leaf) {

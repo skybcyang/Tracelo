@@ -42,7 +42,7 @@ try {
     assert.deepEqual(overflowItems, contextItems.map(name => name === '添加详情' ? '编辑详情' : name));
     await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     assert.equal(await input.inputValue(), '标题下直接显示的详情');
-    await card.getByRole('button', { name: '取消详情编辑', exact: true }).click();
+    await card.getByRole('button', { name: '取消', exact: true }).click();
     await card.locator('.wt-card-menu').click();
     await page.getByRole('menuitem', { name: '记录进展', exact: true }).click();
     await page.waitForFunction(id => document.activeElement === document.querySelector(`[data-task-id="${id}"] .wt-card-composer textarea`), ids.plain);

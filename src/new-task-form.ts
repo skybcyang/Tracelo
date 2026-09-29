@@ -1,10 +1,12 @@
 import { QUADRANTS, UNGROUPED_TASKS, createTask, setDueDate, addTodo, addProgress, type CreateTaskInput, type QuadrantId, type WorkGroup } from './domain';
+import { mountDraftImages, type DraftImage } from './draft-images';
 
-export interface NewTaskValues extends CreateTaskInput { initialProgress: string; dueDate: string | null; todos: string[] }
+export interface NewTaskValues extends CreateTaskInput { initialProgress: string; dueDate: string | null; todos: string[]; images?: DraftImage[]; creationId?: string }
 export interface NewTaskContext { groupId?: string | null; quadrant?: QuadrantId }
 export interface NewTaskDraft {
   title: string; notes: string; groupId: string; quadrant: QuadrantId; todos: string[];
   dueDate: string; initialProgress: string; expanded: { todos: boolean; due: boolean; progress: boolean };
+  images?: DraftImage[]; creationId?: string;
 }
 function newId(): string {
   // Local WebKit/WebView2 documents lack randomUUID's secure-context exposure.
@@ -14,7 +16,7 @@ function newId(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 export function buildNewTask(input: NewTaskValues, now = new Date(), id: () => string = newId) {
-  let task = createTask(input, now, id(), id());
+  let task = createTask(input, now, input.creationId ?? id(), id());
   let tick = 1;
   if (input.dueDate) task = setDueDate(task, input.dueDate, new Date(now.getTime() + tick++), id());
   for (const text of input.todos) task = addTodo(task, text, new Date(now.getTime() + tick++), id(), id());
@@ -46,6 +48,8 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   const draftRow = el(body, 'div', 'wt-new-draft-row');
   const draftStatus = el(draftRow, 'span', 'wt-new-draft-status', '关闭后保留本次草稿', { role: 'status' });
   const clear = el(draftRow, 'button', 'wt-new-clear', '清空草稿', { type: 'button' });
+  let cleared: NewTaskDraft | null = null, creationId = newId();
+  const undoClear = el(draftRow, 'button', 'wt-new-clear', '撤销清空草稿', { type: 'button' }); undoClear.hidden = true;
   const field = (parent: HTMLElement, name: string, optional = false, cls = '') => {
     const label = el(parent, 'label', `wt-field ${cls}`.trim());
     const heading = optional ? el(label, 'span', 'wt-field-heading') : label;
@@ -54,7 +58,8 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
     return label;
   };
   const title = el(field(body, '任务名称', false, 'wt-title-field'), 'input', 'wt-modal-title', '', { id: 'task-title', type: 'text', placeholder: '例如：验证自动备份', maxlength: '160', required: '' });
-  const details = el(field(body, '详情', true), 'textarea', '', '', { id: 'task-details', rows: '2', 'aria-label': '任务详情', placeholder: '补充目标、要求或参考资料，支持 Markdown' });
+  const details = el(field(body, '详情', true), 'textarea', '', '', { id: 'task-details', rows: '2', 'aria-label': '任务详情', placeholder: '补充目标、要求或参考资料，可直接粘贴图片' });
+  const images = mountDraftImages(details, el(body, 'div', 'wt-new-images'), changed);
   const groupControl = el(field(body, '任务分组'), 'span', 'wt-select-control');
   const group = el(groupControl, 'select', '', '', { 'aria-label': '任务分组' });
   options.setIcon(el(groupControl, 'span', 'wt-select-icon', '', { 'aria-hidden': 'true' }), 'chevron-down');
@@ -98,7 +103,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   options.setIcon(submit, 'plus');
   const submitLabel = el(submit, 'span', '', '创建任务');
   const read = (): NewTaskDraft => ({ title: title.value, notes: details.value, groupId: group.value, quadrant: selectedQuadrantId(),
-    todos: [...todoList.querySelectorAll('input')].map(input => input.value), dueDate: due.value, initialProgress: progress.value, expanded: { ...expanded } });
+    todos: [...todoList.querySelectorAll('input')].map(input => input.value), dueDate: due.value, initialProgress: progress.value, expanded: { ...expanded }, images: images.read(), creationId });
   function refresh() {
     const count = read().todos.filter(value => value.trim()).length;
     todoButton.textContent = count ? `待办 · ${count}` : '添加待办';
@@ -108,12 +113,12 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
       panel.hidden = !open; button.setAttribute('aria-expanded', String(open));
     }
     body.inert = saving; cancel.disabled = saving;
-    submit.disabled = saving || !available || !title.value.trim();
+    submit.disabled = saving || images.blocked() || !available || !title.value.trim();
     submit.setAttribute('aria-busy', String(saving));
     submitLabel.textContent = saving ? '创建中…' : '创建任务';
     options.onResize?.();
   }
-  function changed() { error.textContent = ''; options.onChange?.(read()); refresh(); }
+  function changed() { error.textContent = ''; if (container.isConnected) options.onChange?.(read()); refresh(); }
   function setGroups(items: Options['groups'], selected = group.value) {
     groups = items; group.replaceChildren();
     el(group, 'option', '', UNGROUPED_TASKS, { value: '' });
@@ -124,6 +129,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   }
   function setDraft(draft?: Partial<NewTaskDraft> | null) {
     title.value = draft?.title ?? ''; details.value = draft?.notes ?? '';
+    creationId = draft?.creationId ?? newId(); images.set(draft?.images ?? []);
     setGroups(groups, draft?.groupId ?? context.groupId ?? '');
     for (const input of quadrantInputs) input.checked = input.value === (draft?.quadrant ?? context.quadrant ?? 'not_important_not_urgent');
     due.value = draft?.dueDate ?? ''; progress.value = draft?.initialProgress ?? '';
@@ -135,7 +141,8 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   todoButton.onclick = () => { expanded.todos = !expanded.todos; if (expanded.todos && !todoList.childElementCount) addTodoRow(); changed(); if (expanded.todos) todoList.querySelector('input')?.focus(); };
   dateButton.onclick = () => { expanded.due = !expanded.due; changed(); if (expanded.due) due.focus(); };
   progressButton.onclick = () => { expanded.progress = !expanded.progress; changed(); if (expanded.progress) progress.focus(); };
-  clear.onclick = () => { setDraft(null); draftStatus.textContent = '草稿已清空'; changed(); title.focus(); };
+  clear.onclick = () => { cleared = read(); setDraft(null); undoClear.hidden = false; draftStatus.textContent = '草稿已清空'; changed(); title.focus(); };
+  undoClear.onclick = () => { setDraft(cleared); cleared = null; undoClear.hidden = true; changed(); };
   form.addEventListener('input', changed); form.addEventListener('change', changed);
   form.addEventListener('compositionstart', () => { composing = true; });
   form.addEventListener('compositionend', () => { composing = false; options.onChange?.(read()); });
@@ -146,7 +153,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   cancel.onclick = () => { if (!saving) options.onCancel(); };
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (saving || !available || composing || !title.value.trim()) return;
+    if (saving || images.blocked() || !available || composing || !title.value.trim()) return;
     const selectedQuadrant = QUADRANTS.find(item => item.id === selectedQuadrantId());
     const selectedGroup = groups.find(item => item.id === group.value);
     if (!selectedQuadrant || (group.value && !selectedGroup)) { error.textContent = '分组或象限不可用，请重新选择'; return; }
@@ -154,12 +161,13 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
     try {
       await options.onSubmit({ title: title.value, notes: details.value, groupId: selectedGroup?.id ?? null, groupName: selectedGroup?.name ?? UNGROUPED_TASKS,
         important: selectedQuadrant.important, urgent: selectedQuadrant.urgent, dueDate: due.value || null,
-        initialProgress: progress.value, todos: read().todos.map(value => value.trim()).filter(Boolean) }, read());
+        initialProgress: progress.value, todos: read().todos.map(value => value.trim()).filter(Boolean), images: images.read(), creationId }, read());
     } catch (reason) { error.textContent = reason instanceof Error ? reason.message : '无法创建任务'; }
     finally { saving = false; refresh(); }
   });
   setDraft(options.draft);
   return { form, body, footer, read, setDraft, setGroups, focus: () => title.focus({ preventScroll: true }),
+    destroy: () => images.destroy(),
     isSaving: () => saving, isComposing: () => composing,
     setAvailable: (value: boolean) => { available = value; refresh(); },
     setError: (value: string) => { error.textContent = value; refresh(); },

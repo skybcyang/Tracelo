@@ -7,19 +7,26 @@
     "type": "git",
     "url": "https://github.com/skybcyang/Tracelo.git"
   },
-  "engines": { "node": ">=22.12.0" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "test": "vitest run",
-    "test:layout": "node tests/card-layout.browser.mjs && node tests/card-masonry.browser.mjs && node tests/pane-scroll.browser.mjs && node tests/card-interactions.browser.mjs && node tests/card-content.browser.mjs && node tests/card-polish.browser.mjs && node tests/view-details.browser.mjs && node tests/task-acceptance.browser.mjs && node tests/timeline.browser.mjs && node tests/create-task.browser.mjs && node tests/search-navigation.browser.mjs",
-    "test:capture": "node tests/capture-shell.browser.mjs && node tests/entry-audit.browser.mjs",
-    "check": "npm test && npm run build && npm run test:layout && npm run test:capture"
+    "test:layout": "node tests/card-layout.browser.mjs && node tests/card-masonry.browser.mjs && node tests/pane-scroll.browser.mjs && node tests/card-interactions.browser.mjs && node tests/card-content.browser.mjs && node tests/card-polish.browser.mjs && node tests/card-readability.browser.mjs && node tests/view-details.browser.mjs && node tests/task-acceptance.browser.mjs && node tests/timeline.browser.mjs && node tests/create-task.browser.mjs && node tests/search-navigation.browser.mjs",
+    "test:capture": "node tests/capture-shell.browser.mjs && node tests/entry-audit.browser.mjs && node tests/calendar.browser.mjs && node tests/create-images.browser.mjs && node tests/quick-progress.browser.mjs && node tests/quick-sync.browser.mjs",
+    "test:icons": "node tests/color-icons.browser.mjs",
+    "check": "npm test && npm run build && npm run test:layout && npm run test:capture && npm run test:icons"
   },
   "devDependencies": {
+    "@iconify-json/noto": "1.2.9",
+    "@types/markdown-it": "14.1.2",
     "@types/node": "^24.3.0",
     "esbuild": "^0.28.2",
+    "lucide": "1.48.0",
+    "markdown-it": "14.3.2",
     "obsidian": "^1.13.1",
     "playwright": "^1.63.0",
     "typescript": "^7.0.2",

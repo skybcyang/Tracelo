@@ -1,0 +1,117 @@
+/* Afterglow: cyan, violet and fuchsia light on ink-blue surfaces. */
+html[data-style=neon]{--bg:#080d19;--surface:#111c2c;--sidebar:#0d1524;--ink:#e6f0ff;--muted:#9bacbf;--subtle:#1c2b40;--line:#2d3d54;--accent:#59ece1;--accent-strong:#76f4e8;--tint:#123c40;--green:#74ecc2;--green-bg:#163a32;--red:#ff8daf;--red-bg:#41263d;--amber:#f1c583;--amber-bg:#3b3329;--rail:208px;--timeline:308px;--shadow:0 20px 60px #0006;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;--glow:0 0 16px #48e8e025;--focus-glow:0 0 0 1px #48e8e055,0 0 26px #48e8e018}
+html[data-style=neon][data-theme=dark]{--bg:#080d19;--surface:#111c2c;--sidebar:#0d1524;--ink:#e6f0ff;--muted:#9bacbf;--subtle:#1c2b40;--line:#2d3d54;--accent:#59ece1;--accent-strong:#76f4e8;--tint:#123c40;--green:#74ecc2;--green-bg:#163a32;--red:#ff8daf;--red-bg:#41263d;--amber:#f1c583;--amber-bg:#3b3329}
+html[data-style=neon][data-theme=light]{--bg:#ecf1f7;--surface:#fbfdff;--sidebar:#f5f8fe;--ink:#202d48;--muted:#63758b;--subtle:#e2e9f3;--line:#c7d5e5;--accent:#067b7c;--accent-strong:#006a6d;--tint:#d5efef;--green:#267759;--green-bg:#d9f1e4;--red:#b12e69;--red-bg:#fae3f0;--amber:#8b631b;--amber-bg:#f6ebd5;--shadow:0 20px 60px #33426d13;--focus-glow:0 0 0 1px #078a8944,0 0 26px #48e8e022}
+html[data-style=neon] .shell{background:radial-gradient(ellipse at 65% 5%,#684adc14,transparent 52%),radial-gradient(ellipse at 20% 100%,#09c9c011,transparent 50%),var(--bg)}
+html[data-style=neon] .sidebar{background:color-mix(in srgb,var(--sidebar) 86%,transparent);padding:29px 15px 18px;gap:27px;border-right:1px solid var(--line)}
+html[data-style=neon] .brand{padding:0 9px;gap:11px}
+html[data-style=neon] .brand strong{font-size:25px;letter-spacing:-1px}
+html[data-style=neon] .brand-mark{height:34px;width:34px;border-radius:11px;background:#123c40;color:#8bfff0;border:1px solid #48e8e078;box-shadow:0 0 22px #48e8e02b,inset 0 0 13px #48e8e021}
+html[data-style=neon] .workspace-label{font-size:9px;letter-spacing:.8px;margin-top:4px}
+html[data-style=neon] .search-launch{background:var(--bg);border-radius:10px;border-color:var(--line);padding:11px 9px;font-size:11px}
+html[data-style=neon] .nav-group{gap:6px}
+html[data-style=neon] .nav-item{border-radius:10px;border:1px solid transparent;padding:10px 12px}
+html[data-style=neon] .nav-item.active{background:linear-gradient(100deg,color-mix(in srgb,var(--accent) 13%,transparent),color-mix(in srgb,var(--accent) 3%,transparent));border-color:color-mix(in srgb,var(--accent) 35%,transparent);color:var(--accent-strong);box-shadow:inset 3px 0 var(--accent),0 0 19px #48e8e008}
+html[data-style=neon] .nav-item.active svg{filter:drop-shadow(0 0 4px #48e8e044)}
+html[data-style=neon] .side-label{font-size:10px;letter-spacing:1px}
+html[data-style=neon] .profile{padding-top:18px}
+html[data-style=neon] .avatar{background:#302449;color:#dfc3ff;border:1px solid #785891}
+html[data-style=neon] .local-status .dot{background:var(--accent);box-shadow:0 0 10px #48e8e088}
+html[data-style=neon] .topbar{height:68px;min-height:68px;padding:0 29px;background:transparent;border-bottom:1px solid var(--line)}
+html[data-style=neon] .mock-label{border-radius:20px;padding:4px 10px;border-color:var(--line);font-size:9px;letter-spacing:1px}
+html[data-style=neon] .mock-label a{color:var(--muted)}
+html[data-style=neon] .btn{border-radius:9px;border-color:var(--line);background:var(--surface)}
+html[data-style=neon] .btn.primary,html[data-style=neon] .day-button.active{background:#79f6e6;border-color:#a6fff3;color:#073335;box-shadow:0 0 17px #48e8e032,inset 0 1px #d0fff7}
+html[data-style=neon] .btn.primary:hover{background:#a0fff0;border-color:#bdfff6;box-shadow:0 0 25px #48e8e055;color:#073335}
+html[data-style=neon][data-theme=light] .btn.primary,html[data-style=neon][data-theme=light] .day-button.active{background:#087c7b;border-color:#087c7b;color:#fff}
+html[data-style=neon] .btn.ghost{background:transparent;border-color:transparent}
+html[data-style=neon] .workspace{padding:29px 29px 36px}
+html[data-style=neon] .page-heading{flex-wrap:wrap;gap:8px;margin-bottom:23px}
+html[data-style=neon] .edition-label{display:flex;align-items:center;gap:9px;flex-basis:100%;font-size:10px;letter-spacing:2px;color:var(--accent);margin-bottom:7px}
+html[data-style=neon] .edition-label>span:last-child{font-size:9px;color:var(--muted);letter-spacing:1.5px}
+html[data-style=neon] h1{font-size:32px;font-weight:600;letter-spacing:-1.2px;text-shadow:0 0 32px #48e8e018}
+html[data-style=neon] .page-heading p{margin-top:10px;font-size:11px}
+.signal-light{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent),0 0 15px #48e8e078;flex-shrink:0}
+.glow-summary{display:flex;align-items:center;gap:10px;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));border-radius:10px;padding:12px 15px;margin-bottom:22px;background:linear-gradient(105deg,#48e8e00a,#a780f907);font-size:11px;color:var(--muted);box-shadow:inset 0 1px #ffffff04}
+.glow-summary strong{color:var(--accent-strong);font-size:13px;font-weight:500;padding:0 2px}
+.summary-separator{height:12px;border-left:1px solid var(--line);margin:0 3px}
+.glow-summary button{margin-left:auto;color:var(--accent-strong);display:flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap}
+.glow-summary button svg{width:14px;height:14px}
+html[data-style=neon] .view-toolbar{margin-bottom:21px}
+html[data-style=neon] .segmented{border-radius:10px;background:var(--bg);border-color:var(--line);padding:3px}
+html[data-style=neon] .segmented button{border-radius:7px;padding:7px 12px}
+html[data-style=neon] .segmented button.active{background:var(--subtle);color:var(--accent-strong);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 25%,transparent)}
+html[data-style=neon] .board{gap:24px 17px}
+html[data-style=neon] .column-heading{font-size:12px;margin:0 4px 14px;gap:8px}
+html[data-style=neon] .column-heading .dot{height:6px;width:6px;box-shadow:0 0 10px var(--group)}
+html[data-style=neon] .column-heading .count{border:1px solid var(--line);font-size:10px;border-radius:5px;min-width:19px;text-align:center;padding:1px 3px}
+html[data-style=neon] .task-card{border-radius:14px;padding:18px 17px 0;background:linear-gradient(140deg,color-mix(in srgb,var(--group) 5%,var(--surface)),var(--surface) 65%);border:1px solid color-mix(in srgb,var(--group) 22%,var(--line));box-shadow:0 8px 24px #0000000a,inset 0 1px #ffffff03;overflow:hidden;transition:transform .2s,border-color .2s,box-shadow .2s}
+html[data-style=neon] .task-card:before{content:'';position:absolute;top:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--group) 65%,transparent),transparent);opacity:.6}
+html[data-style=neon] .task-card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--group) 58%,var(--line));box-shadow:0 0 0 1px color-mix(in srgb,var(--group) 8%,transparent),0 10px 30px #0003,0 0 26px color-mix(in srgb,var(--group) 10%,transparent)}
+html[data-style=neon] .task-icon{border-radius:8px;border:1px solid color-mix(in srgb,var(--group) 29%,transparent);background:color-mix(in srgb,var(--group) 8%,transparent);color:var(--group)}
+html[data-style=neon] .task-icon svg{filter:drop-shadow(0 0 3px color-mix(in srgb,var(--group) 24%,transparent))}
+html[data-style=neon] .card-title{font-size:14px;line-height:1.6;font-weight:600}
+html[data-style=neon] .card-title:hover{color:var(--group)}
+html[data-style=neon] .card-title-row{gap:8px}
+html[data-style=neon] .card-excerpt{font-size:12px;color:var(--muted)}
+html[data-style=neon] .pill{font-size:10px;padding:3px 6px;border-radius:5px}
+html[data-style=neon] .progress-preview{border-left:2px solid color-mix(in srgb,var(--group) 55%,transparent);padding-left:11px}
+html[data-style=neon] .progress-preview p{font-size:12px}
+html[data-style=neon] .progress-time{font-size:10px}
+html[data-style=neon] .todo-line{font-size:12px}
+html[data-style=neon] input[type=checkbox]{accent-color:var(--accent)}
+html[data-style=neon] .card-bottom{padding:12px 0}
+html[data-style=neon] .card-bottom button:hover{color:var(--group)}
+html[data-style=neon] .card-stack{gap:15px}
+html[data-style=neon] .column-add{border-radius:10px;background:transparent;border-style:dashed;padding:10px}
+html[data-style=neon] .column-add:hover{background:var(--surface);box-shadow:var(--glow)}
+html[data-style=neon] .timeline-rail{margin:20px 19px 20px 0;min-width:var(--timeline);width:var(--timeline);border:1px solid var(--line);border-radius:15px;background:color-mix(in srgb,var(--surface) 60%,transparent);box-shadow:0 10px 35px #00000015}
+html[data-style=neon] .timeline-head{padding:22px 22px 20px}
+html[data-style=neon] .timeline-title{font-size:15px}
+html[data-style=neon] .timeline-title svg{color:var(--accent)}
+html[data-style=neon] .week-strip{gap:4px}
+html[data-style=neon] .day-button{border-radius:9px;padding:8px 0}
+html[data-style=neon] .rail-summary{padding:12px 22px;background:color-mix(in srgb,var(--bg) 55%,transparent);font-size:10px}
+html[data-style=neon] .timeline-list{padding:22px}
+html[data-style=neon] .daily-due{background:linear-gradient(115deg,#b69aff0b,#f08bd008);border:1px solid #7d58974a;border-radius:9px;padding:12px}
+html[data-style=neon] .daily-due-label{color:var(--red)}
+html[data-style=neon] .timeline-event:after{background:var(--accent);border-color:var(--accent);width:5px;height:5px;box-shadow:0 0 7px #48e8e090,0 0 15px #48e8e02a}
+html[data-style=neon] .timeline-event:not(:last-child):before{left:3px;border-color:color-mix(in srgb,var(--accent) 24%,var(--line))}
+html[data-style=neon] .timeline-event.lifecycle:after{background:#b69aff;border-color:#b69aff;box-shadow:0 0 9px #b69aff70}
+html[data-style=neon] .event-meta .event-type{color:var(--accent)}
+html[data-style=neon] .lifecycle .event-type{color:#b69aff}
+html[data-style=neon] .event-copy{font-size:12px}
+html[data-style=neon] .rail-foot{padding:15px 22px}
+html[data-style=neon] .quadrant-board{height:calc(100dvh - 394px);min-height:300px;gap:16px}
+html[data-style=neon] .quadrant-board .card-stack{grid-auto-rows:max-content}
+html[data-style=neon] .quadrant-board .board-column{background:color-mix(in srgb,var(--surface) 55%,transparent);border:1px solid var(--line);border-radius:13px}
+html[data-style=neon] dialog{background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 43%,var(--line));border-radius:17px;box-shadow:0 0 0 1px #48e8e00a,0 0 45px #48e8e015,0 35px 100px #0008}
+html[data-style=neon] dialog::backdrop{background:#03071499;backdrop-filter:blur(6px)}
+html[data-style=neon] dialog.drawer{border-radius:18px 0 0 18px;border-left-color:color-mix(in srgb,var(--accent) 60%,var(--line));box-shadow:-1px 0 15px #48e8e00d,-30px 0 100px #0006}
+html[data-style=neon] .dialog-head,html[data-style=neon] .detail-top{background:linear-gradient(110deg,#48e8e007,#b69aff08);border-bottom-color:var(--line)}
+html[data-style=neon] .dialog-footer{background:var(--surface)}
+html[data-style=neon] .editor-area,html[data-style=neon] .quick-context{background:var(--bg);border-color:var(--line);border-radius:11px}
+html[data-style=neon] .choice.active{background:var(--tint);border-color:var(--accent);box-shadow:var(--glow)}
+html[data-style=neon] input:focus,html[data-style=neon] textarea:focus,html[data-style=neon] select:focus{border-color:var(--accent);box-shadow:var(--focus-glow)}
+html[data-style=neon] .detail-props{background:var(--bg);padding:16px;border:1px solid var(--line);border-radius:11px}
+html[data-style=neon] .progress-composer{background:color-mix(in srgb,var(--surface) 94%,var(--accent));border-top-color:color-mix(in srgb,var(--accent) 35%,var(--line));box-shadow:0 -10px 28px #48e8e004}
+html[data-style=neon] .progress-meter span{box-shadow:0 0 12px #48e8e070}
+html[data-style=neon] .search-box{border-bottom-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+html[data-style=neon] .search-result:hover,html[data-style=neon] .search-result:focus{background:var(--tint)}
+html[data-style=neon] .search-result mark{background:var(--tint);color:var(--accent)}
+html[data-style=neon] #toast{background:var(--surface);color:var(--ink);border:1px solid var(--accent);box-shadow:0 0 24px #48e8e025}
+html[data-style=neon][data-theme=light] .task-icon,html[data-style=neon][data-theme=light] .card-title:hover{color:var(--accent-strong)}
+html[data-style=neon][data-theme=light] .lifecycle .event-type{color:#7651b1}
+@media(min-width:1600px){html[data-style=neon]{--rail:216px;--timeline:320px}html[data-style=neon] .workspace{padding:32px}html[data-style=neon] .timeline-rail{margin-right:22px}}
+@media(max-width:1250px){html[data-style=neon]{--rail:190px;--timeline:272px}html[data-style=neon] .workspace{padding:25px 22px}html[data-style=neon] .sidebar{padding:27px 11px 16px}html[data-style=neon] .timeline-rail{margin:16px 15px 16px 0}html[data-style=neon] .timeline-head,html[data-style=neon] .timeline-list{padding-left:18px;padding-right:18px}.glow-summary{gap:7px;padding:12px}.glow-summary button{font-size:10px}.glow-summary .summary-separator{margin:0}}
+@media(max-width:1080px){html[data-style=neon] .main.show-timeline .timeline-rail{margin:18px}}
+@media(max-width:760px){html[data-style=neon] .topbar{height:59px;min-height:59px;padding:0 15px}html[data-style=neon] .workspace{padding:25px 18px}html[data-style=neon] h1{font-size:26px;letter-spacing:-1px}html[data-style=neon] .edition-label{font-size:9px;letter-spacing:1.5px;gap:7px}html[data-style=neon] .edition-label>span:last-child{font-size:8px;letter-spacing:1px}html[data-style=neon] .page-heading{margin-bottom:18px;gap:9px}.glow-summary{flex-wrap:wrap;font-size:10px;gap:7px;padding:11px 12px}.glow-summary button{flex-basis:100%;justify-content:flex-end;margin-top:0}.glow-summary strong{font-size:12px}html[data-style=neon] .segmented button{padding:6px 8px}html[data-style=neon] .quadrant-board{height:auto;min-height:0}html[data-style=neon] .board{gap:25px 13px}html[data-style=neon] dialog.drawer{border-radius:0}html[data-style=neon] .main.show-timeline .timeline-rail{margin:12px}}
+/* Light belongs to edges and interaction states; reading surfaces stay quiet. */
+html[data-style=neon][data-theme=dark] .shell{background:radial-gradient(ellipse at 73% 0%,#7146ee20,transparent 48%),radial-gradient(ellipse at 22% 100%,#09c9c018,transparent 52%),var(--bg)}
+html[data-style=neon][data-theme=dark] .task-card{border-color:color-mix(in srgb,var(--group) 34%,var(--line));box-shadow:0 0 18px color-mix(in srgb,var(--group) 5%,transparent),inset 0 1px #ffffff06}
+html[data-style=neon][data-theme=dark] .task-card:before{opacity:1;box-shadow:0 0 10px color-mix(in srgb,var(--group) 30%,transparent)}
+html[data-style=neon][data-theme=dark] .task-card:hover{border-color:var(--group);box-shadow:0 0 25px color-mix(in srgb,var(--group) 16%,transparent)}
+html[data-style=neon] .signal-light{animation:signal-breathe 4s ease-in-out infinite}
+html[data-style=neon] .nav-item.active{box-shadow:inset 3px 0 var(--accent),0 0 18px #48e8e010}
+@keyframes signal-breathe{0%,100%{box-shadow:0 0 5px var(--accent),0 0 12px #48e8e055}50%{box-shadow:0 0 8px var(--accent),0 0 21px #48e8e088}}
+@media(prefers-reduced-motion:reduce){html[data-style=neon] .task-card:hover{transform:none}html[data-style=neon] .signal-light{animation:none}}

@@ -1,11 +1,15 @@
 export { mountNewTaskForm, buildNewTask } from './new-task-form';
 export { parseGroupArchive, serializeTaskMarkdown } from './archive';
+export { prepareImages } from './draft-images';
+export { mountQuickProgress } from './desktop-progress';
 
-// Lucide geometry, the same icons used by Obsidian's setIcon.
+import { createElement, icons } from 'lucide';
+import { setContentIcon } from './content-icons';
+
+// Resolve the same Lucide names accepted by Obsidian's setIcon.
 export function setCaptureIcon(element: HTMLElement, name: string) {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', width: '24', height: '24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(key, value);
-  const path = document.createElementNS(svg.namespaceURI, 'path');
-  path.setAttribute('d', name === 'plus' ? 'M12 5v14M5 12h14' : name === 'chevron-down' ? 'm6 9 6 6 6-6' : 'M18 6 6 18M6 6l12 12');
-  svg.append(path); element.append(svg);
+  if (name.startsWith('noto:')) { setContentIcon(element, name); return; }
+  const key = name.replace(/^lucide-/, '').replace(/(^|-)(\w)/g, (_, _separator, letter: string) => letter.toUpperCase());
+  const node = icons[key as keyof typeof icons] ?? icons.Circle;
+  element.replaceChildren(createElement(node, { width: '24', height: '24', 'aria-hidden': 'true', class: 'svg-icon' }));
 }

@@ -46,7 +46,7 @@ internal sealed class CaptureSurface : UserControl {
             core.WebResourceRequested += (_, e) => e.Response = environment.CreateWebResourceResponse(Stream.Null, 403, "Blocked", "");
             core.WebMessageReceived += (_, e) => {
                 if (!Ready && Diagnostics.Count < 30) Diagnostics.Add("Message source: " + e.Source);
-                if (e.Source != "about:blank" || e.WebMessageAsJson.Length > 3 * 1024 * 1024) return;
+                if (e.Source != "about:blank" || e.WebMessageAsJson.Length > 160 * 1024 * 1024) return;
                 try {
                     using var document = JsonDocument.Parse(e.WebMessageAsJson);
                     var message = document.RootElement.Clone();
