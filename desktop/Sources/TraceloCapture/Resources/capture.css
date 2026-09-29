@@ -14,8 +14,48 @@ button { appearance: none; -webkit-appearance: none; }
 .capture-context #location { border: 0; padding: 0; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .capture-modal .wt-modal-actions { display: flex; flex-wrap: wrap; }
 .capture-modal .wt-new-shortcut { white-space: nowrap; }
+.capture-modal .modal-title { display:flex; align-items:center; gap:7px; color:var(--wt-text); }
+.capture-brand-icon { display:flex; color:var(--wt-muted); }
+.capture-brand-icon svg { width:16px; height:16px; }
+.capture-workspace { position:absolute; top:22px; right:55px; max-width:45%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--wt-muted); font-size:10px; }
+.capture-modal.is-progress-mode { padding-bottom:0; }
+.capture-modal.is-progress-mode .capture-context { display:none; }
+.capture-modal.is-progress-mode .modal-content { margin:0 -24px; }
+.capture-modal.is-progress-mode .wt-quick-body { padding:0; overflow:hidden; display:flex; flex-direction:column; }
+.capture-modal.is-progress-mode .wt-quick-editor { display:flex; flex-direction:column; max-height:100%; min-height:0; }
+.capture-modal.is-progress-mode .wt-quick-editor .wt-card-body { flex:1; min-height:0; overflow:auto; align-content:start; padding:3px 24px 18px; }
+.capture-modal.is-progress-mode .wt-composer-footer { flex:none; margin:0; padding:12px 24px; }
+.capture-modal.is-progress-mode .wt-quick-toolbar,
+.capture-modal.is-progress-mode .wt-quick-status { margin-inline:24px; }
+.capture-modal.is-progress-mode .is-choosing .wt-quick-body { display:block; overflow:auto; padding:12px 24px 20px; }
 @media (max-width: 460px) {
+  .capture-modal.is-progress-mode .modal-content { margin-inline:-18px; }
+  .capture-modal.is-progress-mode .wt-quick-editor .wt-card-body { padding-inline:18px; }
+  .capture-modal.is-progress-mode .wt-composer-footer { padding-inline:18px; }
   .capture-modal .wt-new-shortcut { flex-basis: 100%; }
   .capture-context { align-items: flex-start; flex-direction: column; gap: 4px; }
   .capture-context #location { max-width: 100%; text-align: left; }
+}
+
+/* Collection mockup: 47px window chrome, 44px tabs, independently scrolling form. */
+.wt-modal.wt-new-task-modal.capture-modal { padding:0; border-radius:var(--wt-radius); }
+.capture-modal .modal-title { height:47px; min-height:47px; display:flex; align-items:center; gap:8px; margin:0; padding:0 16px; border-bottom:1px solid var(--wt-line); font-size:14px; font-weight:650; }
+.capture-brand-icon { width:23px; height:23px; align-items:center; justify-content:center; border-radius:var(--wt-small-radius); background:var(--wt-accent); color:var(--wt-on-accent); }
+.capture-modal .modal-close-button { top:12px; right:12px; width:24px; height:24px; }
+.capture-workspace { top:16px; right:46px; }
+.capture-workspace { display:none; }
+.capture-modal .capture-context,.capture-modal.is-progress-mode .capture-context { display:flex; position:absolute; top:15px; right:46px; max-width:42%; padding:0; margin:0; border:0; background:transparent; }
+.capture-modal .wt-capture-tabs { min-height:44px; padding:0 23px; margin:0; gap:23px; flex:none; }
+.capture-modal .wt-capture-tabs button { min-height:44px; padding:0; display:flex; align-items:center; gap:7px; }
+.capture-modal .wt-capture-tabs svg { width:14px; height:14px; }
+.capture-modal .modal-content,.capture-modal.is-progress-mode .modal-content { margin:0; padding:0; min-height:0; }
+.capture-modal .wt-new-task-body { padding:19px 23px 16px; gap:15px; }
+.capture-modal .wt-new-task-footer { margin:0; padding:12px 23px; }
+.capture-modal.is-progress-mode .wt-quick-editor .wt-card-body { padding:19px 23px 18px; }
+.capture-modal.is-progress-mode .wt-composer-footer { padding:12px 23px; }
+.capture-modal.is-progress-mode .is-choosing .wt-quick-body { display:flex; overflow:hidden; padding:0; }
+.capture-modal .wt-quick-toolbar[hidden] { display:none; }
+@media(max-width:480px) {
+ .capture-modal .wt-new-task-body,.capture-modal.is-progress-mode .wt-quick-editor .wt-card-body { padding-left:18px; padding-right:18px; }
+ .capture-modal .wt-capture-tabs,.capture-modal .wt-new-task-footer,.capture-modal.is-progress-mode .wt-composer-footer { padding-left:18px; padding-right:18px; }
 }

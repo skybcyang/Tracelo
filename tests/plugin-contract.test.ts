@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 describe("final plugin surface", () => {
   const main = readFileSync("src/main.ts", "utf8");
+  const card = readFileSync('src/task-card.ts', 'utf8');
   const form = readFileSync("src/new-task-form.ts", "utf8");
   const styles = readFileSync("styles.css", "utf8");
 
@@ -32,7 +33,8 @@ describe("final plugin surface", () => {
       "wt-ended-section",
     ]) expect(main).toContain(token);
     expect(main).not.toContain("wt-create-form");
-    expect(main).toMatch(/await this\.plugin\.recordProgress\(task\.id, input\.value\);\s+this\.expandedTaskId = null;\s+this\.render\(\);/);
+    expect(card).toContain('await host.plugin.recordProgress(task.id, input.value)');
+    expect(card).toContain('if (host.expandedTaskId === task.id) { host.expandedTaskId = null; host.render(); }');
     // Creation selection, expansion and search reset are exercised by card-interactions.browser.mjs.
     expect(main).toContain("taskRecorded(taskId: string)");
     expect(main).toContain("this.renderViews(taskId)");
@@ -81,7 +83,7 @@ describe("final plugin surface", () => {
       expect(main + styles).toContain(token);
     }
     expect(main).toContain("this.registerInterval(");
-    expect(main).toContain("check.disabled = task.status !== \"active\"");
+    expect(card).toContain("check.disabled = task.status !== \"active\"");
     expect(styles).toContain(".theme-dark .wt-card-composer textarea");
   });
 });

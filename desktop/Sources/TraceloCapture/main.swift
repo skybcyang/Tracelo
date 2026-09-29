@@ -41,10 +41,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let smoke = CommandLine.arguments.contains("--smoke-test")
     private var previousApp: NSRunningApplication?
     private var hotKey: EventHotKeyRef?
+    private var progressHotKey: EventHotKeyRef?
     private var hotKeyHandler: EventHandlerRef?
     private var pending: CaptureRequest?
     private var pendingDraftData: Data?
     private var saving = false
+    private let persistence = CapturePersistence()
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         if smoke {
@@ -70,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "square.and.pencil", accessibilityDescription: "Tracelo 快捷创建")
         let menu = NSMenu()
-        for (title, action) in [("创建任务", #selector(show)), ("设置…", #selector(settings)), ("退出", #selector(quit))] {
+        for (title, action) in [("创建任务", #selector(show)), ("记录进展", #selector(showProgress)), ("设置…", #selector(settings)), ("退出", #selector(quit))] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = self
             menu.addItem(item)
@@ -78,19 +80,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem.menu = menu
         buildPanel()
         var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, context in
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, context in
             guard let context else { return OSStatus(eventNotHandledErr) }
             let delegate = Unmanaged<AppDelegate>.fromOpaque(context).takeUnretainedValue()
-            delegate.toggle()
+            var identifier = EventHotKeyID()
+            GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &identifier)
+            if identifier.id == 2 { delegate.showProgress() } else { delegate.toggle() }
             return noErr
         }, 1, &event, Unmanaged.passUnretained(self).toOpaque(), &hotKeyHandler)
         let key = preferences.object(forKey: "shortcutKey") as? UInt32 ?? UInt32(kVK_Space)
         let modifiers = preferences.object(forKey: "shortcutModifiers") as? UInt32 ?? UInt32(controlKey | optionKey)
         if !register(key, modifiers) { alert("快捷键不可用", "该组合键已被占用或无法注册。仍可从菜单栏创建，并在设置中更换快捷键。") }
+        if !registerProgress(preferences.object(forKey: "progressKey") as? UInt32 ?? UInt32(kVK_ANSI_P), preferences.object(forKey: "progressModifiers") as? UInt32 ?? UInt32(controlKey | optionKey)) { alert("进展快捷键不可用", "⌃⌥P 已被占用，仍可从菜单栏记录进展；请在设置中更换。") }
+        Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in if self?.panel.isVisible == true { self?.refreshQuick() } }
         if CommandLine.arguments.contains("--show") { show() }
     }
     private func buildPanel() {
-        panel = CapturePanel(contentRect: NSRect(x: 0, y: 0, width: 560, height: 360), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel = CapturePanel(contentRect: NSRect(x: 0, y: 0, width: 530, height: 360), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.title = "Tracelo · 新建任务"
         panel.delegate = self
         panel.isReleasedWhenClosed = false
@@ -101,24 +107,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         surface = CaptureSurface()
-        surface.view.frame = NSRect(x: 0, y: 0, width: 560, height: 360)
+        surface.view.frame = NSRect(x: 0, y: 0, width: 530, height: 360)
         surface.view.wantsLayer = true
         surface.view.layer?.cornerRadius = 10
         surface.view.layer?.masksToBounds = true
         panel.contentView = surface.view
         if !smoke {
             do {
-                if let data = preferences.data(forKey: "captureDraftJSON") { draft = try CaptureFormDraft(data: data) }
-                else if let legacy = preferences.string(forKey: "captureDraft") ?? preferences.string(forKey: "draft"), !legacy.isEmpty {
+                if let data = try persistence.load(draftKey) { draft = try CaptureFormDraft(data: data) }
+                else if !preferences.bool(forKey: "scopedDraftMigrated"), let data = preferences.data(forKey: "captureDraftJSON") { draft = try CaptureFormDraft(data: data); try persistDraft(); preferences.set(true, forKey: "scopedDraftMigrated") }
+                else if !preferences.bool(forKey: "scopedDraftMigrated"), let legacy = preferences.string(forKey: "captureDraft") ?? preferences.string(forKey: "draft"), !legacy.isEmpty {
                     draft = CaptureFormDraft(legacyText: legacy)
-                    preferences.set(draft!.data, forKey: "captureDraftJSON")
+                    try persistDraft()
                 }
             } catch { draftLoadError = "无法读取上次草稿，原数据已保留：\(error.localizedDescription)" }
         }
         surface.action = { [weak self] name, value in self?.receive(name, value) }
         do { try surface.load() }
         catch { fputs("Capture interface could not load: \(error)\n", stderr); if smoke { exit(1) }; alert("无法打开快捷记录", error.localizedDescription); NSApp.terminate(nil) }
-        refreshSurface()
+        // Smoke tests supply isolated sample state after WebKit is ready.
+        // Loading a real vault here can override their appearance and drafts.
+        if !smoke { refreshSurface() }
     }
     private func receive(_ name: String, _ value: [String: Any]) {
         if ["change", "submit", "dismiss", "settings"].contains(name) {
@@ -127,12 +136,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 if let values = value["draft"] as? [String: Any] { draft = try CaptureFormDraft(json: values) }
                 else if value["draft"] is NSNull { draft = nil }
                 else { throw CaptureError.invalid("表单草稿未能读取，未更改保存内容") }
-                persistDraft()
+                try persistDraft()
                 if pendingDraftData != draft?.data { pending = nil; pendingDraftData = nil }
                 errorMessage = ""
             } catch { errorMessage = error.localizedDescription; refreshSurface(); return }
         }
         switch name {
+        case "progressDraft":
+            if let id = value["taskId"] as? String, let text = value["text"] as? String {
+                do { var drafts = try readProgressDrafts(); drafts[id] = text; try persistence.save(progressDraftKey, data: JSONSerialization.data(withJSONObject: drafts)) }
+                catch { surface.update(["quickError": "草稿未能保存：" + error.localizedDescription]) }
+            }
+        case "operation":
+            do {
+                guard let operation = value["operation"] as? [String: Any] else { throw CaptureError.invalid("快捷操作无效") }
+                try QuickWorkspace(directory: configuration().destination()).enqueue(operation)
+                refreshQuick()
+            } catch {
+                let id = (value["operation"] as? [String: Any])?["id"] as? String ?? ""
+                surface.update(["receipts": [["id": id, "status": "failed", "message": error.localizedDescription]]])
+            }
+        case "progressDismiss", "progressComplete": if !smoke { dismiss() }
+        case "openTaskFolder":
+            if let id = value["taskId"] as? String, let tasks = try? QuickWorkspace(directory: configuration().destination()).tasks(),
+                let task = tasks.first(where: { ($0["markdown"] as? String)?.contains("\"id\": \"\(id)\"") == true }), let path = task["path"] as? String {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            }
         case "ready":
             if smoke {
                 let index = CommandLine.arguments.firstIndex(of: "--screenshots")
@@ -163,14 +192,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         default: break
         }
     }
-    private func persistDraft() {
+    private func persistDraft() throws {
         guard !smoke, draftLoadError == nil else { return }
-        if let draft { preferences.set(draft.data, forKey: "captureDraftJSON") }
-        else {
-            preferences.removeObject(forKey: "captureDraftJSON")
-            preferences.removeObject(forKey: "captureDraft")
-            preferences.removeObject(forKey: "draft")
-        }
+        try persistence.save(draftKey, data: draft?.data)
+        preferences.set(true, forKey: "scopedDraftMigrated")
+    }
+    private var workspaceKey: String { (preferences.string(forKey: "vault") ?? "") + "\n" + (preferences.string(forKey: "taskDirectory") ?? "工作记录/任务") }
+    private var draftKey: String { "creationDraft." + Data(workspaceKey.utf8).base64EncodedString() }
+    private var progressDraftKey: String { "progressDraft." + Data(workspaceKey.utf8).base64EncodedString() }
+    private func readProgressDrafts() throws -> [String: String] {
+        guard let data = try persistence.load(progressDraftKey) else { return [:] }
+        guard let value = try JSONSerialization.jsonObject(with: data) as? [String: String] else { throw CaptureError.invalid("进展草稿无法读取，原数据已保留") }
+        return value
+    }
+    private func refreshQuick() {
+        do {
+            let workspace = try QuickWorkspace(directory: configuration().destination())
+            surface.update(["tasks": try workspace.tasks(), "receipts": try workspace.receipts(), "uiSettings": workspace.uiSettings(), "dark": NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua])
+        } catch { surface.update(["quickError": error.localizedDescription]) }
     }
     private func configuration() -> CaptureConfiguration {
         CaptureConfiguration(vault: preferences.string(forKey: "vault") ?? "", taskDirectory: preferences.string(forKey: "taskDirectory") ?? "工作记录/任务")
@@ -178,6 +217,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func refreshSurface() {
         var configured = false
         var configurationError = ""
+        var progressDrafts: [String: String] = [:]
+        var progressError = ""
+        do { progressDrafts = try readProgressDrafts() }
+        catch { progressError = "进展草稿未能读取，原数据已保留：" + error.localizedDescription }
         do {
             let latestGroups = try configuration().groupsSource()
             if groupsSource != latestGroups { pending = nil; pendingDraftData = nil }
@@ -188,12 +231,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if !(preferences.string(forKey: "vault") ?? "").isEmpty { configurationError = error.localizedDescription }
         }
         surface.update(["draft": draft?.values as Any? ?? NSNull(), "configured": configured, "saving": saving,
+            "workspace": workspaceKey, "progressDrafts": progressDrafts, "progressError": progressError,
             "location": configured ? URL(fileURLWithPath: preferences.string(forKey: "vault")!).lastPathComponent : "设置保存位置…",
             "directory": preferences.string(forKey: "taskDirectory") ?? "",
             "groupsSource": groupsSource as Any? ?? NSNull(),
             "error": draftLoadError ?? (errorMessage.isEmpty ? configurationError : errorMessage),
             "restored": draft != nil,
             "dark": NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua])
+        refreshQuick()
     }
     private func constrainPanelToScreen() {
         guard let bounds = (panel.screen ?? NSScreen.main)?.visibleFrame else { return }
@@ -218,10 +263,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         panel.makeFirstResponder(surface.view)
-        surface.update(["focus": true, "restored": draft != nil])
+        surface.update(["mode": "create", "focus": true, "restored": draft != nil])
     }
+    @objc func showProgress() { show(); surface.update(["mode": "progress"]) }
     private func dismiss() {
-        persistDraft()
+        do { try persistDraft() } catch { errorMessage = "草稿未能保存：" + error.localizedDescription; refreshSurface(); return }
         panel.orderOut(nil)
         if previousApp?.processIdentifier != ProcessInfo.processInfo.processIdentifier { previousApp?.activate(options: []) }
         previousApp = nil
@@ -238,13 +284,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 throw CaptureError.invalid("任务存档请求无效，草稿已保留")
             }
             let incoming = try CaptureRequest(id: id, markdown: markdown)
+            var attachments = request["attachments"] as? [[String: String]] ?? []
+            if let bytes = try persistence.load(draftKey + ".pending"), let saved = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+                saved["draft"] as? String == draft?.data.base64EncodedString(), let stored = saved["request"] as? [String: Any], let storedId = stored["id"] as? String, let source = stored["markdown"] as? String {
+                pending = try CaptureRequest(id: storedId, markdown: source); pendingDraftData = draft?.data
+                attachments = stored["attachments"] as? [[String: String]] ?? []
+            }
             if pending == nil || pendingDraftData != draft?.data {
                 pending = incoming
                 pendingDraftData = draft?.data
             }
-            _ = try pending!.publish(to: destination)
-            draft = nil
-            persistDraft()
+            let savedRequest: [String: Any] = ["id": pending!.id, "markdown": pending!.markdown, "attachments": attachments]
+            try persistence.save(draftKey + ".pending", data: JSONSerialization.data(withJSONObject: ["draft": draft?.data.base64EncodedString() ?? "", "request": savedRequest]))
+            _ = try pending!.publish(to: destination, attachments: attachments)
+            let previousDraft = draft; draft = nil
+            do { try persistDraft() } catch { draft = previousDraft; throw error }
+            try persistence.save(draftKey + ".pending", data: nil)
             pending = nil; pendingDraftData = nil
             errorMessage = ""
             surface.update(["draft": NSNull(), "error": "", "restored": false])
@@ -259,6 +314,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         hotKey = candidate
         return true
     }
+    private func registerProgress(_ key: UInt32, _ modifiers: UInt32) -> Bool {
+        var candidate: EventHotKeyRef?
+        guard RegisterEventHotKey(key, modifiers, EventHotKeyID(signature: 0x5452434C, id: 2), GetApplicationEventTarget(), 0, &candidate) == noErr else { return false }
+        if let old = progressHotKey { UnregisterEventHotKey(old) }; progressHotKey = candidate; return true
+    }
     @objc func settings() {
         let open = NSOpenPanel()
         open.title = "选择 Obsidian vault"
@@ -270,21 +330,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         sheet.messageText = "任务目录与全局快捷键"
         sheet.informativeText = "填写插件设置中的实际任务目录（相对于 vault，目录须已存在）。分组与任务字段由共享创建表单提供。点击快捷键栏可录入新组合。"
         sheet.addButton(withTitle: "保存"); sheet.addButton(withTitle: "取消")
-        let view = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 70))
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 108))
         let directory = NSTextField(string: preferences.string(forKey: "taskDirectory") ?? "工作记录/任务")
-        directory.frame = NSRect(x: 0, y: 42, width: 380, height: 24)
+        directory.frame = NSRect(x: 0, y: 80, width: 380, height: 24)
         directory.setAccessibilityLabel("任务相对目录")
         let recorder = ShortcutRecorder(string: preferences.string(forKey: "shortcutLabel") ?? "⌃⌥空格")
         recorder.isEditable = false
-        recorder.frame = NSRect(x: 0, y: 4, width: 380, height: 26)
+        recorder.frame = NSRect(x: 0, y: 42, width: 380, height: 26)
         recorder.setAccessibilityLabel("全局快捷键，点击录入")
         var shortcut: (UInt32, UInt32, String)?
         recorder.recorded = { shortcut = ($0, $1, $2) }
         view.addSubview(directory); view.addSubview(recorder)
+        let progressRecorder = ShortcutRecorder(string: preferences.string(forKey: "progressLabel") ?? "记录进展：⌃⌥P")
+        progressRecorder.isEditable = false; progressRecorder.frame = NSRect(x: 0, y: 4, width: 380, height: 26)
+        progressRecorder.setAccessibilityLabel("记录进展快捷键，点击录入")
+        var progressShortcut: (UInt32, UInt32, String)?
+        progressRecorder.recorded = { progressShortcut = ($0, $1, $2) }; view.addSubview(progressRecorder)
         sheet.accessoryView = view
         guard sheet.runModal() == .alertFirstButtonReturn else { return }
         do {
             _ = try CaptureConfiguration(vault: vault.path, taskDirectory: directory.stringValue).destination()
+            if let (key, modifiers, label) = progressShortcut {
+                guard registerProgress(key, modifiers) else { alert("快捷键冲突", "记录进展组合键无法注册，原设置已保留。"); return }
+                preferences.set(key, forKey: "progressKey"); preferences.set(modifiers, forKey: "progressModifiers"); preferences.set(label, forKey: "progressLabel")
+            }
             if let (key, modifiers, label) = shortcut {
                 let oldKey = preferences.object(forKey: "shortcutKey") as? UInt32 ?? UInt32(kVK_Space)
                 let oldModifiers = preferences.object(forKey: "shortcutModifiers") as? UInt32 ?? UInt32(controlKey | optionKey)
@@ -296,10 +365,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             let destinationChanged = preferences.string(forKey: "vault") != vault.path
                 || (preferences.string(forKey: "taskDirectory") ?? "工作记录/任务") != directory.stringValue
+            try persistDraft()
             preferences.set(vault.path, forKey: "vault")
             preferences.set(directory.stringValue, forKey: "taskDirectory")
             if destinationChanged {
                 pending = nil; pendingDraftData = nil
+                draft = try persistence.load(draftKey).map { try CaptureFormDraft(data: $0) }
                 surface.update(["resetPending": true])
             }
             errorMessage = ""
@@ -310,7 +381,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = message; alert.runModal()
     }
     @objc func quit() {
-        persistDraft()
+        if (draft?.values["images"] as? [[String: Any]])?.contains(where: { $0["state"] as? String == "processing" }) == true { alert("图片正在处理", "请等待图片处理完成后退出，图文草稿会一起保存。"); return }
+        do { try persistDraft() } catch { alert("草稿未能保存", error.localizedDescription); return }
         preferences.synchronize()
         NSApp.terminate(nil)
     }

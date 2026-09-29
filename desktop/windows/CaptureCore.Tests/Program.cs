@@ -133,7 +133,7 @@ try {
         state.UpdateGroupsSource(null);
         Equal(state.PendingRequest, null);
     });
-    Test("same-target restart keeps pending request but vault or directory changes clear it", () => {
+    Test("restart and return to a workspace restore only its own draft and pending request", () => {
         var path = Path.Combine(root, "retry-settings.json");
         var draft = JsonSerializer.SerializeToElement(new { title = "幂等重试", notes = "草稿" });
         var state = new CaptureSettings { Vault = root, TaskDirectory = "tasks", FormDraft = draft, GroupsSource = "groups", PendingRequest = CaptureRequest.Fixture(1) };
@@ -147,8 +147,27 @@ try {
         foreach (var changed in new[] { new CaptureSettings { Vault = root + "-other", TaskDirectory = "tasks" }, new CaptureSettings { Vault = root, TaskDirectory = "other-tasks" } }) {
             Equal(changed.CopyDraftFrom(restored), true);
             Equal(changed.PendingRequest, null);
-            Equal(changed.RestoredDraft().GetProperty("title").GetString(), "幂等重试");
+            Equal(changed.RestoredDraft().GetProperty("title").GetString(), "");
+            var returned = new CaptureSettings { Vault = root, TaskDirectory = "tasks" };
+            returned.CopyDraftFrom(changed);
+            Equal(returned.RestoredDraft().GetProperty("title").GetString(), "幂等重试");
+            Equal(returned.PendingRequest, state.PendingRequest);
         }
+    });
+    Test("image publication is atomic and quick operations are durable and idempotent", () => {
+        var directory = new CaptureConfiguration(root, "工作记录/任务").Destination();
+        var request = CaptureRequest.Create("图片任务", "image-task");
+        var images = JsonSerializer.SerializeToElement(new[] { new { name = "image-test.png", base64 = "AQID" } });
+        var path = request.Publish(directory, images);
+        Equal(request.Publish(directory, images), path);
+        Equal(Convert.ToBase64String(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(path)!, "image-test.png"))), "AQID");
+        var workspace = new QuickWorkspace(directory);
+        var op = JsonSerializer.SerializeToElement(new { version = 1, id = "quick-" + new string('a',32), taskId = "image-task", kind = "progress", text = "离线进展" });
+        workspace.Enqueue(op); workspace.Enqueue(op);
+        Equal(workspace.Receipts().Length, 1);
+        Equal(File.ReadAllText(path), request.Markdown);
+        var changed = JsonSerializer.SerializeToElement(new { version = 1, id = "quick-" + new string('a',32), taskId = "image-task", kind = "progress", text = "不同内容" });
+        Reject(() => workspace.Enqueue(changed));
     });
     Console.WriteLine($"{passed} tests passed");
 } finally { Directory.Delete(root, true); }

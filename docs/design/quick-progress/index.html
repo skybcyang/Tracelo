@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tracelo · 快捷进展 · 统一卡片样式</title><link rel="stylesheet" href="shared.css"><link rel="stylesheet" href="mock.css"><link rel="stylesheet" href="create-card.css"><script src="lucide.min.js"></script></head>
+<body>
+<main class="demo">
+ <header class="demo-header"><div><strong>Tracelo</strong><span>快捷窗口 · 交互原型</span></div><button id="theme" class="demo-button">深色外观</button></header>
+ <div class="demo-intro"><h1>熟悉的卡片，随时记录。</h1><p>展开后的任务卡片，放进一个更宽的快捷窗口。</p></div>
+ <div class="demo-layout">
+  <section class="demo-stage" aria-label="快捷窗口预览">
+   <nav class="demo-modes" aria-label="快捷入口"><button id="progress-mode" aria-pressed="true">记录进展</button><button id="create-mode" aria-pressed="false">新建任务</button></nav>
+   <div id="progress-window">
+    <div class="demo-context"><span id="group-context">产品研发</span><div><button id="switch-task" class="demo-button">切换任务</button><button id="close" class="demo-button" aria-label="收起并保留草稿">Esc</button></div></div>
+    <div id="picker" hidden><label for="search">选择要记录进展的任务</label><input id="search" type="search" placeholder="搜索任务名称、分组或进展…" autocomplete="off"><div id="results"></div><div class="picker-hint">↑ ↓ 选择 · Enter 打开</div></div>
+    <div id="card-mount"></div>
+    <div class="demo-under"><span id="draft-status" role="status">草稿会随输入保留</span><span>⌘ / Ctrl Enter 记录 · Esc 收起</span></div>
+   </div>
+   <section id="create-window" class="wt-modal wt-new-task-modal" hidden aria-labelledby="create-heading"><h2 class="modal-title" id="create-heading">新建任务</h2><div class="modal-content" id="create-mount"></div></section>
+   <div id="finished" hidden><span class="finished-label" id="finish-label">进展已记录</span><h2 id="finish-title">继续手头的事。</h2><p id="finish-body"></p><button id="reopen" class="demo-primary">再次唤起快捷窗口</button></div>
+   <p class="demo-disclaimer">示例数据 · 不会修改真实任务</p>
+  </section>
+  <aside class="demo-aside"><h2>两个入口，同一套卡片样式</h2><div><h3>卡片只加宽</h3><p>默认 600 px，保留插件展开卡片的内容顺序、字号、间距和操作。</p></div><div><h3>待办也在这里</h3><p>直接勾选、添加、编辑待办；详情、最新进展和截止日期都能看到。</p></div><div><h3>底部照常记进展</h3><p>沿用「记录当前进展」输入框和按钮，写完即可回到原来的工作。</p></div><div class="aside-foot"><h3>新建结构不变，样式统一</h3><p>保留原表单的字段、顺序和四象限布局，使用卡片的底色、字号、边框及按钮。</p></div><label class="demo-fail"><input id="fail" type="checkbox">模拟下一次记录失败</label></aside>
+ </div>
+</main><script type="module" src="mock.js"></script>
+</body></html>

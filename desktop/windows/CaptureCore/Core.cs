@@ -102,8 +102,33 @@ public record CaptureRequest(string Id, string Markdown) {
         return Create(examples[index], "desktop-fixture-" + index, "created-" + index,
             DateTimeOffset.FromUnixTimeMilliseconds(1790467200123), TimeZoneInfo.FindSystemTimeZoneById("Asia/Shanghai"));
     }
-    public string Publish(string directory) {
+    public string Publish(string directory, JsonElement? attachments = null) {
         if (!SafeSegment(Id)) throw new ArgumentException("任务 ID 无效");
+        if (attachments is { ValueKind: JsonValueKind.Array } images && images.GetArrayLength() > 0) {
+            var decoded = images.EnumerateArray().Select(image => {
+                var name = image.GetProperty("name").GetString()!;
+                if (!Regex.IsMatch(name, @"^image-[a-zA-Z0-9-]+\.(png|jpg|webp|gif|bmp)$")) throw new ArgumentException("图片文件名无效");
+                var data = Convert.FromBase64String(image.GetProperty("base64").GetString()!);
+                if (data.Length is 0 or > 10 * 1024 * 1024) throw new ArgumentException("图片大小无效");
+                return (name, data);
+            }).ToArray();
+            var folder = Path.Combine(directory, Id);
+            var target = Path.Combine(folder, Id + ".md");
+            if (Directory.Exists(folder)) {
+                if (!File.Exists(target) || File.ReadAllText(target) != Markdown || decoded.Any(image => !File.Exists(Path.Combine(folder, image.name)) || !File.ReadAllBytes(Path.Combine(folder, image.name)).SequenceEqual(image.data))) throw new IOException("同名目录已存在；没有覆盖");
+                return target;
+            }
+            var stage = Path.Combine(directory, ".tracelo-images-" + Guid.NewGuid());
+            Directory.CreateDirectory(stage);
+            try {
+                foreach (var (name, data) in decoded) {
+                    var path = Path.Combine(stage, name);
+                    using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { stream.Write(data); stream.Flush(true); }
+                    if (!File.ReadAllBytes(path).SequenceEqual(data)) throw new IOException("图片写入校验失败");
+                }
+                Publish(stage); Directory.Move(stage, folder); return target;
+            } finally { if (Directory.Exists(stage)) Directory.Delete(stage, true); }
+        }
         var destination = Path.Combine(directory, Id + ".md");
         var temporary = Path.Combine(directory, ".tracelo-" + Guid.NewGuid() + ".tmp");
         var bytes = new UTF8Encoding(false, true).GetBytes(Markdown);
@@ -133,6 +158,16 @@ public static class InputBehavior {
         : key == 27 ? InputAction.Dismiss : key == 13 && !shift ? InputAction.Submit : InputAction.System;
 }
 public class CaptureSettings {
+    public uint ProgressHotkeyModifiers { get; set; } = 3;
+    public uint ProgressHotkeyKey { get; set; } = 80;
+    public Dictionary<string, JsonElement> DraftsByWorkspace { get; set; } = new();
+    public Dictionary<string, CaptureRequest?> PendingByWorkspace { get; set; } = new();
+    public Dictionary<string, Dictionary<string, string>> ProgressDraftsByWorkspace { get; set; } = new();
+    public string WorkspaceKey => Vault + "\n" + TaskDirectory;
+    public Dictionary<string, string> ProgressDrafts() {
+        if (!ProgressDraftsByWorkspace.TryGetValue(WorkspaceKey, out var drafts)) { drafts = new(); ProgressDraftsByWorkspace[WorkspaceKey] = drafts; }
+        return drafts;
+    }
     public string? GroupsSource { get; set; }
     public bool UpdateGroupsSource(string? source) {
         var changed = GroupsSource != source;
@@ -142,8 +177,13 @@ public class CaptureSettings {
     }
     public bool CopyDraftFrom(CaptureSettings previous) {
         var targetChanged = Vault != previous.Vault || TaskDirectory != previous.TaskDirectory;
-        Draft = previous.Draft; FormDraft = previous.FormDraft;
-        PendingRequest = targetChanged ? null : previous.PendingRequest;
+        previous.DraftsByWorkspace[previous.WorkspaceKey] = previous.RestoredDraft().Clone();
+        previous.PendingByWorkspace[previous.WorkspaceKey] = previous.PendingRequest;
+        PendingByWorkspace = new(previous.PendingByWorkspace);
+        DraftsByWorkspace = new(previous.DraftsByWorkspace); ProgressDraftsByWorkspace = new(previous.ProgressDraftsByWorkspace);
+        Draft = targetChanged ? "" : previous.Draft;
+        FormDraft = targetChanged ? DraftsByWorkspace.GetValueOrDefault(WorkspaceKey) is { ValueKind: JsonValueKind.Object } saved ? saved : null : previous.FormDraft;
+        PendingRequest = targetChanged ? PendingByWorkspace.GetValueOrDefault(WorkspaceKey) : previous.PendingRequest;
         GroupsSource = targetChanged ? null : previous.GroupsSource;
         return targetChanged;
     }

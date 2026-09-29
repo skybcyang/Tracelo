@@ -42,6 +42,17 @@ describe("task context independent of progress", () => {
 });
 
 describe("extended v1 archive", () => {
+  it.each(['noto:rocket', 'noto:1st-place-medal', 'noto:books'])("round trips Noto task and group icons: %s", icon => {
+    const task = setTaskIcon(base(), icon, at(2), 'color-icon');
+    expect(parseTaskMarkdown(serializeTaskMarkdown(task))).toEqual(task);
+    const groups = { version: 1 as const, groups: [{ id: 'g', name: '彩色', icon }], events: [] };
+    expect(parseGroupArchive(serializeGroupArchive(groups))).toEqual(groups);
+  });
+  it('rejects unsupported namespaces and malformed Noto names', () => {
+    for (const icon of ['other:rocket', 'noto:../rocket', 'noto:', 'noto:rocket:blue']) {
+      expect(() => setTaskIcon(base(), icon, at(2), 'bad')).toThrow();
+    }
+  });
   it("round trips notes and icons, checks their readable projection, and accepts old tasks", () => {
     const old = base();
     expect(serializeTaskMarkdown(old)).not.toContain("## 详情");

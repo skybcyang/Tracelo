@@ -22,9 +22,13 @@ export interface PluginState {
   initialized: boolean;
   taskDirectory: string;
   drafts: Record<string, string>;
+  quickDrafts: Record<string, string>;
   noteDrafts: Record<string, string>;
   boardZoom: number;
   cardLayout: "aligned" | "masonry";
+  theme: "evergreen" | "graphite" | "glacier" | "vermilion";
+  appearance: "system" | "light" | "dark";
+  compactCards: boolean;
   orders: TaskOrders;
   viewMode: ViewMode;
   lastDailyBackup: string | null;
@@ -42,9 +46,13 @@ export function createDefaultState(): PluginState {
     initialized: false,
     taskDirectory: DEFAULT_TASK_DIRECTORY,
     drafts: {},
+    quickDrafts: {},
     noteDrafts: {},
     boardZoom: 100,
     cardLayout: "aligned",
+    theme: "evergreen",
+    appearance: "system",
+    compactCards: false,
     orders: { group: {}, quadrant: {} },
     viewMode: "group",
     lastDailyBackup: null,
@@ -80,10 +88,14 @@ export function normalizePluginState(value: unknown): PluginState {
     initialized: value.initialized === true,
     taskDirectory: taskDirectory || defaults.taskDirectory,
     drafts: stringRecord(value.drafts),
+    quickDrafts: stringRecord(value.quickDrafts),
     noteDrafts: stringRecord(value.noteDrafts),
     boardZoom: typeof value.boardZoom === "number" && Number.isFinite(value.boardZoom)
       ? Math.max(60, Math.min(120, Math.round(value.boardZoom / 5) * 5)) : 100,
     cardLayout: value.cardLayout === "masonry" ? "masonry" : "aligned",
+    theme: value.theme === "graphite" || value.theme === "glacier" || value.theme === "vermilion" ? value.theme : "evergreen",
+    appearance: value.appearance === "light" || value.appearance === "dark" ? value.appearance : "system",
+    compactCards: value.compactCards === true,
     orders: {
       group: orderRecord(orders.group),
       quadrant: orderRecord(orders.quadrant),

@@ -97,6 +97,23 @@ export class ArchiveStore {
     return operation;
   }
 
+  saveProgressAttachments(task: WorkTask, attachments: { name: string; bytes: Uint8Array }[]): Promise<void> {
+    const operation = this.queue.then(async () => {
+      if (!this.adapter.writeBinary || !this.adapter.readBinary) throw Error('当前文件系统不支持图片附件');
+      await this.writeTask(task, new Date(), true);
+      for (const image of attachments) {
+        if (!/^image-[a-zA-Z0-9-]+\.(png|jpg|webp|gif|bmp)$/.test(image.name)) throw Error('图片文件名无效');
+        const path = join(this.taskFolderPath(task), image.name);
+        if (!await this.adapter.exists(path)) await this.adapter.writeBinary(path, image.bytes.slice().buffer as ArrayBuffer);
+        const saved = new Uint8Array(await this.adapter.readBinary(path));
+        if (saved.length !== image.bytes.length || saved.some((byte,i) => byte !== image.bytes[i])) throw Error('图片写入校验失败，未覆盖已有文件');
+      }
+      await this.backupMaterials(task, join(this.backupDirectory, 'daily', dayKey(new Date())));
+    });
+    this.queue = operation.then(() => {}, () => {});
+    return operation;
+  }
+
   private async writeNoteAttachment(task: WorkTask, filename: string, data: ArrayBuffer): Promise<{ task: WorkTask; path: string }> {
     if (!this.adapter.writeBinary || !this.adapter.readBinary) throw new Error("当前文件系统不支持图片附件");
     const extension = filename.split(".").at(-1)?.toLowerCase();
@@ -204,6 +221,44 @@ export class ArchiveStore {
     const operation = this.queue.then(() => this.writeTask(task, now));
     this.queue = operation.catch(() => {});
     return operation;
+  }
+
+  /** Publish the whole task directory only after every attachment has been verified. */
+  createTaskWithAttachments(task: WorkTask, attachments: { name: string; bytes: Uint8Array }[]): Promise<void> {
+    const operation = this.queue.then(async () => {
+      if (!this.adapter.writeBinary || !this.adapter.readBinary) throw Error('当前文件系统不支持图片附件');
+      if (this.paths.has(task.id)) throw Error('此任务已经创建，请重新载入');
+      const base = taskBaseName(task);
+      let name = base;
+      for (let i = 2; await this.adapter.exists(`${this.taskDirectory}/${name}`) || await this.adapter.exists(`${this.taskDirectory}/${name}.md`); i++) name = `${base}（${i}）`;
+      const folder = `${this.taskDirectory}/${name}`;
+      const next = { ...task, archiveName: name, materialFolder: folder };
+      const stage = `${this.backupDirectory}/new-images/${crypto.randomUUID()}`;
+      await this.ensureFolder(stage);
+      const owned: string[] = [];
+      try {
+        for (const attachment of attachments) {
+          if (!/^image-[a-zA-Z0-9-]+\.(png|jpg|webp|gif|bmp)$/.test(attachment.name)) throw Error('图片文件名无效');
+          const path = `${stage}/${attachment.name}`; owned.push(path);
+          await this.adapter.writeBinary(path, attachment.bytes.slice().buffer as ArrayBuffer);
+          const saved = new Uint8Array(await this.adapter.readBinary(path));
+          if (saved.length !== attachment.bytes.length || saved.some((b, i) => b !== attachment.bytes[i])) throw Error('图片写入校验失败');
+        }
+        const source = serializeTaskMarkdown(next), staged = `${stage}/${name}.md`;
+        owned.push(staged); await this.adapter.write(staged, source);
+        if (await this.adapter.read(staged) !== source) throw Error('任务写入校验失败');
+        this.beforeWrite(`${folder}/${name}.md`);
+        await this.adapter.rename(stage, folder);
+      } catch (reason) {
+        for (const path of owned) if (await this.adapter.exists(path)) await this.adapter.remove(path);
+        if (await this.adapter.exists(stage)) await this.adapter.rmdir(stage, false);
+        throw reason;
+      }
+      Object.assign(task, next); this.paths.set(task.id, `${folder}/${name}.md`);
+      // Folder rename is the commit point. Backup failure cannot invite duplicate creation.
+      await this.writeTask(task, new Date()).catch(() => {});
+    });
+    this.queue = operation.then(() => {}, () => {}); return operation;
   }
 
   private async writeTask(task: WorkTask, now: Date, createFolder = false): Promise<void> {

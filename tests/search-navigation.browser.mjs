@@ -30,7 +30,7 @@ try {
     await page.getByRole('button',{name:'查看并记录：整理客户反馈',exact:true}).click();
     assert.equal(await page.locator('.wt-card.is-expanded').count(),1);
     await page.getByRole('textbox',{name:'记录当前进展',exact:true}).fill('普通卡片草稿');
-    await page.getByRole('button',{name:'关闭进展输入',exact:true}).click();
+    await page.getByRole('button',{name:'收起',exact:true}).click();
     assert.equal(await page.locator('.wt-card.is-expanded').count(),0);
     await page.getByRole('button',{name:'查看并记录：整理客户反馈',exact:true}).click();
     assert.equal(await page.getByRole('textbox',{name:'记录当前进展',exact:true}).inputValue(),'普通卡片草稿');
@@ -122,17 +122,18 @@ try {
     assert.equal(await page.getByRole('searchbox').inputValue(), '');
     assert.match(await page.locator('.wt-card.is-selected .wt-notes-preview').innerText(), /独特关键词/);
   });
-  for (const width of [800, 390]) await check(`narrow ${width}px pane switch retains draft and scroll position`, async () => {
+  for (const width of [720, 390]) await check(`narrow ${width}px pane switch retains draft and scroll position`, async () => {
     await page.setViewportSize({ width, height: 800 });
     await page.getByRole('button', {name:'查看并记录：整理客户反馈', exact:true}).click();
     await page.getByRole('textbox', {name:'记录当前进展',exact:true}).fill('保留这份草稿');
-    const before = await page.locator('.wt-task-column').evaluate(el => { el.scrollTop = 80; return el.scrollTop; });
-    await page.getByRole('button', {name:'查看历史',exact:true}).click();
+    await page.locator('.wt-task-column').evaluate(el => { el.scrollTop = 80; });
+    const before = await page.locator('.wt-task-column').evaluate(el => el.scrollTop);
+    await page.getByRole('button', {name:'时间线',exact:true}).click();
     assert.equal(await page.locator('.wt-task-column').isVisible(), false);
     assert.equal(await page.locator('.wt-timeline-column').isVisible(), true);
     const rect = await page.locator('.wt-timeline-column').boundingBox();
     assert.ok(rect.y >= 0 && rect.y < 250 && rect.y + rect.height <= 801);
-    await page.getByRole('button', {name:'返回任务',exact:true}).click();
+    await page.getByRole('button', {name:'任务看板',exact:true}).click();
     assert.equal(await page.getByRole('textbox', {name:'记录当前进展',exact:true}).inputValue(), '保留这份草稿');
     assert.ok(Math.abs(await page.locator('.wt-task-column').evaluate(el=>el.scrollTop) - before) < 2);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -144,27 +145,28 @@ try {
     assert.equal(await page.locator('.wt-event-list details').count(), 0);
     for (const kind of ['progress','completed']) {
       const style = await page.locator(`.wt-event-list .is-${kind} .wt-event-body`).first().evaluate(el => ({border:getComputedStyle(el).borderLeftWidth,background:getComputedStyle(el).backgroundColor}));
-      assert.ok(parseFloat(style.border) >= 2, kind + ' requires a visible milestone rail');
-      assert.notEqual(style.background, 'rgba(0, 0, 0, 0)');
+      assert.equal(parseFloat(style.border), 0, 'collection timeline uses compact unboxed event rows');
+      assert.equal(style.background, 'rgba(0, 0, 0, 0)');
     }
   });
   await check('narrow history keeps its reading position across pane switches and background updates', async () => {
-    await page.setViewportSize({width:800,height:800});
+    await page.setViewportSize({width:720,height:800});
     await page.evaluate(async () => { const {plugin,ids}=window.cardFixture; for(let i=0;i<15;i++) await plugin.recordProgress(ids.payment,'追加历史 '+i); });
-    await page.getByRole('button',{name:'查看历史',exact:true}).click();
+    await page.getByRole('button',{name:'时间线',exact:true}).click();
     const pane = page.locator('.wt-timeline-scroll');
     await pane.evaluate(el => { el.scrollTop = 100; });
-    await page.getByRole('button',{name:'返回任务',exact:true}).click();
-    await page.getByRole('button',{name:'查看历史',exact:true}).click();
+    await page.getByRole('button',{name:'任务看板',exact:true}).click();
+    await page.getByRole('button',{name:'全部进展',exact:true}).click();
     assert.ok(Math.abs(await pane.evaluate(el=>el.scrollTop)-100)<2, 'pane switch moved history');
-    await page.getByRole('button',{name:'返回任务',exact:true}).click();
+    await page.getByRole('button',{name:'任务看板',exact:true}).click();
     await page.evaluate(async () => { const {plugin,ids}=window.cardFixture; await plugin.recordProgress(ids.payment,'后台新增进展'); });
-    await page.getByRole('button',{name:'查看历史',exact:true}).click();
-    assert.ok(Math.abs(await pane.evaluate(el=>el.scrollTop)-100)<2, 'history reading position lost');
+    await page.getByRole('button',{name:'全部进展',exact:true}).click();
+    assert.ok(await pane.evaluate(el=>el.scrollTop)>=100, 'history reading position lost after prepending new events');
   });
   await check('creating a task while viewing narrow history returns to the new card', async () => {
     await page.setViewportSize({width:390,height:844});
-    await page.getByRole('button',{name:'查看历史',exact:true}).click();
+    await page.getByRole('button',{name:'全部进展',exact:true}).click();
+    await page.getByRole('button',{name:'任务看板',exact:true}).click();
     await page.locator('.wt-new-task-button').click();
     await page.locator('.wt-modal-title').fill('从历史新建');
     await page.getByRole('button',{name:'创建任务',exact:true}).click();

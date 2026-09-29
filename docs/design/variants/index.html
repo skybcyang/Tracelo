@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tracelo · 三款设计对比</title>
+  <link rel="stylesheet" href="review.css">
+</head>
+<body>
+  <header class="masthead"><a href="./" class="wordmark">Tracelo<span>DESIGN EXPLORATIONS</span></a><span>2026.09.29 / 01—03</span></header>
+  <main>
+    <div class="intro"><div><p class="eyebrow">三个完整原型 · 同一套工作流程</p><h1>同一份工作，三种气质。</h1></div><p class="intro-note">松绿原版已封存。<br>选择一个页面，横向比较；打开原型，直接体验。</p></div>
+    <div class="review-toolbar"><label for="screen">比较页面</label><select id="screen">
+      <option value="board">主看板</option><option value="quadrants">四象限</option><option value="detail">任务详情</option><option value="create">新建任务</option><option value="quick">快捷记录</option><option value="search">搜索</option><option value="settings">设置</option><option value="archive">已结束</option><option value="transfer">导入与导出</option><option value="groups">管理分组</option><option value="timeline">每日时间线</option><option value="mobile">窄屏看板</option><option value="mobileCreate">窄屏新建</option><option value="alternate">另一种明暗模式</option>
+    </select><span class="screen-hint" id="screen-hint">点击截图可放大查看</span></div>
+    <section class="editions" aria-label="三款设计方案">
+      <article class="edition evergreen" data-edition="green"><div class="edition-top"><span>01 / EVERGREEN</span><span class="status">原版已保留</span></div><div class="edition-heading"><h2>松绿 · 自然秩序</h2><div class="swatches" aria-label="松绿与矿物灰"><i></i><i></i><i></i></div></div><p class="description">温润灰白、松绿点缀。柔和边界，让内容成为视觉中心。</p><button class="preview" data-preview="green" aria-label="放大松绿版截图"><img src="../studio-reset/01-workspace-light.png" alt="松绿版主看板" width="1600" height="1000"></button><div class="edition-footer"><a class="launch" href="../studio-reset/?theme=light">体验松绿版 <span>↗</span></a><a class="secondary" href="../tracelo-green-2026-09-29.zip" download>下载封存快照</a></div><div class="design-notes"><span>圆角 8–16px</span><span>轻边界</span><span>安静、亲近</span></div></article>
+      <article class="edition motorsport" data-edition="motor"><div class="edition-top"><span>02 / MOTORSPORT</span><span class="status">新增方案</span></div><div class="edition-heading"><h2>宝马配色 · 工业秩序</h2><div class="swatches" aria-label="浅蓝、深蓝与红"><i></i><i></i><i></i></div></div><p class="description">金属灰、硬边网格、三色标识。像一张精确的工作控制台。</p><button class="preview" data-preview="motor" aria-label="放大工业版截图"><img src="../motorsport-industrial/01-board.png" alt="工业版主看板" width="1600" height="1000"></button><div class="edition-footer"><a class="launch" href="../motorsport-industrial/">体验工业版 <span>↗</span></a><a class="secondary screen-link" href="../motorsport-industrial/">打开当前页面</a></div><div class="design-notes"><span>直角与分割线</span><span>等宽数字</span><span>精准、果断</span></div></article>
+      <article class="edition afterglow" data-edition="neon"><div class="edition-top"><span>03 / AFTERGLOW</span><span class="status">新增方案</span></div><div class="edition-heading"><h2>霓虹 · 每一步发光</h2><div class="swatches" aria-label="荧光青、紫与粉"><i></i><i></i><i></i></div></div><p class="description">墨蓝底色、荧光青主色、紫粉分区。用边缘辉光标记焦点。</p><button class="preview" data-preview="neon" aria-label="放大霓虹版截图"><img src="../neon-workspace/01-board.png" alt="霓虹版主看板" width="1600" height="1000"></button><div class="edition-footer"><a class="launch" href="../neon-workspace/">体验霓虹版 <span>↗</span></a><a class="secondary screen-link" href="../neon-workspace/">打开当前页面</a></div><div class="design-notes"><span>发光边缘</span><span>呼吸光点</span><span>沉浸、鲜明</span></div></article>
+    </section>
+    <footer class="notes"><p>每套包含看板、四象限、详情、新建、快捷记录、搜索、时间线、归档、分组和设置。两套新版各保留 14 张页面截图。</p><p>这是独立交互 mockup：使用示例数据，刷新后恢复；尚未接入正式插件。霓虹动效会遵从系统的“减少动态效果”设置。</p><a href="README.md">设计说明与验证记录 ↗</a></footer>
+  </main>
+  <dialog id="lightbox" aria-labelledby="preview-title"><header><h2 id="preview-title">设计预览</h2><button id="close" aria-label="关闭预览">关闭 ×</button></header><img id="large-image" alt=""><footer><span id="preview-caption"></span><a id="preview-live" href="../motorsport-industrial/">体验此页面 ↗</a></footer></dialog>
+  <script src="review.js"></script>
+</body>
+</html>

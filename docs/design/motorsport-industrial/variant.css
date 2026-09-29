@@ -1,0 +1,94 @@
+/* Motorsport: BMW M-inspired colour relationships, independent Tracelo identity. */
+html[data-style=motorsport]{--bg:#e8ebee;--surface:#f9fafb;--sidebar:#eef0f2;--ink:#17212d;--muted:#64707e;--subtle:#e2e7ec;--line:#c9d0d7;--accent:#168bd0;--accent-strong:#075ba0;--tint:#dcecf6;--green:#23655a;--green-bg:#dfede8;--red:#bf263b;--red-bg:#f7e3e6;--amber:#87571d;--amber-bg:#f1e8d7;--rail:210px;--timeline:306px;font-family:'Arial', 'PingFang SC', 'Microsoft YaHei', sans-serif;--shadow:none}
+html[data-style=motorsport][data-theme=dark]{--bg:#151b24;--surface:#202935;--sidebar:#19212c;--ink:#edf3fa;--muted:#a1b0c1;--subtle:#293645;--line:#3e5063;--accent:#56baf1;--accent-strong:#72c6f6;--tint:#203e58;--green:#89cbb9;--green-bg:#244438;--red:#ff8892;--red-bg:#4e2933;--amber:#efc784;--amber-bg:#493e2b}
+html[data-style=motorsport] :is(button,input,textarea,select,kbd,.pill,.task-card,.task-icon,.segmented,.brand-mark,.avatar,.board-column,.archive-list,.setting-section,.editor-area,.quick-context,.daily-due,.inline-notice,.transfer-summary>div,dialog){border-radius:0}
+html[data-style=motorsport] :is(.task-card,.task-card:hover,.btn,.segmented button.active,.progress-composer){box-shadow:none}
+html[data-style=motorsport] .sidebar{padding:27px 16px 18px;gap:25px;border-right:1px solid var(--line)}
+html[data-style=motorsport] .brand{padding:0 4px;gap:12px}
+html[data-style=motorsport] .brand strong{font-size:26px;font-weight:800;letter-spacing:-1.5px}
+html[data-style=motorsport] .brand-mark{width:31px;height:35px;background:#123564;color:#fff}
+html[data-style=motorsport] .workspace-label{font-size:9px;font-family:ui-monospace,SFMono-Regular,monospace;letter-spacing:.3px;margin-top:1px}
+.racing-stripes{display:flex;height:7px;gap:3px;margin-top:-12px;margin-bottom:2px}
+.racing-stripes i{display:block;flex:1;background:#36a9e1;transform:skewX(-24deg)}
+.racing-stripes i:nth-child(2){background:#233e76}.racing-stripes i:nth-child(3){background:#dc3344}
+html[data-style=motorsport] .search-launch{padding:10px 9px;background:transparent;border-color:var(--line);font-size:11px}
+html[data-style=motorsport] .nav-group{gap:2px}
+html[data-style=motorsport] .nav-item{padding:12px 11px}
+html[data-style=motorsport] .nav-item.active{background:#123564;color:#fff;border-left:3px solid #3caff0;padding-left:8px}
+html[data-style=motorsport] .nav-item .count{font-family:ui-monospace,monospace;font-size:12px}
+html[data-style=motorsport] .side-label{font-family:ui-monospace,monospace;font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--line);padding:0 7px 7px;margin-bottom:5px}
+html[data-style=motorsport] .topbar{height:64px;min-height:64px;background:var(--surface);padding:0 28px;border-bottom:2px solid var(--ink)}
+html[data-style=motorsport] .mock-label{border:0;padding:0;font-family:ui-monospace,monospace;font-size:9px;letter-spacing:.8px}
+html[data-style=motorsport] .mock-label a{color:var(--muted)}
+html[data-style=motorsport] .workspace{padding:25px 28px 36px}
+html[data-style=motorsport] .page-heading{position:relative;flex-wrap:wrap;margin-bottom:22px;gap:9px}
+.edition-label{flex-basis:100%;font-family:ui-monospace,SFMono-Regular,monospace;font-size:10px;letter-spacing:1.7px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:10px;margin-bottom:8px}
+html[data-style=motorsport] .edition-label>span{margin-left:auto;color:var(--accent-strong)}
+html[data-style=motorsport] h1{font-size:34px;font-weight:800;letter-spacing:-1.4px;line-height:1.4}
+html[data-style=motorsport] h2{font-weight:700}
+html[data-style=motorsport] .page-heading p{font-size:11px;margin-top:9px}
+.instrument-strip{display:grid;grid-template-columns:repeat(3,1fr);margin-bottom:23px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.instrument-strip>div{padding:12px 16px;border-left:1px solid var(--line);position:relative}
+.instrument-strip>div:first-child{border-left:0;padding-left:0}
+.instrument-strip>div:before{content:'';position:absolute;top:-1px;left:0;right:0;height:3px;background:#36a9e1}
+.instrument-strip>div:nth-child(2):before{background:#233e76}.instrument-strip>div:nth-child(3):before{background:#dc3344}
+.instrument-strip>div>span{font-size:10px;color:var(--muted)}
+.instrument-strip strong{display:flex;align-items:baseline;gap:12px;font-family:ui-monospace,SFMono-Regular,monospace;font-size:29px;line-height:1.4;letter-spacing:-1.5px;font-weight:500}
+.instrument-strip small{font-size:9px;font-weight:400;letter-spacing:.8px;color:var(--muted)}
+html[data-style=motorsport] .view-toolbar{margin-bottom:19px;gap:6px}
+html[data-style=motorsport] .segmented{border:1px solid var(--line);background:transparent;padding:0;gap:0}
+html[data-style=motorsport] .segmented button{padding:8px 11px}
+html[data-style=motorsport] .segmented button.active{background:var(--ink);color:var(--surface)}
+html[data-style=motorsport] .btn{font-weight:600;min-height:36px;border-color:var(--line)}
+html[data-style=motorsport] .btn.primary,html[data-style=motorsport] .day-button.active{background:#10568c;border-color:#10568c;color:#fff}
+html[data-style=motorsport] .btn.primary:hover{background:#073e6c;border-color:#073e6c}
+html[data-style=motorsport] .board{gap:22px 16px}
+html[data-style=motorsport] .column-heading{margin:0 0 12px;padding:0 0 9px;border-bottom:2px solid var(--group,var(--line));text-transform:uppercase;font-size:12px}
+html[data-style=motorsport] .column-heading .dot{border-radius:0;width:6px;height:6px}
+html[data-style=motorsport] .column-heading .count{margin-left:4px;font-family:ui-monospace,monospace}
+html[data-style=motorsport] .task-card{padding:16px 15px 0;background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--group);transition:border-color .15s,transform .15s}
+html[data-style=motorsport] .task-card:hover{border-color:var(--group);transform:translateY(-2px)}
+html[data-style=motorsport] .task-icon{background:transparent;border:1px solid color-mix(in srgb,var(--group) 45%,var(--line));width:25px;height:25px;color:var(--group)}
+html[data-style=motorsport] .card-title{font-size:14px;font-weight:700;padding:0}
+html[data-style=motorsport] .card-title-row{gap:8px}
+html[data-style=motorsport] .card-badges{margin:12px 0;gap:5px}
+html[data-style=motorsport] .pill{font-size:10px;padding:2px 6px;border:1px solid color-mix(in srgb,currentColor 20%,transparent)}
+html[data-style=motorsport] .card-excerpt,html[data-style=motorsport] .progress-preview p{font-size:12px}
+html[data-style=motorsport] .progress-preview{border-left:2px solid var(--group);padding-left:10px}
+html[data-style=motorsport] .progress-time,html[data-style=motorsport] .event-meta,html[data-style=motorsport] .card-bottom{font-family:ui-monospace,SFMono-Regular,monospace}
+html[data-style=motorsport] .card-bottom{margin-left:-15px;margin-right:-15px;padding:11px 15px;background:color-mix(in srgb,var(--subtle) 50%,transparent)}
+html[data-style=motorsport] .card-stack{gap:14px}
+html[data-style=motorsport] .column-add{border-style:solid;background:transparent;padding:9px}
+html[data-style=motorsport] .timeline-rail{background:var(--surface);border-left:1px solid var(--line)}
+html[data-style=motorsport] .timeline-head{padding:28px 23px 21px}
+html[data-style=motorsport] .timeline-title{font-size:16px;font-weight:700}
+html[data-style=motorsport] .date-navigation{margin-top:21px}
+html[data-style=motorsport] .week-strip{gap:0;border:1px solid var(--line)}
+html[data-style=motorsport] .day-button{border-right:1px solid var(--line);padding:8px 0;gap:6px;font-family:ui-monospace,monospace}
+html[data-style=motorsport] .day-button:last-child{border-right:0}
+html[data-style=motorsport] .timeline-list{padding:22px 23px}
+html[data-style=motorsport] .timeline-event:after{border-radius:0;width:6px;height:6px;background:var(--accent)}
+html[data-style=motorsport] .daily-due{border-left:3px solid #d53442;padding:11px 12px}
+html[data-style=motorsport] .rail-summary{background:var(--subtle);padding:13px 23px;font-family:ui-monospace,monospace}
+html[data-style=motorsport] .rail-foot{padding:15px 23px}
+html[data-style=motorsport] .event-copy{font-size:12px}
+html[data-style=motorsport] .avatar{background:#123564;color:#fff}
+html[data-style=motorsport] .quadrant-board{gap:14px;height:calc(100dvh - 430px);min-height:300px}
+html[data-style=motorsport] .quadrant-board .card-stack{grid-auto-rows:max-content}
+html[data-style=motorsport] .quadrant-board .board-column{background:var(--subtle);border:1px solid var(--line);padding:13px}
+html[data-style=motorsport] .quadrant-board .card-bottom{margin-left:-14px;margin-right:-14px;padding:9px 14px}
+html[data-style=motorsport] dialog{border:1px solid var(--ink);box-shadow:12px 12px 0 #101b2d22}
+html[data-style=motorsport] dialog::backdrop{background:#0c1b3373;backdrop-filter:blur(3px)}
+html[data-style=motorsport] .dialog-head,html[data-style=motorsport] .detail-top{border-top:4px solid #228dcc;border-bottom:1px solid var(--line)}
+html[data-style=motorsport] .dialog-head h2{font-weight:700}
+html[data-style=motorsport] .editor-area,html[data-style=motorsport] .quick-context{background:var(--bg)}
+html[data-style=motorsport] .detail-title .task-icon{width:37px;height:37px}
+html[data-style=motorsport] .detail-props{background:var(--bg);padding:15px;border:1px solid var(--line)}
+html[data-style=motorsport] .progress-composer{border-top:2px solid #228dcc}
+html[data-style=motorsport] .choice.active{border-color:var(--accent);background:var(--tint)}
+html[data-style=motorsport] #toast{border-radius:0;background:var(--ink);color:var(--surface)}
+html[data-style=motorsport] :is(.settings-surface,.transfer-card,.transfer-summary,.selection-bar,.attachment-thumb,.progress-meter){border-radius:0}
+@media(min-width:1600px){html[data-style=motorsport]{--rail:216px;--timeline:322px}html[data-style=motorsport] .workspace{padding:28px 30px 36px}}
+@media(max-width:1250px){html[data-style=motorsport]{--rail:190px;--timeline:280px}html[data-style=motorsport] .workspace{padding:23px 22px}html[data-style=motorsport] .sidebar{padding:26px 12px 15px}html[data-style=motorsport] .timeline-head,html[data-style=motorsport] .timeline-list{padding-left:18px;padding-right:18px}}
+@media(max-width:760px){html[data-style=motorsport] .workspace{padding:24px 18px}html[data-style=motorsport] .topbar{padding:0 14px;height:58px;min-height:58px}html[data-style=motorsport] h1{font-size:27px}html[data-style=motorsport] .edition-label{font-size:9px;letter-spacing:1px}.instrument-strip>div{padding:10px}.instrument-strip strong{font-size:25px;gap:5px}.instrument-strip small{font-size:7px;letter-spacing:0}.instrument-strip>div>span{font-size:10px}html[data-style=motorsport] .segmented button{padding:7px 8px}html[data-style=motorsport] .quadrant-board{height:auto;min-height:0}html[data-style=motorsport] .page-heading{gap:7px}html[data-style=motorsport] .board{gap:24px 12px}}
+@media(prefers-reduced-motion:reduce){html[data-style=motorsport] .task-card:hover{transform:none}}

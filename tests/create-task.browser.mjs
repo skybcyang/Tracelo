@@ -19,13 +19,16 @@ try {
     await page.goto('https://tracelo.test/');
     await page.waitForFunction(() => window.cardFixture);
     await open();
+    await modal.locator('.wt-capture-extra > summary').click();
     await run(); checks++; console.log('PASS ' + name);
   }
   await check('compact default and expanded body keep header and actions visible at desktop, short and narrow sizes', async () => {
     assert.equal(await modal.getByRole('button', { name: '创建任务', exact: true }).isDisabled(), true);
     assert.equal(await modal.getByRole('radio', { name: '不重要不紧急', exact: true }).isChecked(), true);
     assert.equal(await modal.getByRole('textbox', { name: '初始进展', exact: true }).isVisible(), false);
-    assert.equal(await modal.locator('.wt-new-task-body').evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, 'empty form needs no scrolling');
+    await modal.locator('.wt-capture-extra > summary').click();
+    assert.equal(await modal.locator('.wt-new-task-body').evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, 'compact default needs no scrolling');
+    await modal.locator('.wt-capture-extra > summary').click();
     await modal.getByRole('button', { name: '添加待办', exact: true }).click();
     for (let i = 0; i < 10; i++) {
       if (i) await modal.getByRole('button', { name: '再加一条', exact: true }).click();
@@ -51,7 +54,6 @@ try {
     await modal.getByRole('button', { name: '添加待办', exact: true }).click();
     await modal.getByRole('textbox', { name: '待办内容', exact: true }).fill('保留待办');
     await modal.getByRole('button', { name: '待办 · 1', exact: true }).click();
-    await modal.getByRole('button', { name: '截止日期', exact: true }).click();
     await modal.locator('input[type=date]').fill('2026-12-01');
     await modal.getByRole('button', { name: '初始进展', exact: true }).click();
     await modal.getByRole('textbox', { name: '初始进展', exact: true }).fill('已开始');
@@ -82,7 +84,6 @@ try {
     await modal.locator('.wt-quadrant-option.is-important_urgent').click();
     await modal.getByRole('button', { name: '添加待办', exact: true }).click();
     await modal.getByRole('textbox', { name: '待办内容', exact: true }).fill('失败仍保留待办');
-    await modal.getByRole('button', { name: '截止日期', exact: true }).click();
     await modal.locator('input[type=date]').fill('2026-12-01');
     await modal.getByRole('button', { name: '初始进展', exact: true }).click();
     await modal.getByRole('textbox', { name: '初始进展', exact: true }).fill('初始记录');

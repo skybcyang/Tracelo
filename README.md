@@ -4,9 +4,9 @@ Obsidian 单设备任务进展插件。左侧持续展示当前待办，右侧�
 
 仓库：https://github.com/skybcyang/Tracelo
 
-当前版本 **0.9.0**：搜索显示命中片段和日期，可直接定位原记录；修复中文输入法选词，窄窗口提供“任务／历史”切换。进展与完成节点更醒目，完整历史保留。展示模式已移除，卡片、弹窗与时间轴沿用统一蓝灰视觉语言。
+最新发布版本仍为 **0.9.0**。当前未发布工作区已采用“插件尺度六款”中的 A 矿物绿布局，并提供 D 石墨紫、E 冰川蓝、F 暖白朱砂主题；项目卡片、右侧常驻时间线及快捷创建／进展共用设计。详见 [相对 0.9.0 的差异与预览入口](docs/releases/plugin-collection-vs-0.9.0.md)。
 
-本版保留完整图标选择器、统一卡片布局、顶栏显示设置；设置中可选择“顶部对齐（默认）”或每列独立排列的“瀑布流”。切换布局或缩放不刷新右侧时间线。详情默认完整展示，创建任务时即可填写，兼容旧存档。长内容通过单张卡片展开查看。详见[当前卡片规则](docs/design/content-adaptive-cards.md)。
+保留完整图标选择器、任务排序、布局偏好和看板缩放。卡片常态显示详情摘要、最近进展及全部待办，展开后阅读完整内容并记录；设置中可启用紧凑卡片。新实现以本次差异报告为准，[历次卡片规则](docs/design/content-adaptive-cards.md)保留作为演变记录。
 
 从 [Releases](https://github.com/skybcyang/Tracelo/releases/latest) 下载 Obsidian 插件、macOS Universal 应用包（Apple Silicon / Intel）和 Windows x64 快捷程序（自带 .NET，另需 WebView2 Runtime）。桌面工具无需启动 Obsidian 即可创建任务，详见[桌面工具安装与使用](desktop/README.md)。应用尚无开发者签名／公证；自动验证与实际输入法、多屏、焦点恢复等实机验证分别记录，不混作已通过。验证范围见[发布验收](docs/validation/2026-09-28-release-090.md)，数据兼容约定见[任务上下文协议](docs/design/task-context-protocol.md)。
 
@@ -39,6 +39,7 @@ Obsidian 单设备任务进展插件。左侧持续展示当前待办，右侧�
 
 ## 文档
 
+- [2026-09-29 未发布更新](docs/releases/unreleased-2026-09-29.md)：截止日历、桌面快捷进展、统一编辑区与创建前图片；[验证记录](docs/validation/2026-09-29-all-tasks.md)
 - [0.9.0 更新说明](docs/releases/0.9.0.md)：搜索定位、输入法修复、窄窗口历史与移除展示模式
 - [已完成任务与历史记录](docs/completed-tasks.md)：已勾选事项、实施背景及历史验证记录
 

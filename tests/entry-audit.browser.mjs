@@ -42,14 +42,14 @@ try {
     assert.deepEqual(overflowItems, contextItems.map(name => name === '添加详情' ? '编辑详情' : name));
     await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
     assert.equal(await input.inputValue(), '标题下直接显示的详情');
-    await card.getByRole('button', { name: '取消详情编辑', exact: true }).click();
+    await card.getByRole('button', { name: '取消', exact: true }).click();
     await card.locator('.wt-card-menu').click();
     await page.getByRole('menuitem', { name: '记录进展', exact: true }).click();
     await page.waitForFunction(id => document.activeElement === document.querySelector(`[data-task-id="${id}"] .wt-card-composer textarea`), ids.plain);
     assert.equal(await card.locator('.wt-draft-state').count(), 0);
     const composer = card.locator('.wt-card-composer textarea');
     await composer.fill('没有提示文字也保留草稿');
-    await card.getByRole('button', { name: '关闭进展输入', exact: true }).click();
+    await card.getByRole('button', { name: '收起', exact: true }).click();
     await card.locator('.wt-card-menu').click();
     await page.getByRole('menuitem', { name: '记录进展', exact: true }).click();
     assert.equal(await composer.inputValue(), '没有提示文字也保留草稿');
@@ -57,7 +57,7 @@ try {
     await page.getByRole('menuitem', { name: '添加待办', exact: true }).click();
     assert.equal(await card.getByRole('textbox', { name: '新增待办', exact: true }).evaluate(el => el === document.activeElement), true);
     await page.evaluate(id => window.cardFixture.plugin.finishTask(id), ids.plain);
-    await page.locator('.wt-ended-section summary').click();
+    await page.locator('.wt-ended-section summary').evaluate(el => { el.parentElement.open = true; });
     await card.locator('.wt-card-menu').click();
     assert.equal(await page.getByRole('menuitem', { name: '记录进展', exact: true }).count(), 0);
     assert.equal(await page.getByRole('menuitem', { name: '添加待办', exact: true }).count(), 0);
@@ -110,7 +110,7 @@ try {
     await check(`${item} reports a failed archive write without changing the task`, async ids => {
       if (item === '重新打开') await page.evaluate(id => window.cardFixture.plugin.finishTask(id), ids.plain);
       const before = await page.evaluate(id => structuredClone(window.cardFixture.plugin.tasks.find(t => t.id === id)), ids.plain);
-      if (item === '重新打开') await page.locator('.wt-ended-section summary').click();
+      if (item === '重新打开') await page.locator('.wt-ended-section summary').evaluate(el => { el.parentElement.open = true; });
       await page.evaluate(() => { window.cardFixture.app.vault.adapter.write = async () => { throw new Error('入口测试写入失败'); }; });
       await page.locator(`[data-task-id="${ids.plain}"] .wt-card-menu`).click();
       if (item.includes(' · ')) await page.getByRole('menuitem', { name: item.split(' · ')[0], exact: true }).click();
@@ -144,6 +144,7 @@ try {
   for (const label of ['四象限', '缩小看板']) {
     await check(`${label} reports a failed setting write`, async () => {
       await page.evaluate(() => { window.cardFixture.plugin.saveData = async () => { throw new Error('显示设置失败'); }; });
+      if (label === '缩小看板') await page.locator('.wt-board-options').evaluate(el => { el.open = true; });
       await page.getByRole('button', { name: label, exact: true }).click();
       await page.locator('.notice').filter({ hasText: '显示设置失败' }).waitFor();
     });

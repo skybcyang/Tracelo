@@ -1,10 +1,11 @@
 import AppKit
 import WebKit
 import CaptureCore
+import UniformTypeIdentifiers
 
 // The native host owns shortcuts, preferences and disk access. This local-only
 // WebKit surface renders the same form implementation and styles as the plugin.
-final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     let view: WKWebView
     var action: ((String, [String: Any]) -> Void)?
     private var ready = false
@@ -18,9 +19,19 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
         super.init()
         configuration.userContentController.add(self, name: "capture")
         view.navigationDelegate = self
+        view.uiDelegate = self
         view.setValue(false, forKey: "drawsBackground")
         view.autoresizingMask = [.width, .height]
         view.setAccessibilityLabel("Tracelo 新建任务")
+    }
+
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        guard frame.isMainFrame else { completionHandler(nil); return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .webP, .gif, .bmp]
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.canChooseDirectories = false; panel.canChooseFiles = true
+        panel.begin { result in completionHandler(result == .OK ? panel.urls : nil) }
     }
 
     func load() throws {
@@ -77,8 +88,8 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
           while ((button.getBoundingClientRect().bottom > innerHeight || body.scrollHeight > body.clientHeight + 1 || document.activeElement !== input) && performance.now() < deadline) {
             await new Promise(resolve => requestAnimationFrame(resolve));
           }
-          check(getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(246, 249, 253)', 'light modal does not use plugin styles');
-          check(getComputedStyle(button).backgroundColor === 'rgb(36, 91, 231)', 'primary action does not use plugin accent');
+          check(getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(252, 253, 252)', 'light modal does not use plugin styles');
+          check(getComputedStyle(button).backgroundColor === 'rgb(53, 109, 84)', 'primary action does not use plugin accent');
           check(input.value === '整理本周工作进展' && details.value === '补充目标、要求或参考资料，支持 Markdown。', 'title and details must be independent fields');
           check(document.activeElement === input, 'title did not receive focus');
           const values = ['important_urgent', 'important_not_urgent', 'not_important_urgent', 'not_important_not_urgent'];
@@ -91,7 +102,7 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
           radios[0].closest('label').click();
           check(window.capture.getDraft().title === input.value && window.capture.getDraft().notes === details.value, 'changing quadrant altered independent title or details');
           check(group.options.length >= 1 && !group.disabled, 'task group control is unavailable');
-          check(group.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1 && quadrant.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1, 'group and quadrant selectors are clipped before resize completes');
+          check(group.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1 && quadrant.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1, 'group and quadrant selectors are clipped before resize completes: ' + JSON.stringify({group:group.getBoundingClientRect().bottom,quadrant:quadrant.getBoundingClientRect().bottom,body:body.getBoundingClientRect().bottom,bodyScrollHeight:body.scrollHeight,bodyHeight:body.clientHeight,window:innerHeight}));
           check(footer.getBoundingClientRect().bottom <= innerHeight + 1 && button.getBoundingClientRect().bottom <= innerHeight + 1 && !button.disabled, 'form footer is clipped or disabled');
           return true;
           """, arguments: [:], in: nil, in: .page) { [weak self] result in
@@ -100,13 +111,12 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
                 self.update(["dark": true])
                 self.view.callAsyncJavaScript("""
                   const deadline = performance.now() + 2000;
-                  while (getComputedStyle(document.querySelector('#task-details')).backgroundColor !== 'rgba(27, 34, 46, 0.9)' && performance.now() < deadline) {
+                  while ((getComputedStyle(document.querySelector('.wt-modal')).backgroundColor !== 'rgb(32, 45, 37)' || getComputedStyle(document.querySelector('#task-details')).backgroundColor !== 'rgb(41, 57, 46)') && performance.now() < deadline) {
                     await new Promise(resolve => requestAnimationFrame(resolve));
                   }
-                  return getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(24, 30, 41)'
-                    && getComputedStyle(document.querySelector('#task-details')).backgroundColor === 'rgba(27, 34, 46, 0.9)'
-                    && getComputedStyle(document.querySelector('#task-title')).backgroundColor === 'rgba(27, 34, 46, 0.9)'
-                    && document.querySelector('.wt-new-task-footer').getBoundingClientRect().bottom <= innerHeight + 1;
+                  const style = { modal:getComputedStyle(document.querySelector('.wt-modal')).backgroundColor, details:getComputedStyle(document.querySelector('#task-details')).backgroundColor, title:getComputedStyle(document.querySelector('#task-title')).backgroundColor, footer:document.querySelector('.wt-new-task-footer').getBoundingClientRect().bottom, height:innerHeight };
+                  if (style.modal !== 'rgb(32, 45, 37)' || style.details !== 'rgb(41, 57, 46)' || style.title !== 'rgba(0, 0, 0, 0)' || style.footer > style.height + 1) throw new Error(JSON.stringify(style));
+                  return true;
                   """, arguments: [:], in: nil, in: .page) { result in
                     guard case .success(let value) = result, (value as? Bool) == true else { fputs("Shared form dark smoke failed: \(result)\n", stderr); completion(false); return }
                     self.snapshot(screenshots?.appendingPathComponent("shared-form-dark.png")) { self.verifySmokeSubmission(completion: completion) }
