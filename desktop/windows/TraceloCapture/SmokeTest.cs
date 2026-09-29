@@ -100,9 +100,11 @@ internal static class SmokeTest {
                 } catch (Exception error) {
                     log.Add(error.ToString());
                     log.AddRange(app.Window.Surface.Diagnostics);
+                    File.WriteAllLines(Path.Combine(outputDirectory, "smoke-result.txt"), log);
                     try {
-                        log.Add(await app.Window.Surface.EvaluateAsync("JSON.stringify({url:location.href,ready:document.readyState,body:document.body.innerText,shared:typeof TraceloCreateTask,capture:typeof window.capture,errors:window.captureErrors})"));
-                        await app.Window.Surface.SnapshotAsync(Path.Combine(outputDirectory, "failed-smoke.png"));
+                        log.Add(await app.Window.Surface.EvaluateAsync("JSON.stringify({url:location.href,ready:document.readyState,body:document.body.innerText,shared:typeof TraceloCreateTask,capture:typeof window.capture,errors:window.captureErrors})").WaitAsync(TimeSpan.FromSeconds(5)));
+                        if (app.Window.Surface.Browser.Visible)
+                            await app.Window.Surface.SnapshotAsync(Path.Combine(outputDirectory, "failed-smoke.png")).WaitAsync(TimeSpan.FromSeconds(5));
                     } catch (Exception diagnosticError) { log.Add(diagnosticError.ToString()); }
                 }
                 finally { Application.ExitThread(); }

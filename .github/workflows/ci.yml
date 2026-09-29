@@ -54,10 +54,14 @@ jobs:
       - name: Smoke test packaged Windows app
         shell: pwsh
         run: |
-          $process = Start-Process ./dist/windows/TraceloCapture.exe -ArgumentList '--smoke-test',"$env:RUNNER_TEMP/tracelo-smoke" -Wait -PassThru
+          $process = Start-Process ./dist/windows/TraceloCapture.exe -ArgumentList '--smoke-test',"$env:RUNNER_TEMP/tracelo-smoke" -PassThru
+          if (-not $process.WaitForExit(120000)) { $process.Kill($true); throw 'Windows smoke test timed out' }
+          if (Test-Path "$env:RUNNER_TEMP/tracelo-smoke/smoke-result.txt") { Get-Content "$env:RUNNER_TEMP/tracelo-smoke/smoke-result.txt" }
           if ($process.ExitCode -ne 0) { throw 'Windows smoke test failed' }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: windows-smoke-evidence
-          path: ${{ runner.temp }}/tracelo-smoke/*
+          path: |
+            ${{ runner.temp }}/tracelo-smoke/*.png
+            ${{ runner.temp }}/tracelo-smoke/*.txt

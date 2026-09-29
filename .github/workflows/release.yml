@@ -74,7 +74,9 @@ jobs:
       - name: Verify Windows application and package
         shell: pwsh
         run: |
-          $process = Start-Process ./dist/windows/TraceloCapture.exe -ArgumentList '--smoke-test',"$env:RUNNER_TEMP/tracelo-smoke" -Wait -PassThru
+          $process = Start-Process ./dist/windows/TraceloCapture.exe -ArgumentList '--smoke-test',"$env:RUNNER_TEMP/tracelo-smoke" -PassThru
+          if (-not $process.WaitForExit(120000)) { $process.Kill($true); throw 'Windows smoke test timed out' }
+          if (Test-Path "$env:RUNNER_TEMP/tracelo-smoke/smoke-result.txt") { Get-Content "$env:RUNNER_TEMP/tracelo-smoke/smoke-result.txt" }
           if ($process.ExitCode -ne 0) { throw 'Windows smoke test failed' }
           $version = (Get-Content manifest.json | ConvertFrom-Json).version
           Copy-Item desktop/windows/README.md dist/windows/README.md
@@ -83,7 +85,9 @@ jobs:
         if: always()
         with:
           name: windows-smoke-evidence
-          path: ${{ runner.temp }}/tracelo-smoke/*
+          path: |
+            ${{ runner.temp }}/tracelo-smoke/*.png
+            ${{ runner.temp }}/tracelo-smoke/*.txt
       - uses: actions/upload-artifact@v4
         with:
           name: windows

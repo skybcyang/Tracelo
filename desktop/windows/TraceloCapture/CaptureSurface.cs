@@ -6,6 +6,7 @@ using Microsoft.Web.WebView2.WinForms;
 namespace TraceloCapture;
 
 internal sealed class CaptureSurface : UserControl {
+    private const string SurfaceUrl = "https://tracelo.invalid/capture";
     internal readonly WebView2 Browser = new() { Dock = DockStyle.Fill, AccessibleName = "Tracelo 新建任务表单" };
     internal event Action<string, JsonElement>? Action;
     internal bool Ready { get; private set; }
@@ -29,13 +30,12 @@ internal sealed class CaptureSurface : UserControl {
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
             core.Settings.IsZoomControlEnabled = false;
-            var html = LoadHtml();
-            // NavigateToString reports its embedded data URI to NavigationStarting
-            // on newer runtimes, while the resulting document origin is about:blank.
-            var embeddedUri = "data:text/html;charset=utf-8;base64," + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(html));
+            // Serve embedded bytes in memory: NavigateToString has a 2 MB limit,
+            // while the offline icon library makes this document substantially larger.
+            var html = System.Text.Encoding.UTF8.GetBytes(LoadHtml());
             core.NavigationStarting += (_, e) => {
-                var allowed = e.Uri == "about:blank" || e.Uri == embeddedUri;
-                if (Diagnostics.Count < 30) Diagnostics.Add($"Navigation starting: embedded={e.Uri == embeddedUri}, allowed={allowed}");
+                var allowed = e.Uri == SurfaceUrl;
+                if (Diagnostics.Count < 30) Diagnostics.Add($"Navigation starting: local={allowed}");
                 if (!allowed) e.Cancel = true;
             };
             core.NavigationCompleted += (_, e) => Diagnostics.Add($"Navigation completed: {e.IsSuccess}, {e.WebErrorStatus}, source {core.Source}");
@@ -43,10 +43,14 @@ internal sealed class CaptureSurface : UserControl {
             core.PermissionRequested += (_, e) => e.State = CoreWebView2PermissionState.Deny;
             core.DownloadStarting += (_, e) => e.Cancel = true;
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
-            core.WebResourceRequested += (_, e) => e.Response = environment.CreateWebResourceResponse(Stream.Null, 403, "Blocked", "");
+            core.WebResourceRequested += (_, e) => {
+                e.Response = e.Request.Uri == SurfaceUrl && e.ResourceContext == CoreWebView2WebResourceContext.Document
+                    ? environment.CreateWebResourceResponse(new MemoryStream(html, writable: false), 200, "OK", "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store")
+                    : environment.CreateWebResourceResponse(Stream.Null, 403, "Blocked", "");
+            };
             core.WebMessageReceived += (_, e) => {
                 if (!Ready && Diagnostics.Count < 30) Diagnostics.Add("Message source: " + e.Source);
-                if (e.Source != "about:blank" || e.WebMessageAsJson.Length > 160 * 1024 * 1024) return;
+                if (e.Source != SurfaceUrl || e.WebMessageAsJson.Length > 160 * 1024 * 1024) return;
                 try {
                     using var document = JsonDocument.Parse(e.WebMessageAsJson);
                     var message = document.RootElement.Clone();
@@ -56,7 +60,7 @@ internal sealed class CaptureSurface : UserControl {
                 } catch (JsonException) { /* Invalid messages never reach disk operations. */ }
             };
             await core.AddScriptToExecuteOnDocumentCreatedAsync("window.captureErrors = []; window.addEventListener('error', event => window.captureErrors.push(event.message)); window.chrome.webview.addEventListener('message', event => { if (window.capture) window.capture.update(event.data); });");
-            core.NavigateToString(html);
+            core.Navigate(SurfaceUrl);
         } catch (Exception error) {
             LoadError = error.Message; Browser.Visible = false;
             var help = new LinkLabel { Dock = DockStyle.Fill, Padding = new Padding(24), AutoSize = false,
