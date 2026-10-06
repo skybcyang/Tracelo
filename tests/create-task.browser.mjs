@@ -27,7 +27,7 @@ try {
     assert.equal(await modal.getByRole('radio', { name: '不重要不紧急', exact: true }).isChecked(), true);
     assert.equal(await modal.getByRole('textbox', { name: '初始进展', exact: true }).isVisible(), false);
     await modal.locator('.wt-capture-extra > summary').click();
-    assert.equal(await modal.locator('.wt-new-task-body').evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, 'compact default needs no scrolling');
+    assert.equal(await modal.locator('.wt-new-task-body').evaluate(el => el.scrollHeight <= el.clientHeight + 1), true, 'compact default needs no scrolling: ' + JSON.stringify(await modal.locator('.wt-new-task-body').evaluate(el=>({content:el.scrollHeight,available:el.clientHeight,modal:el.closest('.modal').getBoundingClientRect().height}))));
     await modal.locator('.wt-capture-extra > summary').click();
     await modal.getByRole('button', { name: '添加待办', exact: true }).click();
     for (let i = 0; i < 10; i++) {

@@ -12,7 +12,7 @@ describe("final plugin surface", () => {
   it("advances the plugin version so existing vaults receive an upgrade snapshot", () => {
     const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(manifest.version).toBe("0.9.3");
+    expect(manifest.version).toBe("0.9.5");
     expect(pkg.version).toBe(manifest.version);
     expect(JSON.parse(readFileSync('package-lock.json', 'utf8')).version).toBe(manifest.version);
     expect(JSON.parse(readFileSync('versions.json', 'utf8'))[manifest.version]).toBe(manifest.minAppVersion);
@@ -27,7 +27,7 @@ describe("final plugin surface", () => {
       "已结束",
       "异常关闭",
       "搜索任务和进展",
-      "返回每日时间线",
+      "返回对话",
       "wt-card-composer",
       "wt-view-switch",
       "wt-ended-section",

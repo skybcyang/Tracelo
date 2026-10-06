@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, test } from "vitest";
-import { parseTaskMarkdown, serializeTaskMarkdown } from "../../src/archive";
+import { parseTaskMarkdown, serializeLegacyTaskMarkdown as serializeTaskMarkdown } from "../../src/archive";
 import { buildNewTask } from "../../src/new-task-form";
 
 const dotnet = process.env.DOTNET_PATH ?? "dotnet";

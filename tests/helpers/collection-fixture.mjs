@@ -26,4 +26,4 @@ plugin.state.orders.group=Object.fromEntries(plugin.groups.map(g=>[g.id,ids.filt
 await plugin.activateView();
 window.cardFixture={app,plugin,ids:{payment:ids[0]}};
 const query=new URLSearchParams(location.search);
-await plugin.setAppearance(['evergreen','graphite','glacier','vermilion'].includes(query.get('theme'))?query.get('theme'):'evergreen',query.get('mode')==='dark'?'dark':'light');
+await plugin.setAppearance(['monochrome','evergreen','graphite','glacier','vermilion'].includes(query.get('theme'))?query.get('theme'):'monochrome',query.get('mode')==='dark'?'dark':'light');

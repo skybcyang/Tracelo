@@ -57,6 +57,8 @@ export interface WorkTask {
   notes?: string;
   icon?: string | null;
   events: TaskEvent[];
+  /** User-defined YAML properties, retained when the plugin saves the note. */
+  frontmatter?: Record<string, unknown>;
 }
 
 export interface TaskTodo {

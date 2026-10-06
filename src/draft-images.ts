@@ -36,7 +36,7 @@ export function mountDraftImages(input: HTMLTextAreaElement, parent: HTMLElement
   const tools = el('div', 'wt-image-tools'); parent.append(tools);
   const file = el('input'); file.type = 'file'; file.accept = IMAGE_TYPES.join(','); file.multiple = true; file.hidden = true; file.setAttribute('aria-label', '添加详情图片'); tools.append(file);
   const add = button('添加图片', '添加图片', () => file.click()); tools.append(add);
-  tools.append(el('span', 'wt-image-hint', '支持粘贴或拖入 · 每张 ≤10 MB，共 ≤40 MB'));
+  tools.append(el('span', 'wt-image-hint', '粘贴或拖入 · 单张 ≤10 MB · 共 ≤40 MB'));
   const status = el('div', 'wt-image-status'); status.setAttribute('aria-live', 'polite'); parent.append(status);
   const list = el('div', 'wt-draft-images'); parent.append(list);
   const undo = button('撤销移除图片', '撤销移除图片', () => { if (undoText !== null) { input.value = undoText; undoText = null; undo.hidden = true; change(); render(); } });

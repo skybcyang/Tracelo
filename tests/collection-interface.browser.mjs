@@ -18,8 +18,8 @@ try {
   assert.equal(await card.locator('.wt-progress-chip').textContent(), '2/4 项完成');
   await card.getByRole('button', { name:'记录进展', exact:true }).click();
   await card.locator('textarea').fill('切换主题时保留的草稿');
-  assert.equal(await page.locator('.wt-timeline-header h2').innerText(), '完成支付模块');
-  for (const theme of ['evergreen','graphite','glacier','vermilion']) {
+  assert.equal(await page.locator('.wt-conversation').isVisible(), true, 'recording leaves the conversation in place');
+  for (const theme of ['monochrome','evergreen','graphite','glacier','vermilion']) {
     await page.evaluate(theme => window.cardFixture.plugin.setAppearance(theme, 'light'), theme);
     assert.equal(await card.locator('textarea').inputValue(), '切换主题时保留的草稿');
     assert.equal(await page.evaluate(() => document.body.dataset.traceloTheme), theme);
@@ -70,11 +70,11 @@ try {
     await page.setViewportSize({width,height:800});
     assert.equal(await page.locator('.view-content').evaluate(el => el.scrollWidth<=el.clientWidth+1),true,`no overflow ${width}`);
     if (width < 780) {
-      await page.getByRole('button',{name:'时间线',exact:true}).click();
+      await page.getByRole('button',{name:'工作对话',exact:true}).click();
       assert.equal(await page.locator('aside.wt-timeline-column').isVisible(),true);
       await page.getByRole('button',{name:'任务看板',exact:true}).click();
     }
   }
   assert.deepEqual(errors,[]);
-  console.log('PASS collection: permanent timeline, visible checklist, inline progress, four themes × two appearances, draft retention, desktop projection, responsive panes');
+  console.log('PASS collection: permanent timeline, visible checklist, inline progress, five themes × two appearances, draft retention, desktop projection, responsive panes');
 } finally { await browser.close(); }

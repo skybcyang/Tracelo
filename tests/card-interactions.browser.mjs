@@ -219,6 +219,7 @@ try {
     assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
     assert.equal(await page.locator('.wt-card-composer').count(), 0);
     await payment.locator('.wt-card-latest').click();
+    await payment.locator('.wt-card-composer').waitFor();
     await settle();
     assert.equal(await page.locator('.wt-card-composer').count(), 1);
     assert.equal(await page.locator('.wt-card.is-expanded').count(), 1);
@@ -247,6 +248,7 @@ try {
     assert.equal(await payment.locator('.wt-card-latest').textContent(), before);
     if (!(await payment.locator('.wt-notes-preview').count())) await payment.locator('.wt-card-open').click();
     assert.equal(await payment.locator('.wt-notes-preview').textContent(), '背景信息\nhttps://example.com');
+    await page.evaluate(id => window.cardFixture.app.workspace.getLeavesOfType('work-timeline-view')[0].view.openHistory(id), ids.payment);
     assert.equal(await page.locator('.wt-event-list .is-notes_changed').count(), 1);
     assert.equal(await page.locator('.wt-event-list .is-notes_changed').isVisible(), true);
 
@@ -380,18 +382,22 @@ try {
   });
   await check('property history stays visible in chronological position without losing events', async () => {
     await payment.locator('.wt-card-open').click();
+    await page.evaluate(id => window.cardFixture.app.workspace.getLeavesOfType('work-timeline-view')[0].view.openHistory(id), ids.payment);
     // Card expansion restores focus on the next frame.
     await settle();
-    const expected = await page.evaluate(id => window.cardFixture.plugin.tasks.find(t => t.id === id).events.map(e => e.text), ids.payment);
+    const expected = await page.evaluate(id => window.cardFixture.plugin.tasks.find(t => t.id === id).events, ids.payment);
+    assert.deepEqual((await page.locator('.wt-timeline-scroll [data-event-id]').evaluateAll(els => els.map(el => el.dataset.eventId))).sort(), expected.map(event => event.id).sort());
+    const expectedBodies = expected.filter(event => !((event.kind === 'created' && event.text === '创建任务') || (event.kind === 'icon_changed' && event.text === '更新任务图标'))).map(event => event.text);
     // Events recorded within the same millisecond may have a deterministic ID tie-break.
-    assert.deepEqual((await page.locator('.wt-timeline-scroll .wt-event-text').allTextContents()).sort(), [...expected].sort());
+    assert.deepEqual((await page.locator('.wt-timeline-scroll .wt-event-text').allTextContents()).sort(), expectedBodies.sort());
     const timestamps = await page.locator('.wt-timeline-scroll time').evaluateAll(els => els.map(el => el.getAttribute('datetime')));
     assert.deepEqual(timestamps, [...timestamps].sort().reverse());
     assert.equal(await page.locator('.wt-timeline-scroll details').count(), 0);
     assert.equal(await page.locator('.wt-event-list .is-muted:visible').count(), await page.locator('.wt-event-list .is-muted').count());
 
     await payment.locator('.wt-card-open').click();
-    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
+    await page.getByRole('button', { name:'返回对话', exact:true }).click();
+    assert.equal(await page.locator('.wt-conversation').isVisible(), true);
   });
   await check('complete and empty progress rings track checklist state without replacing progress', async () => {
     const latest = await payment.locator('.wt-card-latest').textContent();
@@ -636,12 +642,15 @@ try {
   payment = card(ids.payment);
   await check('card whitespace toggles expansion and returns to daily history on collapse', async () => {
     await payment.click({ position: { x: 5, y: 100 } });
+    await payment.locator('.wt-card-open[aria-expanded="true"]').waitFor();
     assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'true');
     await payment.click({ position: { x: 5, y: 100 } });
+    await payment.locator('.wt-card-open[aria-expanded="false"]').waitFor();
     assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'false');
-    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
+    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '工作日历');
     await payment.click({ position: { x: 5, y: 100 } });
-    assert.equal(await page.locator('.wt-timeline-header.is-task-history').count(), 1);
+    await payment.locator('.wt-card-open[aria-expanded="true"]').waitFor();
+    assert.equal(await page.locator('.wt-conversation').isVisible(), true);
     await payment.locator('.wt-card-open').click();
     assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'false');
   });
@@ -680,6 +689,9 @@ try {
       assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'false');
       await payment.click({ button: 'right' });
       assert.equal(await page.getByRole('menuitem', { name: '打开文件夹', exact: true }).count(), 1);
+      await page.keyboard.press('Escape');
+      // This host fixture does not implement native Menu's Escape dismissal.
+      await page.evaluate(() => document.querySelectorAll('[role=menu]').forEach(menu => menu.remove()));
     });
     await check('Windows folder access launches Explorer with the exact path as one argument', async () => {
       const result = await page.evaluate(async id => {
@@ -787,6 +799,7 @@ try {
   });
   await check('body text expands but editor clicks and context menu keep editing intact', async () => {
     await payment.locator('.wt-card-latest').click();
+    await payment.locator('.wt-card-open[aria-expanded="true"]').waitFor();
     assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'true');
     const input = payment.locator('.wt-card-composer textarea');
     await input.fill('正文点击后的草稿');
@@ -796,9 +809,10 @@ try {
     assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'true');
     await input.fill('');
     await payment.locator('.wt-card-open').click();
-    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
+    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '工作日历');
   });
   await check("timeline links resist host button backgrounds", async () => {
+    await page.getByRole('button', { name:'全部进展', exact:true }).click();
     const backgrounds = await page.locator(".wt-event-task, .wt-due-row").evaluateAll(elements => elements.map(el => getComputedStyle(el).backgroundColor));
     assert.ok(backgrounds.length > 0);
     assert.ok(backgrounds.every(bg => bg === "rgba(0, 0, 0, 0)"));
@@ -848,9 +862,13 @@ try {
     assert.equal(await payment.getByRole("textbox", { name: "新增待办" }).count(), 1);
     assert.equal(await payment.getByRole("button", { name: "添加待办", exact: true }).count(), 1);
   });
-  await check("expanded card uses a quiet blue border and neutral surface", async () => {
-    const style = await payment.evaluate(el => ({ border: getComputedStyle(el).borderColor, bg: getComputedStyle(el).backgroundColor, peer: getComputedStyle(document.querySelector('.wt-card:not(.is-expanded)')).backgroundColor }));
-    assert.equal(style.border, 'rgb(53, 109, 84)');
+  await check("expanded card uses the selected theme accent and neutral surface", async () => {
+    const style = await payment.evaluate(el => {
+      const probe = document.createElement('span'); probe.style.color = 'var(--wt-accent)'; el.append(probe);
+      const accent = getComputedStyle(probe).color; probe.remove();
+      return { border: getComputedStyle(el).borderColor, accent, bg: getComputedStyle(el).backgroundColor };
+    });
+    assert.equal(style.border, style.accent);
     assert.ok(style.bg);
   });
   await payment.locator(".wt-card-open").click();
@@ -891,11 +909,13 @@ try {
       assert.equal(await card(ids.plain).locator('.wt-progress-chip').textContent(), '1/1 项完成');
       assert.ok((await card(ids.plain).locator(".wt-card-latest").textContent()).includes("五条高频问题"));
     });
-    await card(ids.plain).getByRole("button", { name: "编辑待办：核对真实新增流程", exact: true }).click();
+    await card(ids.plain).getByRole("button", { name: "待办操作：核对真实新增流程", exact: true }).click();
+    await page.getByRole('menuitem', { name: '编辑待办', exact: true }).click();
     await page.locator(".wt-prompt-modal input").fill("核对编辑后的清单");
     await page.getByRole("button", { name: "确认", exact: true }).click();
     await page.waitForFunction((id) => window.cardFixture.plugin.tasks.find(t => t.id === id).todos[0].text === "核对编辑后的清单", ids.plain);
-    await card(ids.plain).getByRole("button", { name: "删除待办：核对编辑后的清单", exact: true }).click();
+    await card(ids.plain).getByRole("button", { name: "待办操作：核对编辑后的清单", exact: true }).click();
+    await page.getByRole('menuitem', { name: '删除待办', exact: true }).click();
     await page.waitForFunction((id) => !window.cardFixture.plugin.tasks.find(t => t.id === id).todos, ids.plain);
     await check("removing the final item restores the optional entry", async () => {
       assert.equal(await card(ids.plain).getByRole("button", { name: "添加待办", exact: true }).count(), 1);

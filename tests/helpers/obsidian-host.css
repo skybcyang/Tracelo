@@ -1,6 +1,7 @@
 /* Minimal host collision fixture based on Obsidian 1.13.7 button/input rules.
    Deliberately independent of plugin selectors; native-vault QA remains required. */
 * { box-sizing: border-box; }
+html, body { height:100%; }
 body {
   margin: 0;
   font: 14px/1.5 -apple-system, sans-serif;

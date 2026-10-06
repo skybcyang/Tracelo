@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { applyQuickOperation } from '../src/quick-operations';
-import { createTask, addProgress, closeTask, renameTask } from '../src/domain';
+import { createTask, addProgress, addTodo, closeTask, renameTask } from '../src/domain';
 import { parseTaskMarkdown, serializeTaskMarkdown } from '../src/archive';
 test('queued progress applies to latest history and retries exactly once after rename', () => {
   let task = createTask({ title: '任务', groupId: null, groupName: '未分组', important: false, urgent: false }, new Date('2026-01-01'), 'task', 'created');
@@ -23,4 +23,15 @@ test('todo operations use stable ids and never replace unrelated changes', () =>
   expect(next.todos?.[0]?.id).toBe('add');
   expect(applyQuickOperation(next, { ...add, id: 'done', kind: 'todo_toggle', todoId: 'add', done: true }, []).todos?.[0]?.done).toBe(true);
   expect(() => applyQuickOperation(next, { ...add, id: 'edit', kind: 'todo_edit', todoId: 'missing' }, [])).toThrow();
+});
+test('queued smart progress updates todos atomically and remains idempotent after archive reload', () => {
+  const task = addTodo(createTask({ title: '任务', groupId: null, groupName: '未分组', important: false, urgent: false }, new Date(), 'task', 'created'), '抓日志', new Date(), 'logs', 'add-logs');
+  const op = { version: 1 as const, id: 'quick-' + 'a'.repeat(32), taskId: task.id, kind: 'smart_progress' as const, text: '日志抓完了', completedTodoIds: ['logs'] };
+  const result = applyQuickOperation(task, op, []);
+  expect(result.todos?.[0]?.done).toBe(true);
+  expect(result.events.at(-1)?.text).toBe('日志抓完了');
+  const restored = parseTaskMarkdown(serializeTaskMarkdown(result));
+  expect(applyQuickOperation(restored, op, [])).toBe(restored);
+  expect(() => applyQuickOperation(task, { ...op, completedTodoIds: ['missing'] }, [])).toThrow();
+  expect(task.todos?.[0]?.done).toBe(false);
 });

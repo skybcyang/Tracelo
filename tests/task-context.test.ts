@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createTask, addProgress, latestProgressAt, searchTasks, setTaskNotes, setTaskIcon, taskIcon } from "../src/domain";
-import { createDefaultState, normalizePluginState, parseTaskMarkdown, serializeTaskMarkdown, serializeGroupArchive, parseGroupArchive } from "../src/archive";
+import { createDefaultState, normalizePluginState, parseTaskMarkdown, serializeTaskMarkdown, serializeLegacyTaskMarkdown, serializeGroupArchive, parseGroupArchive } from "../src/archive";
 
 const at = (hour: number) => new Date(`2026-09-27T0${hour}:00:00.000Z`);
 const base = () => createTask({ title: "任务", groupId: null, groupName: "未分组", important: false, urgent: false }, at(1), "task-1", "created");
@@ -55,10 +55,10 @@ describe("extended v1 archive", () => {
   });
   it("round trips notes and icons, checks their readable projection, and accepts old tasks", () => {
     const old = base();
-    expect(serializeTaskMarkdown(old)).not.toContain("## 详情");
+    expect(serializeLegacyTaskMarkdown(old)).not.toContain("## 详情");
     expect(parseTaskMarkdown(serializeTaskMarkdown(old))).toEqual(old);
     const task = setTaskIcon(setTaskNotes(old, "前文\n![图](capture.png)\n后文", at(2), "notes"), null, at(3), "icon");
-    const source = serializeTaskMarkdown(task);
+    const source = serializeLegacyTaskMarkdown(task);
     expect(source).toContain("## 详情\n\n前文\n![图](capture.png)\n后文\n\n## 时间线");
     expect(parseTaskMarkdown(source)).toEqual(task);
     expect(() => parseTaskMarkdown(source.replace("## 详情\n\n前文", "## 详情\n\n改写"))).toThrow();

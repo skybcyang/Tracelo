@@ -29,7 +29,7 @@ final class ShortcutRecorder: NSTextField {
 }
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // Bundled builds already use this domain; keep CLI builds compatible with it.
-    private let preferences = Bundle.main.bundleIdentifier == "app.tracelo.capture"
+    private let preferences = CommandLine.arguments.contains("--smart-smoke-test") ? UserDefaults(suiteName: "app.tracelo.capture.qa.\(ProcessInfo.processInfo.processIdentifier)")! : Bundle.main.bundleIdentifier == "app.tracelo.capture"
         ? UserDefaults.standard : UserDefaults(suiteName: "app.tracelo.capture")!
     private var statusItem: NSStatusItem!
     private var panel: CapturePanel!
@@ -38,7 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var draftLoadError: String?
     private var errorMessage = ""
     private var groupsSource: String?
-    private let smoke = CommandLine.arguments.contains("--smoke-test")
+    private let smartSmoke = CommandLine.arguments.contains("--smart-smoke-test")
+    private let smoke = CommandLine.arguments.contains("--smoke-test") || CommandLine.arguments.contains("--smart-smoke-test")
     private var previousApp: NSRunningApplication?
     private var hotKey: EventHotKeyRef?
     private var progressHotKey: EventHotKeyRef?
@@ -46,13 +47,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var pending: CaptureRequest?
     private var pendingDraftData: Data?
     private var saving = false
-    private let persistence = CapturePersistence()
+    private let persistence = CommandLine.arguments.contains("--smart-smoke-test") ? CapturePersistence(root: FileManager.default.temporaryDirectory.appendingPathComponent("tracelo-smart-native-\(ProcessInfo.processInfo.processIdentifier)/drafts")) : CapturePersistence()
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         if smoke {
+            if smartSmoke {
+                do {
+                    guard let index = CommandLine.arguments.firstIndex(of: "--key-file"), index + 1 < CommandLine.arguments.count else { throw CaptureError.invalid("请提供测试密钥文件路径") }
+                    let vault = persistence.root.deletingLastPathComponent().appendingPathComponent("vault")
+                    try FileManager.default.createDirectory(at: vault.appendingPathComponent("tasks"), withIntermediateDirectories: true)
+                    preferences.set(vault.path, forKey: "vault"); preferences.set("tasks", forKey: "taskDirectory")
+                    let config = ["baseUrl": ProcessInfo.processInfo.environment["TRACELO_AI_BASE_URL"] ?? "https://api.kimi.com/coding/v1", "model": ProcessInfo.processInfo.environment["TRACELO_AI_MODEL"] ?? "kimi-for-coding", "keyFile": CommandLine.arguments[index + 1]]
+                    try persistence.save("smart." + workspaceKey, data: JSONSerialization.data(withJSONObject: ["config": config, "drafts": [:]]))
+                } catch { fputs("Smart native QA setup failed\n", stderr); exit(1) }
+            }
             buildPanel()
             panel.orderFront(nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 20) { fputs("Capture WebKit startup timed out\n", stderr); exit(1) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + (smartSmoke ? 190 : 20)) { fputs("Capture WebKit test timed out\n", stderr); exit(1) }
             return
         }
         let mainMenu = NSMenu()
@@ -142,6 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             } catch { errorMessage = error.localizedDescription; refreshSurface(); return }
         }
         switch name {
+        case "smart": receiveSmart(value)
         case "progressDraft":
             if let id = value["taskId"] as? String, let text = value["text"] as? String {
                 do { var drafts = try readProgressDrafts(); drafts[id] = text; try persistence.save(progressDraftKey, data: JSONSerialization.data(withJSONObject: drafts)) }
@@ -158,14 +170,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         case "progressDismiss", "progressComplete": if !smoke { dismiss() }
         case "openTaskFolder":
-            if let id = value["taskId"] as? String, let tasks = try? QuickWorkspace(directory: configuration().destination()).tasks(),
-                let task = tasks.first(where: { ($0["markdown"] as? String)?.contains("\"id\": \"\(id)\"") == true }), let path = task["path"] as? String {
+            if let requestedPath = value["path"] as? String, let tasks = try? QuickWorkspace(directory: configuration().destination()).tasks(),
+                let task = tasks.first(where: { ($0["path"] as? String) == requestedPath }), let path = task["path"] as? String {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             }
         case "ready":
             if smoke {
                 let index = CommandLine.arguments.firstIndex(of: "--screenshots")
                 let path = index.flatMap { $0 + 1 < CommandLine.arguments.count ? URL(fileURLWithPath: CommandLine.arguments[$0 + 1]) : nil }
+                if smartSmoke {
+                    refreshSurface()
+                    surface.smartSmokeTest(screenshots: path) { [weak self] passed in
+                        guard let self else { exit(1) }
+                        let workspace = try? QuickWorkspace(directory: self.configuration().destination())
+                        let receipts = try? workspace?.receipts()
+                        let queued = receipts?.contains { ($0["status"] as? String) == "queued" && (($0["operation"] as? [String: Any])?["kind"] as? String) == "smart_progress" } == true
+                        self.preferences.removePersistentDomain(forName: "app.tracelo.capture.qa.\(ProcessInfo.processInfo.processIdentifier)")
+                        print(passed && queued ? "PASS native WebKit: real model, confirmed task on disk, durable offline smart progress, draft recovery" : "FAIL native smart capture")
+                        print("Isolated artifacts: " + self.persistence.root.deletingLastPathComponent().path)
+                        exit(passed && queued ? 0 : 1)
+                    }
+                    return
+                }
                 surface.smokeTest(screenshots: path) { passed in
                     print(passed ? "macOS shared form: independent title/details, four quadrants, group selector, plugin styles, light/dark, focus and footer passed" : "macOS capture interface verification failed")
                     exit(passed ? 0 : 1)
@@ -196,6 +222,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard !smoke, draftLoadError == nil else { return }
         try persistence.save(draftKey, data: draft?.data)
         preferences.set(true, forKey: "scopedDraftMigrated")
+    }
+    private func receiveSmart(_ message: [String: Any]) {
+        guard let id = message["id"] as? String, let method = message["method"] as? String,
+              let params = message["params"] as? [String: Any] else { return }
+        let reply: (Any?, String?) -> Void = { [weak self] result, error in
+            self?.surface.update(["smartReply": ["id": id, "result": result ?? NSNull(), "error": error as Any? ?? NSNull()]])
+        }
+        do {
+            guard message["workspace"] as? String == workspaceKey else { throw CaptureError.invalid("保存位置已变化，请重新打开一句话录入") }
+            let key = "smart." + workspaceKey
+            var state: [String: Any] = [:]
+            if let data = try persistence.load(key) {
+                guard let saved = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw CaptureError.invalid("一句话草稿无法读取，原数据已保留") }
+                state = saved
+            }
+            switch method {
+            case "read":
+                if state["config"] == nil, let vault = preferences.string(forKey: "vault"),
+                   let data = try? Data(contentsOf: URL(fileURLWithPath: vault).appendingPathComponent(".obsidian/plugins/work-timeline/data.json")),
+                   let plugin = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let config = plugin["smartCapture"] as? [String: Any] {
+                    state["config"] = try? SmartCaptureTransport.configuration(config)
+                }
+                reply(state, nil)
+            case "draft":
+                // Includes up to 40 MB of base64 images and a recoverable previous result.
+                guard let scope = params["scope"] as? String, scope.count < 240, let value = params["value"] as? String, value.utf8.count < 160 * 1024 * 1024 else { throw CaptureError.invalid("草稿过大或格式无效") }
+                var drafts = state["drafts"] as? [String: String] ?? [:]
+                if value.isEmpty { drafts.removeValue(forKey: scope) } else { drafts[scope] = value }
+                state["drafts"] = drafts
+                try persistence.save(key, data: JSONSerialization.data(withJSONObject: state)); reply(nil, nil)
+            case "configure":
+                guard let config = params["config"] as? [String: Any] else { throw CaptureError.invalid("模型配置无效") }
+                state["config"] = try SmartCaptureTransport.configuration(config)
+                try persistence.save(key, data: JSONSerialization.data(withJSONObject: state)); reply(nil, nil)
+            case "pickKey":
+                let picker = NSOpenPanel(); picker.canChooseFiles = true; picker.canChooseDirectories = false; picker.allowsMultipleSelection = false
+                picker.title = "选择密钥文件"; reply(picker.runModal() == .OK ? picker.url?.path : nil, nil)
+            case "request":
+                guard let config = params["config"] as? [String: Any], let request = params["request"] as? [String: Any] else { throw CaptureError.invalid("模型请求无效") }
+                Task {
+                    do { let response = try await SmartCaptureTransport().send(config: config, request: request); await MainActor.run { reply(response, nil) } }
+                    catch { await MainActor.run { reply(nil, error.localizedDescription) } }
+                }
+            case "create":
+                guard let request = params["request"] as? [String: Any], let taskId = request["id"] as? String, let markdown = request["markdown"] as? String else { throw CaptureError.invalid("新建任务数据无效") }
+                guard try configuration().groupsSource() == params["groupsSource"] as? String else { throw CaptureError.invalid("分组已变化，请关闭并重新确认后保存") }
+                _ = try CaptureRequest(id: taskId, markdown: markdown).publish(to: configuration().destination(), attachments: request["attachments"] as? [[String: String]] ?? [])
+                reply(nil, nil); refreshQuick()
+            case "progress":
+                guard let operation = params["operation"] as? [String: Any], operation["kind"] as? String == "smart_progress" else { throw CaptureError.invalid("进展操作无效") }
+                try QuickWorkspace(directory: configuration().destination()).enqueue(operation)
+                reply("queued", nil)
+            default: throw CaptureError.invalid("不支持的一句话操作")
+            }
+        } catch { reply(nil, error.localizedDescription) }
     }
     private var workspaceKey: String { (preferences.string(forKey: "vault") ?? "") + "\n" + (preferences.string(forKey: "taskDirectory") ?? "工作记录/任务") }
     private var draftKey: String { "creationDraft." + Data(workspaceKey.utf8).base64EncodedString() }

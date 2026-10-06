@@ -75,6 +75,7 @@ try {
   checks++;
 
   assert.equal(await page.locator('.wt-timeline-column').isVisible(), true);
+  await page.evaluate(() => window.cardFixture.app.workspace.getLeavesOfType('work-timeline-view')[0].view.openHistory(null));
   await page.evaluate(() => {
     const pane = document.querySelector('.wt-timeline-column');
     // Stop the host's smooth initial scroll at a deliberate reading position.
@@ -139,7 +140,7 @@ try {
 
   for (const layout of ['aligned', 'masonry']) {
     await setting.selectOption(layout);
-    for (const width of [1680, 375, 1440]) {
+    for (const width of [1680, 375, 479, 480, 900, 1440]) {
       for (const zoom of [60, 100, 120]) {
         await page.setViewportSize({ width, height: 1000 });
         const views = [];
@@ -150,22 +151,35 @@ try {
           (layout === 'masonry' ? verifyPacked : verifyFit)(current);
           if (width === 375) assert.ok(current.items.every(i => Math.abs(i.left - current.items[0].left) < 1), 'narrow view must be one column');
           const sections = await page.locator('.wt-board > .wt-task-section').evaluateAll(elements => elements.map(el => {
-            const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, bottom: r.bottom, width: r.width };
+            const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width };
           }));
-          assert.ok(sections.every((section, index) => index === 0 ||
-            (Math.abs(section.left - sections[0].left) < 1 && Math.abs(section.width - sections[0].width) < 1 && section.top >= sections[index - 1].bottom)),
-            `${mode} sections must stack vertically with full-width card grids`);
+          if (mode === 'quadrant' && width >= 480) {
+            assert.equal(sections.length, 4, 'all four quadrants must remain visible, including empty ones');
+            const [a, b, c, d] = sections;
+            assert.ok(Math.abs(a.top - b.top) < 1 && Math.abs(c.top - d.top) < 1 &&
+              Math.abs(a.left - c.left) < 1 && Math.abs(b.left - d.left) < 1 &&
+              b.left >= a.right && d.left >= c.right && c.top >= Math.max(a.bottom, b.bottom),
+              `${layout}/${width}/${zoom}: quadrants must form two rows and two columns`);
+            if (width === 1680 && zoom === 100) {
+              assert.ok(new Set(current.items.map(item => Math.round(item.left))).size >= 2,
+                'cards inside a wide quadrant must still fill horizontally');
+              if (process.env.QUADRANT_SCREENSHOT && layout === 'aligned') {
+                await page.locator('.view-content').screenshot({ path: process.env.QUADRANT_SCREENSHOT });
+              }
+            }
+          } else {
+            assert.ok(sections.every((section, index) => index === 0 ||
+              (Math.abs(section.left - sections[0].left) < 1 && Math.abs(section.width - sections[0].width) < 1 && section.top >= sections[index - 1].bottom)),
+              `${mode} sections must stack vertically for groups or narrow panes`);
+          }
           views.push(current);
           checks++;
         }
         const [group, quadrant] = views;
         assert.equal(quadrant.gap, group.gap, 'both views must use the same card gap');
         assert.equal(quadrant.items.length, group.items.length, 'switching views must preserve all fixture tasks');
-        for (const card of group.items) {
-          const other = quadrant.items.find(item => item.id === card.id);
-          assert.ok(Math.abs(other.width - card.width) < 1, `${layout}/${width}/${zoom}: switching views changes card width`);
-          assert.ok(Math.abs(other.left - card.left) < 1, `${layout}/${width}/${zoom}: switching views changes horizontal placement`);
-        }
+        assert.deepEqual(quadrant.items.map(item => item.id).sort(), group.items.map(item => item.id).sort(),
+          'switching views must preserve task identities while adapting to each section width');
       }
     }
   }

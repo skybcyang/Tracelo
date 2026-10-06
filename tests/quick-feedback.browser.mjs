@@ -65,7 +65,7 @@ try {
     assert.equal(await page.locator('.wt-quick-prompt').count(), 1, 'Escape cannot discard a form awaiting an actual write');
     await page.evaluate(id => window.capture.update({ receipts: [{ id, status: 'failed', message: '改名写入失败' }] }), rename.id);
     assert.equal(await page.getByRole('textbox', { name: '改名', exact: true }).inputValue(), '失败后保留改名');
-    await page.getByRole('button', { name: '取消', exact: true }).click();
+    await page.locator('.wt-quick-prompt').getByRole('button', { name: '取消', exact: true }).click();
     await input.press('Meta+Enter');
     assert.equal(await page.evaluate(() => window.messages.filter(m => m.action === 'operation').at(-1).operation.id), operation.id, 'retry retains durable operation identity');
     await page.evaluate(id => window.capture.update({ receipts: [{ id, status: 'applied', message: '已写入任务' }] }), operation.id);

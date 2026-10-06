@@ -1,6 +1,6 @@
 (() => {
   const shared = TraceloCreateTask;
-  shared.setCaptureIcon(document.querySelector('.capture-brand-icon'), 'workflow');
+  shared.setBrandMark(document.querySelector('.capture-brand-icon'));
   const post = message => {
     if (window.chrome?.webview) window.chrome.webview.postMessage(message);
     else window.webkit.messageHandlers.capture.postMessage(message);
@@ -19,12 +19,24 @@
     else post(message);
   };
   let pending = null, resolveSubmit, rejectSubmit, configured = false, groupError = '', resizeScheduled = false, groupsSource, taskDirectory = '工作记录/任务', mode = 'create';
+  let modeRevision = 0, smartReturnMode = 'create', activeSmartTask;
   function resize() {
     if (resizeScheduled) return;
     resizeScheduled = true;
     requestAnimationFrame(() => {
       resizeScheduled = false;
       const modal = document.querySelector('.capture-modal');
+      const smartSurface = [...document.querySelectorAll('dialog.wt-smart-modal[open],dialog.wt-smart-settings[open]')].at(-1);
+      if (smartSurface) {
+        const body = smartSurface.querySelector('.wt-smart-body,.wt-smart-settings-body');
+        const bodyTop = body.getBoundingClientRect().top;
+        const bottom = Math.max(bodyTop, ...[...body.children].filter(el => el.getClientRects().length).map(el => el.getBoundingClientRect().bottom));
+        const headingHeight = smartSurface.classList.contains('wt-smart-panel') ? document.querySelector('.wt-capture-tabs').offsetHeight + methods.offsetHeight : smartSurface.querySelector('.modal-title').offsetHeight;
+        const confirmationBody = body.querySelector('.is-confirming-create .wt-new-task-body');
+        const extra = confirmationBody ? Math.max(0, confirmationBody.scrollHeight - confirmationBody.clientHeight) : 0;
+        const height = 47 + headingHeight + bottom - bodyTop + body.scrollTop + extra + parseFloat(getComputedStyle(body).paddingBottom) + (smartSurface.querySelector('.wt-smart-footer,.wt-modal-actions')?.offsetHeight ?? 0);
+        send({action:'resize',height:Math.ceil(height + 2)}); return;
+      }
       const header = document.querySelector('.modal-title');
       const tabs = document.querySelector('.wt-capture-tabs');
       const style = getComputedStyle(modal);
@@ -35,7 +47,7 @@
       const quickHeight = quickBody ? (editor ? editorHeight : [...quickBody.children].reduce((height, node) => height + node.scrollHeight + 8, 0))
         + quick.querySelector('.wt-quick-toolbar').offsetHeight + quick.querySelector('.wt-quick-status').offsetHeight : 0;
       const contentHeight = mode === 'progress' ? quickHeight + 16 : controller.body.scrollHeight + controller.footer.offsetHeight;
-      send({ action: 'resize', height: Math.ceil(header.offsetHeight + tabs.offsetHeight + contentHeight + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + 2) });
+      send({ action: 'resize', height: Math.ceil(header.offsetHeight + tabs.offsetHeight + methods.offsetHeight + contentHeight + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + 2) });
     });
   }
   const controller = shared.mountNewTaskForm(document.querySelector('.modal-content'), {
@@ -61,29 +73,62 @@
   const content = document.querySelector('.modal-content');
   const tabs = document.createElement('div'); tabs.className = 'wt-capture-tabs'; tabs.setAttribute('role', 'group'); tabs.setAttribute('aria-label', '快捷入口');
   content.before(tabs);
+  const methods = document.createElement('div'); methods.className='wt-create-methods'; methods.setAttribute('role','group'); methods.setAttribute('aria-label','新建方式'); content.before(methods);
   const quickContainer = document.createElement('div'); quickContainer.className = 'work-timeline-view wt-quick-progress'; content.append(quickContainer); quickContainer.hidden = true;
   const progress = shared.mountQuickProgress(quickContainer, {
     send, setIcon: shared.setCaptureIcon, resize, isWin: !!window.chrome?.webview,
     getLocation: () => document.querySelector('#location').textContent,
     openSettings: () => send({ action: 'settings', draft: controller.read() }),
+    openSmart: taskId => setMode('smart', taskId),
   });
-  function setMode(value) {
-    if (controller.isSaving() || completing) return;
+  const smart = shared.mountDesktopSmartCapture({send, setIcon:shared.setCaptureIcon, isWin:!!window.chrome?.webview, container:content, onResize:resize,
+    onClose:()=> { if(mode==='smart') applyMode(smartReturnMode); }});
+  function applyMode(value) {
     const changed = value !== mode;
     mode = value; controller.form.hidden = mode !== 'create';
     document.querySelector('.capture-modal').classList.toggle('is-progress-mode', mode === 'progress');
-    if (mode === 'progress') progress.show(); else { progress.hide(); controller.focus(); }
-    tabs.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
-    document.title = mode === 'progress' ? 'Tracelo · 记录进展' : 'Tracelo · 新建任务'; resize();
-    if (changed) shared.revealQuickContent(mode === 'progress' ? quickContainer : controller.body);
+    if (mode === 'progress') progress.show(); else { progress.hide(); if(mode==='create') controller.focus(); }
+    const topMode = mode === 'smart' ? activeSmartTask ? 'progress' : 'create' : mode;
+    methods.hidden = topMode !== 'create';
+    tabs.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === topMode)));
+    methods.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
+    document.title = topMode === 'progress' ? 'Tracelo · 记录进展' : 'Tracelo · 新建任务'; resize();
+    if (changed && mode!=='smart') shared.revealQuickContent(mode === 'progress' ? quickContainer : controller.body);
+  }
+  async function setMode(value, taskId) {
+    if (controller.isSaving() || progress.isSaving() || completing || controller.isComposing() || progress.isComposing()) return;
+    const revision = ++modeRevision; smart.cancelOpen();
+    if (mode==='smart' && (value!=='smart' || taskId!==activeSmartTask || smart.isClosing())) {
+      if (!await smart.close() || revision!==modeRevision) return;
+    }
+    if (value!=='smart') { applyMode(value); return; }
+    if (mode==='smart' && taskId===activeSmartTask) return;
+    const returnMode = taskId ? 'progress' : 'create';
+    try {
+      if (await smart.open(taskId,()=>revision===modeRevision)) {
+        smartReturnMode=returnMode; activeSmartTask=taskId; applyMode('smart');
+      }
+    } catch(error) {
+      if(revision===modeRevision) { if(mode==='progress') progress.setError(error.message); else controller.setError(error.message); }
+    }
   }
   for (const [value, text] of [['create', '新建任务'], ['progress', '记录进展']]) {
     const button = document.createElement('button'); button.type = 'button'; const icon = document.createElement('span'); shared.setCaptureIcon(icon, value === 'create' ? 'square-pen' : 'message-square-plus'); button.append(icon, text); button.dataset.mode = value; button.setAttribute('aria-pressed', String(value === mode)); button.onclick = () => setMode(value); tabs.append(button);
   }
   function dismiss() {
     if (completing || closing) return;
+    modeRevision++; smart.cancelOpen();
+    if (mode==='smart') {
+      const revision=modeRevision;
+      void smart.close().then(closed=> { if(closed && revision===modeRevision) void closeSurface({action:'dismiss',draft:controller.read()}); }); return;
+    }
     if (mode === 'progress') { if (!progress.isComposing()) send({ action: 'progressDismiss' }); return; }
     if (!controller.isSaving() && !controller.isComposing()) void closeSurface({ action: 'dismiss', draft: controller.read() });
+  }
+  for (const [value, text] of [['create','手动填写'],['smart','一句话整理']]) {
+    const button = document.createElement('button'); button.type='button'; button.textContent=text;
+    button.dataset.mode=value; button.setAttribute('aria-pressed',String(value===mode));
+    button.onclick=()=>setMode(value); methods.append(button);
   }
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229 && !controller.isComposing()) { event.preventDefault(); dismiss(); }
@@ -93,6 +138,7 @@
   window.capture = {
     getDraft: controller.read, dismiss,
     update(state) {
+      smart.update(state);
       if (state.focus || state.mode || state.error || state.progressError || state.quickError) {
         visibility++; closing = false; shell.inert = false;
         if (state.focus || state.mode) completing = false;
@@ -100,7 +146,7 @@
       }
       if (state.uiSettings) {
         const ui = state.uiSettings;
-        document.body.dataset.traceloTheme = ['evergreen','graphite','glacier','vermilion'].includes(ui.theme) ? ui.theme : 'evergreen';
+        document.body.dataset.traceloTheme = shared.normalizeTheme(ui.theme);
         document.body.dataset.traceloAppearance = ['light','dark'].includes(ui.appearance) ? ui.appearance : 'system';
       }
       if ('location' in state) {

@@ -34,9 +34,12 @@ try {
     await item.locator('.wt-card-open').press('Enter');
     await settle();
     assert.ok(await item.evaluate(el => el.classList.contains('is-selected') && el.classList.contains('is-expanded')));
-    assert.equal(await page.locator('.wt-timeline-column h2').textContent(), '完成支付模块');
+    assert.equal(await page.locator('.wt-conversation').isVisible(), true);
     if (trigger === 'title') await item.locator('.wt-card-open').click();
-    if (trigger === 'body') await item.locator('.wt-card-latest').click();
+    if (trigger === 'body') {
+      await item.locator('.wt-card-latest').click();
+      await item.locator('.wt-card-open[aria-expanded="false"]').waitFor();
+    }
     if (trigger === 'keyboard') await item.locator('.wt-card-open').press('Enter');
     if (trigger === 'close') await item.getByRole('button', { name: '收起', exact: true }).click();
     if (trigger === 'escape') await item.locator('.wt-card-composer textarea').press('Escape');
@@ -44,7 +47,7 @@ try {
     assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
     assert.equal(await page.locator('.wt-card.is-selected').count(), 0);
     assert.equal(await page.getByLabel('选择时间线日期').inputValue(), day);
-    assert.ok(new Set(await page.locator('.wt-event-task').allTextContents()).size > 1);
+    assert.equal(await page.locator('.wt-conversation').isVisible(), true);
     assert.equal(await page.locator('.wt-card-selection').count(), 0);
     assert.equal(await item.locator('.wt-card-open').evaluate(el => el === document.activeElement), true);
   });
@@ -57,7 +60,7 @@ try {
     await page.locator('.wt-ended-section > summary').evaluate(el => { el.parentElement.open = true; });
     const title = card(ids.dateOnly).locator('.wt-card-open');
     await title.click();
-    assert.equal(await page.locator('.wt-timeline-column h2').textContent(), '提交本周项目周报');
+    assert.equal(await page.getByLabel('选择时间线日期').inputValue(), day);
     await title.click();
     assert.equal(await page.getByLabel('选择时间线日期').inputValue(), day);
     assert.equal(await page.locator('.wt-card.is-selected, .wt-card.is-expanded').count(), 0);
@@ -119,7 +122,7 @@ try {
     assert.equal(await input.count(), 0);
     assert.equal(await item.locator('.wt-card-open').evaluate(el => el === document.activeElement), true);
     assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
-    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
+    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '工作日历');
     await item.locator('.wt-card-open').press('Enter');
     assert.equal(await input.inputValue(), '键盘关闭仍保留草稿');
     await item.getByRole('button', { name: '收起', exact: true }).click();

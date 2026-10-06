@@ -32,7 +32,6 @@ export function mountDeadlineCalendar(root: HTMLElement, tasks: () => WorkTask[]
   const layout = el('div', root, 'wt-calendar-layout');
   const calendar = el('div', layout, 'wt-calendar-grid'); calendar.setAttribute('aria-label', '月历');
   const aside = el('section', layout, 'wt-calendar-list'); aside.setAttribute('aria-live', 'polite');
-  el('p', root, 'wt-calendar-help', '按任务截止日期显示');
   function render() {
     const focusDay = (doc.activeElement as HTMLElement)?.dataset.day;
     const values = tasks();
@@ -55,7 +54,7 @@ export function mountDeadlineCalendar(root: HTMLElement, tasks: () => WorkTask[]
     }
     el('h3', aside, '', new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date(`${selected}T12:00:00`)));
     const items = byDay.get(selected) ?? [];
-    el('p', aside, 'wt-calendar-help', `${items.length} 项截止任务`);
+    if (items.length) el('p', aside, 'wt-calendar-help', `${items.length} 项截止任务`);
     if (!items.length) el('p', aside, 'wt-empty', '这一天没有截止任务');
     for (const task of items) {
       const row = button(aside, '', () => openTask(task.id), `查看任务：${task.title}`);

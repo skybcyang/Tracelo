@@ -34,7 +34,7 @@ try {
       const { plugin, app } = window.cardFixture;
       return { source: await app.vault.adapter.read(plugin.taskArchivePath(id)), changed: plugin.tasks.filter(t => t.icon === 'noto:laptop').length };
     }, ids.payment);
-    assert.ok(saved.source.includes('"icon": "noto:laptop"'));
+    assert.ok(saved.source.includes('icon: noto:laptop'));
     assert.equal(saved.changed, 1);
   });
   await check('picker cancellation and empty search do not change task data', async () => {

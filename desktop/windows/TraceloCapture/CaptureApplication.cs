@@ -22,7 +22,7 @@ internal sealed class CaptureWindow : Form {
     }
 }
 
-internal sealed class CaptureApplication : ApplicationContext {
+internal sealed partial class CaptureApplication : ApplicationContext {
     internal readonly CaptureWindow Window;
     internal CaptureSettings State { get; private set; }
     private readonly string settingsPath;
@@ -59,6 +59,7 @@ internal sealed class CaptureApplication : ApplicationContext {
         if (!smoke && (State.Vault.Length == 0 || hotkeyId == 0)) Show();
     }
     private void OnAction(string action, JsonElement message) {
+        if (action == "smart") { ReceiveSmart(message.Clone()); return; }
         try {
             if (action == "ready") { UpdateState(focus: Window.Visible); return; }
             if (action == "resize") {
@@ -79,12 +80,9 @@ internal sealed class CaptureApplication : ApplicationContext {
                 case "progressDismiss": case "progressComplete": HideWindow(); break;
                 case "openTaskFolder":
                     var sources = JsonSerializer.SerializeToElement(new QuickWorkspace(new CaptureConfiguration(State.Vault, State.TaskDirectory).Destination()).Tasks());
-                    var taskId = message.GetProperty("taskId").GetString();
+                    var requestedPath = message.GetProperty("path").GetString();
                     foreach (var source in sources.EnumerateArray()) {
-                        var markdown = source.GetProperty("markdown").GetString()!;
-                        var headerEnd = markdown.IndexOf("\n-->", StringComparison.Ordinal);
-                        using var header = JsonDocument.Parse(markdown["<!-- work-timeline-task:v1\n".Length..headerEnd]);
-                        if (header.RootElement.GetProperty("id").GetString() != taskId) continue;
+                        if (source.GetProperty("path").GetString() != requestedPath) continue;
                         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.GetDirectoryName(source.GetProperty("path").GetString()!)!) { UseShellExecute = true });
                         break;
                     }

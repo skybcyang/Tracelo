@@ -8,10 +8,12 @@ export interface CardHost {
   setIcon(element: HTMLElement, name: string): void;
   iconButton(container: HTMLElement, icon: string, label: string, cls?: string): HTMLButtonElement;
   showTaskMenu(event: MouseEvent, task: WorkTask): void;
+  showTodoMenu(anchor: HTMLButtonElement, actions: { title: string; icon: string; run(): void | Promise<void> }[]): void;
   openDueDate(task: WorkTask): void; collapseCard(id: string): void; focusCard(id: string): void; render(): void;
   renderNotes(body: HTMLElement, task: WorkTask): void;
   renderProgress?(parent: HTMLElement, task: WorkTask, text: string): void;
   openHistory?(task: WorkTask): void;
+  openTaskFile?(task: WorkTask): void;
   completeTask?(task: WorkTask): void;
   notice(message: string, duration?: number): { messageEl: HTMLElement; hide(): void };
   prompt(heading: string, initial: string, placeholder: string, multiline: boolean, submit: (value: string) => Promise<void>): void;
@@ -146,7 +148,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     const updated = latest ?? task.events[0]!;
     const timeText = updated.day === today ? `今天 ${formatTime(updated.at)}` : formatDateTime(updated.at);
     meta.createEl("time", { text: `${latest ? "进展" : "创建"} · ${timeText}`, cls: "wt-card-time", attr: { datetime: updated.at, title: `${latest ? "最近进展" : "创建时间"}：${formatDateTime(updated.at)}` } });
-    if (!statusRow.childElementCount) statusRow.createSpan({ text: `${updated.day === today ? '今天' : formatDateTime(updated.at)}更新`, cls:'wt-card-updated' });
+    if (!statusRow.childElementCount && !latest) statusRow.createSpan({ text: `创建于 ${timeText}`, cls:'wt-card-updated' });
     const toggleCard = (): void => {
       if (editing) { host.collapseCard(task.id); return; }
       host.selectedTaskId = task.id;
@@ -157,22 +159,36 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     open.addEventListener("click", toggleCard);
     {
       const label = editing ? host.plugin.state.presentationMode ? '结束编辑' : '收起' : task.status === 'active' ? '记录进展' : '查看任务';
-      const more = footer.createEl('button', { text: label, cls: 'wt-read-more', attr: { type: 'button', 'aria-label': label } });
+      const iconOnly = editing && host.plugin.state.presentationMode;
+      const more = footer.createEl('button', { text: iconOnly ? '' : label, cls: `wt-read-more${editing ? ' wt-card-collapse' : ''}${iconOnly ? ' wt-card-edit-close' : ''}`, attr: { type: 'button', 'aria-label': label, title: label } });
+      if (iconOnly) { host.setIcon(more, 'x'); more.querySelector('svg')?.setAttribute('aria-hidden', 'true'); }
       more.onclick = () => open.click();
     }
     let pointerStart: { x: number; y: number } | null = null;
     let dragged = false;
+    let singleClick: ReturnType<typeof setTimeout> | undefined;
+    const clearClick = () => { clearTimeout(singleClick); singleClick = undefined; };
+    const interactive = 'button, a, img, input, textarea, select, label, [contenteditable], .wt-card-todos, .wt-card-composer, .wt-optional-actions';
     card.addEventListener("pointerdown", (event) => { pointerStart = { x: event.clientX, y: event.clientY }; dragged = false; });
     card.addEventListener("click", (event) => {
       if (event.button !== 0 || event.defaultPrevented || dragged || (editing && host.editingNotes.has(task.id))) return;
       if (editing && host.plugin.state.drafts[task.id]?.trim()) return;
-      if ((event.target as Element).closest("button, a, img, input, textarea, select, label, [contenteditable], .wt-card-todos, .wt-card-composer, .wt-optional-actions")) return;
+      if ((event.target as Element).closest(interactive)) return;
       if (pointerStart && Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 5) return;
       const selection = card.ownerDocument.getSelection();
       if (selection && !selection.isCollapsed && card.contains(selection.anchorNode)) return;
-      toggleCard();
+      if (!host.openTaskFile) { toggleCard(); return; }
+      clearClick();
+      if (event.detail < 2) singleClick = setTimeout(() => { if (card.isConnected && !dragged) toggleCard(); }, 300);
+    });
+    if (host.openTaskFile) card.addEventListener('dblclick', event => {
+      clearClick();
+      if (event.button !== 0 || dragged || (event.target as Element).closest(interactive)) return;
+      event.preventDefault();
+      host.openTaskFile!(task);
     });
     card.addEventListener("contextmenu", (event) => {
+      clearClick();
       if ((event.target as Element).closest("input, textarea, [contenteditable]")) return;
       event.preventDefault();
       host.showTaskMenu(event, task);
@@ -189,6 +205,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
       card.addEventListener("dragstart", (event) => {
         if ((event.target as HTMLElement).closest("input, textarea, button, label")) { event.preventDefault(); return; }
         dragged = true;
+        clearClick();
         event.dataTransfer?.setData("text/plain", task.id);
         card.addClass("is-dragging");
       });
@@ -260,9 +277,13 @@ export function renderCardTodos(host: CardHost, card: HTMLElement, task: WorkTas
           }
         });
         if (task.status === "active" && editing) {
-          host.iconButton(row, "pencil", `编辑待办：${item.text}`).addEventListener("click", () => host.prompt( "编辑待办", item.text, "待办内容", false, (value) => host.plugin.editTaskTodo(task.id, item.id, value),
-          ));
-          host.iconButton(row, "trash-2", `删除待办：${item.text}`).addEventListener("click", async () => {
+          const more = host.iconButton(row, 'more-horizontal', `待办操作：${item.text}`, 'wt-icon-button wt-todo-more');
+          more.setAttribute('aria-haspopup', 'menu');
+          more.addEventListener('click', event => {
+            event.stopPropagation();
+            host.showTodoMenu(more, [
+              { title: '编辑待办', icon: 'pencil', run: () => host.prompt('编辑待办', item.text, '待办内容', false, value => host.plugin.editTaskTodo(task.id, item.id, value)) },
+              { title: '删除待办', icon: 'trash-2', run: async () => {
             try {
               const removed = await host.plugin.removeTaskTodo(task.id, item.id);
               const notice = host.notice("待办已删除", 8000);
@@ -273,6 +294,8 @@ export function renderCardTodos(host: CardHost, card: HTMLElement, task: WorkTas
                 catch (reason) { undo.disabled = false; host.notice(reason instanceof Error ? reason.message : "未能恢复，请重试"); }
               });
             } catch (reason) { host.notice(reason instanceof Error ? reason.message : "未能保存，请重试"); }
+              } },
+            ]);
           });
         }
       }
@@ -331,7 +354,7 @@ export function renderCardTodos(host: CardHost, card: HTMLElement, task: WorkTas
 export function renderCardComposer(host: CardHost, card: HTMLElement, task: WorkTask): void {
     const form = card.createEl("form", { cls: "wt-card-composer" });
     const label = form.createEl("label");
-    label.createSpan({ text: "记录这一步的进展" });
+    label.createSpan({ text: "进展", cls: 'wt-progress-label' });
     const input = label.createEl("textarea", {
       attr: { rows: "3", maxlength: "2000", placeholder: "刚刚推进了什么？", required: "", 'aria-label':'记录当前进展' },
     });
@@ -343,13 +366,12 @@ export function renderCardComposer(host: CardHost, card: HTMLElement, task: Work
     const footer = form.createDiv({ cls: "wt-composer-footer" });
     const close = footer.createEl('button', { text: host.plugin.state.presentationMode ? '结束编辑' : '收起', cls: 'wt-composer-close', attr: { type: 'button', 'aria-label': '关闭进展输入' } });
     close.onclick = () => host.collapseCard(task.id);
-    footer.createSpan({ cls:'wt-composer-hint', text:'⌘ / Ctrl + Enter 保存' });
     input.addEventListener("keydown", event => {
       if (event.isComposing || composing || event.keyCode === 229) return;
       if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); form.requestSubmit(); }
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); host.collapseCard(task.id); }
     });
-    const submit = footer.createEl("button", { text: "记录进展", cls: "mod-cta", attr: { type: "submit" } });
+    const submit = footer.createEl("button", { text: "记录进展", cls: "mod-cta", attr: { type: "submit", title: '记录进展（⌘ / Ctrl + Enter）', 'aria-keyshortcuts': 'Meta+Enter Control+Enter' } });
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (saving || composing) return;

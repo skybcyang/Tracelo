@@ -13,6 +13,7 @@ import {
   parseTaskMarkdown,
   pickLatestValidBackup,
   serializeTaskMarkdown,
+  serializeLegacyTaskMarkdown,
 } from "../src/archive";
 
 function task() {
@@ -36,9 +37,18 @@ function task() {
 }
 
 describe("Markdown archive protocol", () => {
+  it("defaults to monochrome while preserving every saved theme", () => {
+    expect(createDefaultState().theme).toBe('monochrome');
+    for (const value of [undefined, {}, { theme: 'retired' }]) {
+      expect(normalizePluginState(value).theme).toBe('monochrome');
+    }
+    for (const theme of ['monochrome', 'evergreen', 'graphite', 'glacier', 'vermilion']) {
+      expect(normalizePluginState({ theme }).theme).toBe(theme);
+    }
+  });
   it("writes details headings while reading exact legacy notes projections", () => {
     const withDetails = { ...task(), notes: '原有备注内容保持原样' };
-    const current = serializeTaskMarkdown(withDetails);
+    const current = serializeLegacyTaskMarkdown(withDetails);
     expect(current).toContain('## 详情');
     const legacy = current.replace('## 详情', '## 备注');
     expect(parseTaskMarkdown(legacy)).toEqual(withDetails);
@@ -55,20 +65,20 @@ describe("Markdown archive protocol", () => {
   });
 
   it("keeps v1 notes readable and round-trips optional details in the same archive", () => {
-    const old = serializeTaskMarkdown(task());
+    const old = serializeLegacyTaskMarkdown(task());
     expect(parseTaskMarkdown(old)).toEqual(task());
     const withTodo = addTodo(task(), "核对退款路径", new Date("2026-09-18T03:00:00.000Z"), "todo-1", "event-3");
     const current = setDueDate(withTodo, "2026-09-30", new Date("2026-09-18T04:00:00.000Z"), "event-4");
     const source = serializeTaskMarkdown(current);
-    expect(source).toContain("- 截止日期：2026-09-30");
+    expect(source).toContain("dueDate: 2026-09-30");
     expect(source).toContain("- [ ] 核对退款路径");
     expect(parseTaskMarkdown(source)).toEqual(current);
-    const invalid = source.replace('"dueDate": "2026-09-30"', '"dueDate": "2026-02-30"');
+    const invalid = source.replace('dueDate: 2026-09-30', 'dueDate: 2026-02-30');
     expect(() => parseTaskMarkdown(invalid)).toThrow("任务文件格式无效");
   });
 
   it("rejects any hand-edited projection instead of silently accepting history changes", () => {
-    const edited = serializeTaskMarkdown(task()).replace("确认缓存键冲突", "人工改写");
+    const edited = serializeLegacyTaskMarkdown(task()).replace("确认缓存键冲突", "人工改写");
     expect(() => parseTaskMarkdown(edited)).toThrow("任务文件已被外部修改");
   });
 

@@ -106,6 +106,10 @@ final class CaptureCoreTests {
         XCTAssertThrowsError(try request.publish(to: directory, attachments: [["name": "../escape.png", "base64": "AQID"]]))
         let workspace = QuickWorkspace(directory: directory)
         XCTAssertEqual(try workspace.tasks().count, 1)
+        let editable = "---\ntracelo: 2\nid: editable-task\n---\n\n# 可编辑任务\n"
+        try editable.write(to: directory.appendingPathComponent("editable.md"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(try workspace.tasks().count, 2)
+        XCTAssertEqual(try workspace.tasks().filter { ($0["markdown"] as? String) == editable }.count, 1)
         let op: [String: Any] = ["id": "quick-" + String(repeating: "a", count: 32), "version": 1, "taskId": "image-task", "kind": "progress", "text": "离线进展"]
         try workspace.enqueue(op); try workspace.enqueue(op)
         XCTAssertEqual(try workspace.receipts().count, 1)
@@ -116,6 +120,16 @@ final class CaptureCoreTests {
     }
 }
 let tests = CaptureCoreTests()
+let directConfig = try SmartCaptureTransport.configuration(["baseUrl": "https://example.com/v1", "model": "test", "apiKey": "  test-direct-token-1234567890  ", "keyFile": "/missing/legacy"])
+XCTAssertEqual(directConfig["apiKey"], "test-direct-token-1234567890")
+XCTAssertEqual(directConfig["keyFile"], "")
+XCTAssertThrowsError(try SmartCaptureTransport.configuration(["baseUrl": "https://example.com/v1", "model": "test", "apiKey": "invalid key", "keyFile": "/missing/legacy"]))
+XCTAssertEqual(try SmartCaptureTransport.readKey("opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890")
+XCTAssertEqual(try SmartCaptureTransport.readKey("# Key\nAPI_KEY=opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890")
+XCTAssertThrowsError(try SmartCaptureTransport.readKey("first-token-12345678\nsecond-token-12345678"))
+XCTAssertEqual(try SmartCaptureTransport.endpoint("https://example.com/v1/chat/completions/").absoluteString, "https://example.com/v1/chat/completions")
+XCTAssertThrowsError(try SmartCaptureTransport.endpoint("http://example.com/v1"))
+XCTAssertThrowsError(try SmartCaptureTransport.endpoint("https://key@example.com/v1"))
 try tests.testFirstLineIsTitleAndNotesKeepOrder()
 try tests.testAtomicPublishDoesNotOverwriteAndRetryIsIdempotent()
 try tests.testConfigurationRejectsEscapingVaultAndMissingDirectories()

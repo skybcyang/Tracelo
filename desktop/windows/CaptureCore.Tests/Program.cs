@@ -21,6 +21,20 @@ void Reject(Action action) { try { action(); } catch (Exception e) when (e is Ar
 var root = Path.Combine(Path.GetTempPath(), "tracelo-tests-" + Guid.NewGuid());
 Directory.CreateDirectory(Path.Combine(root, "工作记录", "任务"));
 try {
+    Test("smart capture accepts opaque credentials and validates HTTPS endpoints", () => {
+        using var direct = JsonDocument.Parse("""{"baseUrl":"https://example.com/v1","model":"test","apiKey":"  test-direct-token-1234567890  ","keyFile":"/missing/legacy"}""");
+        var config = SmartCaptureTransport.Configuration(direct.RootElement);
+        Equal(config["apiKey"], "test-direct-token-1234567890");
+        Equal(config["keyFile"], "");
+        using var invalid = JsonDocument.Parse("""{"baseUrl":"https://example.com/v1","model":"test","apiKey":"invalid key","keyFile":"/missing/legacy"}""");
+        Reject(() => SmartCaptureTransport.Configuration(invalid.RootElement));
+        Equal(SmartCaptureTransport.ReadKey("opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890");
+        Equal(SmartCaptureTransport.ReadKey("# Key\nAPI_KEY=opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890");
+        Reject(() => SmartCaptureTransport.ReadKey("first-token-12345678\nsecond-token-12345678"));
+        Equal(SmartCaptureTransport.Endpoint("https://example.com/v1/chat/completions/").AbsoluteUri, "https://example.com/v1/chat/completions");
+        Reject(() => SmartCaptureTransport.Endpoint("http://example.com/v1"));
+        Reject(() => SmartCaptureTransport.Endpoint("https://key@example.com/v1"));
+    });
     Test("first line is title, CRLF normalizes, notes preserve blank lines", () => {
         var draft = CaptureDraft.Parse("  中文 *标题*  \r\n详情\r\n\r\n尾行");
         Equal(draft.Title, "中文 *标题*"); Equal(draft.Notes, "详情\n\n尾行");
@@ -162,6 +176,10 @@ try {
         Equal(request.Publish(directory, images), path);
         Equal(Convert.ToBase64String(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(path)!, "image-test.png"))), "AQID");
         var workspace = new QuickWorkspace(directory);
+        var beforeEditable = workspace.Tasks().Length;
+        var editable = "---\ntracelo: 2\nid: editable-task\n---\n\n# 可编辑任务\n";
+        File.WriteAllText(Path.Combine(directory, "editable.md"), editable);
+        Equal(workspace.Tasks().Length, beforeEditable + 1);
         var op = JsonSerializer.SerializeToElement(new { version = 1, id = "quick-" + new string('a',32), taskId = "image-task", kind = "progress", text = "离线进展" });
         workspace.Enqueue(op); workspace.Enqueue(op);
         Equal(workspace.Receipts().Length, 1);

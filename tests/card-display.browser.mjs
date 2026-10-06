@@ -101,7 +101,9 @@ try {
   assert.equal(await page.evaluate(id => window.cardFixture.plugin.state.drafts[id], ids.many), '保留在阅读模式里的草稿');
   await card(ids.many).locator('.wt-read-more').click();
   assert.equal(await card(ids.many).getByRole('textbox', { name: '记录当前进展' }).inputValue(), '保留在阅读模式里的草稿');
-  assert.equal(await card(ids.many).locator('.wt-read-more').textContent(), '结束编辑');
+  assert.equal(await card(ids.many).locator('.wt-read-more').textContent(), '');
+  assert.equal(await card(ids.many).locator('.wt-read-more').getAttribute('aria-label'), '结束编辑');
+  assert.equal(await card(ids.many).locator('.wt-read-more svg').count(), 1);
   await page.evaluate(async () => { const { plugin } = window.cardFixture; plugin.state.presentationMode = false; await plugin.setViewMode('group'); });
   assert.equal(await card(ids.many).locator('.wt-card-composer').count(), 1);
   await card(ids.many).locator('.wt-read-more').click();
@@ -123,6 +125,7 @@ try {
   await card(ids.payment).locator('.wt-card-open').click();
   assert.equal(await card(ids.plain).locator('.wt-notes-editor').count(), 0);
   await card(ids.plain).locator('.wt-card-latest').click();
+  await card(ids.plain).locator('.wt-card-composer').waitFor();
   assert.equal(await card(ids.plain).locator('.wt-card-composer').count(), 1, 'a card with a retained details draft can re-enter editing from its body');
   assert.equal(await card(ids.plain).getByRole('textbox', { name: '任务详情', exact: true }).inputValue(), '切到别卡后仍保留的详情草稿');
   await card(ids.plain).locator('.wt-read-more').click();

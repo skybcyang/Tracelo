@@ -1,9 +1,11 @@
 import { addProgress, addTodo, toggleTodo, editTodo, removeTodo, restoreTodo, renameTask, setTaskNotes, setDueDate, changeTaskGroup, changeTaskQuadrant, completeTask, closeTask, reopenTask, setTaskIcon, QUADRANTS, UNGROUPED_TASKS, type WorkTask, type WorkGroup, type TaskTodo } from './domain';
 import { safeSegment } from './storage-names';
+import { applySmartProgress } from './smart-capture';
 export const QUICK_DIRECTORY = '.tracelo-operations';
 export interface QuickOperation {
   version: 1; id: string; taskId: string;
-  kind: 'progress' | 'todo_add' | 'todo_toggle' | 'todo_edit' | 'todo_remove' | 'todo_restore' | 'rename' | 'notes' | 'due' | 'group' | 'quadrant' | 'complete' | 'close' | 'reopen' | 'icon';
+  kind: 'progress' | 'smart_progress' | 'todo_add' | 'todo_toggle' | 'todo_edit' | 'todo_remove' | 'todo_restore' | 'rename' | 'notes' | 'due' | 'group' | 'quadrant' | 'complete' | 'close' | 'reopen' | 'icon';
+  completedTodoIds?: string[];
   text?: string; todoId?: string; done?: boolean; todo?: TaskTodo; index?: number;
   attachments?: { name: string; base64: string; sha256?: string }[];
 }
@@ -39,6 +41,9 @@ export function applyQuickOperation(task: WorkTask, op: QuickOperation, groups: 
   if (['todo_toggle', 'todo_edit', 'todo_remove'].includes(op.kind) && !task.todos?.some(todo => todo.id === op.todoId)) throw Error('待办已删除或不可用');
   let next: WorkTask;
   switch (op.kind) {
+    case 'smart_progress':
+      if (!Array.isArray(op.completedTodoIds) || op.completedTodoIds.length > 50 || op.completedTodoIds.some(id => typeof id !== 'string')) throw Error('待办建议无效');
+      next = applySmartProgress(task, { mode: 'progress', taskId: task.id, text, completedTodoIds: op.completedTodoIds, warnings: [] }, op.id, at); break;
     case 'progress': next = addProgress(task, text, at, op.id); break;
     case 'todo_add': next = addTodo(task, text, at, op.id, op.id); break;
     case 'todo_toggle': if (typeof op.done !== 'boolean') throw Error('待办状态无效'); next = toggleTodo(task, op.todoId!, op.done, at, op.id); break;

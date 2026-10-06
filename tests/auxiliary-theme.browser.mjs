@@ -21,7 +21,7 @@ try {
   await page.route('https://tracelo.test/', route => route.fulfill({ contentType:'text/html',body:'<style>'+readFileSync('tests/helpers/obsidian-host.css','utf8')+readFileSync('styles.css','utf8')+'</style><script type="module">'+bundle.outputFiles[0].text+'</script>' }));
   await page.goto('https://tracelo.test/'); await page.waitForFunction(() => window.cardFixture);
   await page.getByRole('button',{name:'管理分组',exact:true}).click();
-  for (const theme of ['evergreen','graphite','glacier','vermilion']) {
+  for (const theme of ['monochrome','evergreen','graphite','glacier','vermilion']) {
     for (const appearance of ['light','dark','system']) {
       const snapshots=[];
       for (const hostDark of [false,true]) {
@@ -50,7 +50,7 @@ try {
   const modal=page.locator('.wt-new-task-modal');
   await modal.locator('input[type=file]').setInputFiles({name:'theme.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=','base64')});
   await modal.getByRole('button',{name:'预览图片：theme.png',exact:true}).waitFor();
-  for (const theme of ['evergreen','graphite','glacier','vermilion']) {
+  for (const theme of ['monochrome','evergreen','graphite','glacier','vermilion']) {
     for (const appearance of ['light','dark']) {
       await page.evaluate(async ({theme,appearance})=>{
         document.body.classList.toggle('theme-dark',appearance==='light');

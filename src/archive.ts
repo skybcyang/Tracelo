@@ -12,6 +12,9 @@ import {
   isTaskIcon,
 } from "./domain";
 import { safeSegment } from "./storage-names";
+import { DEFAULT_THEME, normalizeTheme, type Theme } from './appearance';
+import { normalizeCaptureConfig, type CaptureConfig } from './smart-capture';
+import { parseEditableTask, serializeEditableTask } from './editable-markdown';
 
 export const DEFAULT_TASK_DIRECTORY = "工作记录/任务";
 export const AGENT_FILE = "agent.md";
@@ -24,9 +27,11 @@ export interface PluginState {
   drafts: Record<string, string>;
   quickDrafts: Record<string, string>;
   noteDrafts: Record<string, string>;
+  smartDrafts: Record<string, string>;
+  smartCapture: CaptureConfig;
   boardZoom: number;
   cardLayout: "aligned" | "masonry";
-  theme: "evergreen" | "graphite" | "glacier" | "vermilion";
+  theme: Theme;
   appearance: "system" | "light" | "dark";
   presentationMode: boolean;
   orders: TaskOrders;
@@ -48,9 +53,11 @@ export function createDefaultState(): PluginState {
     drafts: {},
     quickDrafts: {},
     noteDrafts: {},
+    smartDrafts: {},
+    smartCapture: normalizeCaptureConfig(null),
     boardZoom: 100,
     cardLayout: "aligned",
-    theme: "evergreen",
+    theme: DEFAULT_THEME,
     appearance: "system",
     presentationMode: false,
     orders: { group: {}, quadrant: {} },
@@ -90,10 +97,12 @@ export function normalizePluginState(value: unknown): PluginState {
     drafts: stringRecord(value.drafts),
     quickDrafts: stringRecord(value.quickDrafts),
     noteDrafts: stringRecord(value.noteDrafts),
+    smartDrafts: stringRecord(value.smartDrafts),
+    smartCapture: normalizeCaptureConfig(value.smartCapture),
     boardZoom: typeof value.boardZoom === "number" && Number.isFinite(value.boardZoom)
       ? Math.max(60, Math.min(120, Math.round(value.boardZoom / 5) * 5)) : 100,
     cardLayout: value.cardLayout === "masonry" ? "masonry" : "aligned",
-    theme: value.theme === "graphite" || value.theme === "glacier" || value.theme === "vermilion" ? value.theme : "evergreen",
+    theme: normalizeTheme(value.theme),
     appearance: value.appearance === "light" || value.appearance === "dark" ? value.appearance : "system",
     presentationMode: typeof value.presentationMode === 'boolean'
       ? value.presentationMode : value.compactCards === false,
@@ -155,6 +164,12 @@ function taskBody(task: WorkTask, legacyNotes = false): string {
 }
 
 export function serializeTaskMarkdown(task: WorkTask): string {
+  assertTask(task);
+  return serializeEditableTask(task, EVENT_LABELS);
+}
+
+/** Desktop creation remains v1-compatible; the plugin migrates it after ingestion. */
+export function serializeLegacyTaskMarkdown(task: WorkTask): string {
   assertTask(task);
   return `<!-- work-timeline-task:v1\n${JSON.stringify(task, null, 2)}\n-->\n\n${taskBody(task)}`;
 }
@@ -220,6 +235,11 @@ export function assertTask(value: unknown): asserts value is WorkTask {
 }
 
 export function parseTaskMarkdown(source: string): WorkTask {
+  if (/^(?:\uFEFF)?---\r?\n/.test(source)) {
+    const task = parseEditableTask(source, EVENT_LABELS);
+    assertTask(task);
+    return task;
+  }
   const match = source.match(/^<!-- work-timeline-task:v1\n([\s\S]*?)\n-->\n\n/);
   if (!match?.[1]) throw new Error("任务文件格式无效");
   let value: unknown;
@@ -230,7 +250,7 @@ export function parseTaskMarkdown(source: string): WorkTask {
   }
   assertTask(value);
   const legacy = `<!-- work-timeline-task:v1\n${JSON.stringify(value, null, 2)}\n-->\n\n${taskBody(value, true)}`;
-  if (serializeTaskMarkdown(value) !== source && legacy !== source) throw new Error("任务文件已被外部修改");
+  if (serializeLegacyTaskMarkdown(value) !== source && legacy !== source) throw new Error("任务文件已被外部修改");
   return value;
 }
 

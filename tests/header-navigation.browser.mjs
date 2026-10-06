@@ -47,9 +47,29 @@ try {
  await page.getByRole('button',{name:'清除搜索',exact:true}).click();
  await groups.getByRole('button',{name:'全部 8',exact:true}).click();
  await page.evaluate(async()=>{for(const name of ['客户支持','品牌与内容','基础设施','研究与探索','年度规划'])await window.cardFixture.plugin.addGroup(name)});
- for(const width of [1440,960,560,390]){
+ for(const width of [1440,960,780,720,600,560,540,390,320]){
   await page.setViewportSize({width,height:900});
   await page.waitForTimeout(80);
+  for (const [selector, label] of [
+   ['.wt-view-switch button:first-child','分组看板'], ['.wt-view-switch button:last-child','四象限'],
+   ['.wt-calendar-trigger','截止日历'], ['.wt-board-options > summary','设置'],
+   ['.wt-manage-groups','管理分组'],
+   ['.wt-presentation-toggle','展示模式'], ['.wt-new-task-button','新建任务'],
+  ]) {
+   const action = page.locator(selector).first();
+   assert.equal(await action.innerText(), label, `${label} must have a visible label at ${width}px`);
+   assert.ok(await action.locator('svg').count(), `${label} must retain its icon`);
+   assert.equal(await action.evaluate(el => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1 && el.scrollWidth <= el.clientWidth + 1;
+   }), true, `${label} must fit without clipping at ${width}px`);
+  }
+  assert.equal(await page.locator('.wt-header').evaluate(header => {
+   const controls = [...header.querySelectorAll('.wt-brand, .wt-search, .wt-calendar-trigger, .wt-board-options > summary, .wt-view-switch button, .wt-context-actions button')]
+    .map(el => el.getBoundingClientRect());
+   return controls.every((a,i) => controls.slice(i+1).every(b => a.right <= b.left+1 || b.right <= a.left+1 || a.bottom <= b.top+1 || b.bottom <= a.top+1));
+  }), true, `header controls must not overlap at ${width}px`);
+  if (process.env.HEADER_SCREENSHOTS && [1440,390].includes(width)) await page.locator('.wt-header').screenshot({path:`${process.env.HEADER_SCREENSHOTS}/header-${width}.png`});
   const geometry=await page.evaluate(()=>{
    const rect=s=>document.querySelector(s).getBoundingClientRect();
    const nav=rect('.wt-view-tools'),search=rect('.wt-search'),create=rect('.wt-new-task-button');
@@ -92,7 +112,7 @@ try {
  assert.equal(await groups.locator('.wt-group-overflow-panel').evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth}),true,'selected long group does not push the dropdown offscreen');
  await groups.getByRole('button',{name:'全部 8',exact:true}).click();
  await page.setViewportSize({width:1440,height:900});
- for(const theme of ['evergreen','graphite','glacier','vermilion']) for(const mode of ['light','dark']) {
+ for(const theme of ['monochrome','evergreen','graphite','glacier','vermilion']) for(const mode of ['light','dark']) {
   await page.evaluate(([theme,mode])=>window.cardFixture.plugin.setAppearance(theme,mode),[theme,mode]);
   await page.locator('.wt-card').first().locator('.wt-card-open').click({button:'right'});
   const menu=page.locator('.wt-themed-menu').first();
@@ -105,5 +125,5 @@ try {
   await page.getByRole('menuitem',{name:'未分组',exact:true}).click();
  }
  assert.deepEqual(errors,[]);
- console.log('PASS header navigation: ordered overflow, hidden-group selection, keyboard dismissal, contextual creation and themed menus at four widths / eight appearances');
+ console.log('PASS header navigation: visible icon labels and no overlap at nine widths, ordered overflow, hidden-group selection, keyboard dismissal, contextual creation and ten appearances');
 } finally {await browser.close()}

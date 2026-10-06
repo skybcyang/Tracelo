@@ -1,6 +1,6 @@
 # Tracelo 快捷创建 · Windows
 
-当前版本为 0.9.3，包含四主题、图文进展、Noto 任务图标、任务选择器与真实保存反馈。下载与升级见[发布说明](../../docs/releases/0.9.3.md)。
+当前版本为 0.9.5，支持素白等五套主题、一句话录入、图文进展、可编辑任务列表与真实保存反馈。下载与升级见[发布说明](../../docs/releases/0.9.5.md)。
 
 Windows 10 / 11 x64 原生托盘工具，使用 .NET WinForms 宿主和 WebView2 共享表单。发布构建自带 .NET 运行时，不需要 Obsidian 正在运行；还需要 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。缺失时窗口提供安装入口，不会自动下载或修改系统。任务需由已配置相同目录的 Tracelo 插件读取。
 
@@ -46,7 +46,7 @@ npx vitest run desktop/windows/archive-compat.test.ts
 Windows PowerShell 一次执行核心测试、发布和原生 smoke test：
 
 ```powershell
-./desktop/windows/scripts/verify.ps1 -OutputDirectory ./dist/windows-verification -Version 0.9.3
+./desktop/windows/scripts/verify.ps1 -OutputDirectory ./dist/windows-verification -Version 0.9.5
 ```
 
 单独测试已发布可执行文件：
@@ -58,7 +58,7 @@ if ($result.ExitCode -ne 0) { throw 'Native smoke test failed' }
 Get-Content C:\tracelo-smoke\smoke-result.txt
 ```
 
-当前 `verify.ps1` 的默认版本仍为旧值，必须显式传入 `-Version 0.9.3`；脚本内仍为无上限等待，原生冒烟建议采用上面的 120 秒有界命令，CI 已采用相同超时保护。
+当前 `verify.ps1` 的默认版本仍为旧值，必须显式传入 `-Version 0.9.5`；脚本内仍为无上限等待，原生冒烟建议采用上面的 120 秒有界命令，CI 已采用相同超时保护。
 
 Smoke test 在指定输出目录创建隔离 vault、WebView2 配置和偏好，完成后清理；若 WebView2 子进程尚未释放文件，会明确记录保留的测试目录。测试实际加载共享页面，检查完整草稿、分组读取、热键冲突、模拟输入法事件、取消保留、含待办／日期／初始进展的任务发布及失败保留，并生成 `capture-smoke.png`、`settings-smoke.png` 及对应的 `*-dark-smoke.png`。它不替代真实中文输入法选词、多屏及其他应用焦点恢复的人工验收。
 

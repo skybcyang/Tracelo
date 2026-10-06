@@ -27,7 +27,7 @@ public struct QuickWorkspace {
             } else if path.pathExtension == "md", !path.lastPathComponent.hasPrefix("_") { candidates.append(path) }
         }
         return candidates.compactMap { path in
-            guard safeFile(path), let source = try? String(contentsOf: path, encoding: .utf8), source.hasPrefix("<!-- work-timeline-task:v1\n") else { return nil }
+            guard safeFile(path), let source = try? String(contentsOf: path, encoding: .utf8), source.hasPrefix("<!-- work-timeline-task:v1\n") || source.hasPrefix("---\n") || source.hasPrefix("---\r\n") else { return nil }
             var images: [String: String] = [:]
             let pattern = try! NSRegularExpression(pattern: #"!\[[^\]]*\]\(<?([^>\n)]+)>?\)"#)
             for match in pattern.matches(in: source, range: NSRange(source.startIndex..., in: source)) {

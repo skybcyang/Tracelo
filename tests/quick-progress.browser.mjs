@@ -47,7 +47,7 @@ try {
     await page.waitForFunction(dark => {
       const card = getComputedStyle(document.querySelector('.wt-card')).backgroundColor;
       const selected = getComputedStyle(document.querySelector('.wt-quick-task[aria-current]')).backgroundColor;
-      return card === (dark ? 'rgb(32, 45, 37)' : 'rgb(252, 253, 252)') && selected === (dark ? 'rgb(48, 75, 57)' : 'rgb(228, 239, 232)');
+      return card === (dark ? 'rgb(34, 34, 34)' : 'rgb(255, 255, 255)') && selected === (dark ? 'rgb(56, 56, 56)' : 'rgb(229, 229, 229)');
     }, dark);
     const colors = await picker.evaluate(el => {
       const row = el.querySelector('.wt-quick-task:not([aria-current])');
@@ -82,17 +82,31 @@ try {
   assert.equal(await card.locator('.wt-record-target').innerText(), '快捷进展测试\n未分组 · 12月1日截止');
   assert.match(await card.locator('.wt-quick-context').innerText(), /上次进展 \/ .*\n+原始进展/);
   assert.equal(await card.getByRole('button', { name: '关闭进展输入' }).count(), 0);
-  assert.match(await card.locator('.wt-composer-footer button[type=submit]').innerText(), /记录进展.*⌘ ↵/s);
+  const submit = card.locator('.wt-composer-footer button[type=submit]');
+  assert.equal(await submit.innerText(), '记录进展');
+  assert.equal(await submit.getAttribute('aria-keyshortcuts'), 'Meta+Enter Control+Enter');
+  const cancel = card.getByRole('button', { name: '取消', exact: true });
+  await cancel.click();
+  await page.waitForFunction(() => window.messages.some(m => m.action === 'progressDismiss'));
+  assert.equal(await page.evaluate(() => window.messages.filter(m => m.action === 'progressDismiss').length), 1);
+  assert.equal(await draftInput.inputValue(), '收起搜索时保留的进展', 'cancel preserves the current draft');
+  await page.evaluate(() => window.capture.update({ focus: true }));
   await card.locator('.wt-quick-extras > summary').click();
   assert.match(await card.textContent(), /完整详情/); assert.match(await card.textContent(), /原始进展/);
   assert.equal(await card.locator('.wt-todo-check').count(), 1);
+  await card.getByRole('button', { name: '待办操作：验证共享卡片', exact: true }).click();
+  const todoMenu = page.getByRole('dialog', { name: '待办操作' });
+  assert.equal(await todoMenu.getByRole('button', { name: '编辑待办', exact: true }).isVisible(), true);
+  assert.equal(await todoMenu.getByRole('button', { name: '删除待办', exact: true }).isVisible(), true);
+  await todoMenu.getByRole('button', { name: '取消', exact: true }).click();
+  assert.equal(await card.getByRole('button', { name: '待办操作：验证共享卡片', exact: true }).evaluate(el => document.activeElement === el), true);
   assert.equal(await card.locator('.wt-notes-preview strong').textContent(), '完整详情');
   assert.equal(await card.locator('.wt-notes-preview script').count(), 0);
   assert.ok(await card.locator('svg').count() > 2);
   await page.mouse.move(590, 750);
   for (const dark of [false, true]) {
     await page.evaluate(dark => window.capture.update({ dark }), dark);
-    await page.waitForFunction(dark => getComputedStyle(document.querySelector('.wt-card')).backgroundColor === (dark ? 'rgb(32, 45, 37)' : 'rgb(252, 253, 252)'), dark);
+    await page.waitForFunction(dark => getComputedStyle(document.querySelector('.wt-card')).backgroundColor === (dark ? 'rgb(34, 34, 34)' : 'rgb(255, 255, 255)'), dark);
     assert.equal(await page.locator('.wt-capture-tabs button').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
     if (process.env.TRACELO_QA_OUTPUT) {
       mkdirSync(process.env.TRACELO_QA_OUTPUT, { recursive: true });
@@ -126,6 +140,7 @@ try {
   await input.dispatchEvent('compositionend'); await input.press('Meta+Enter');
   const request = await page.evaluate(() => window.messages.filter(m => m.action === 'operation').at(-1).operation);
   assert.equal(request.kind, 'progress'); assert.equal(request.text, '正在推进');
+  assert.equal(await cancel.isDisabled(), true, 'cancel is unavailable while a write is pending');
   await page.evaluate(id => window.capture.update({ receipts: [{ id, status: 'queued', message: '已暂存，打开 Obsidian 后写入任务' }] }), request.id);
   assert.match(await page.locator('.wt-quick-status').textContent(), /已暂存/);
   assert.equal(await input.inputValue(), '正在推进');

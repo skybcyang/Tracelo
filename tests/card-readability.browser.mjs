@@ -69,19 +69,20 @@ try {
     assert.doesNotMatch(await card(ids.plain).locator('.wt-latest-label').innerText(), /今天/);
   });
   await check('history opens separately and closing retains the expanded task', async () => {
-    // Selection already shows task history in the permanent column.
+    // Task history is explicit; opening a card keeps the conversation intact.
+    await page.evaluate(id => window.cardFixture.app.workspace.getLeavesOfType('work-timeline-view')[0].view.openHistory(id), ids.payment);
     assert.equal(await page.locator('.wt-timeline-column').isVisible(), true);
-    assert.equal(await page.locator('.wt-timeline-header h2').innerText(), '完成支付模块');
+    assert.equal(await page.locator('.wt-task-history-heading h2').innerText(), '完成支付模块');
     assert.equal(await page.locator('.wt-card-selection').count(), 0);
     await page.locator('.wt-task-column').evaluate(el => { el.scrollTop = 0; });
     await page.screenshot({ path: resolve(output, '5-selected-history.png') });
-    await page.getByRole('button', { name: '返回每日时间线', exact: true }).click();
+    await page.getByRole('button', { name: '返回对话', exact: true }).click();
     await card(ids.plain).locator('.wt-card-open').click();
     assert.equal(await card(ids.payment).locator('.wt-card-selection').count(), 0);
-    assert.equal(await page.locator('.wt-timeline-header h2').innerText(), '整理客户反馈');
+    assert.equal(await page.locator('.wt-conversation').isVisible(), true);
     await card(ids.plain).getByRole('button', { name: '收起', exact: true }).click();
     assert.equal(await page.locator('.wt-card-selection').count(), 0);
-    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '每日时间线');
+    assert.equal(await page.locator('.wt-timeline-header .wt-eyebrow').innerText(), '工作日历');
   });
   for (const count of [5, 20, 50]) {
     await page.evaluate(async count => {

@@ -9,6 +9,15 @@ try {
   const page = await browser.newPage();
   await page.route('https://tracelo.test/', route => route.fulfill({ contentType: 'text/html', body: '<style>' + readFileSync('styles.css', 'utf8') + '</style><script type="module">' + bundle.outputFiles[0].text + '</script>' }));
   await page.goto('https://tracelo.test/'); await page.waitForFunction(() => window.cardFixture);
+  const ordering = await page.evaluate(async () => {
+    const {plugin,ids}=window.cardFixture;
+    const before=structuredClone(plugin.state.orders);
+    await plugin.submitQuickOperation({version:1,id:'quick-'+'d'.repeat(32),taskId:ids.payment,kind:'smart_progress',text:'一句话置顶验证',completedTodoIds:[]});
+    return {before,after:plugin.state.orders,id:ids.payment};
+  });
+  for (const kind of ['group','quadrant']) for (const [key,ids] of Object.entries(ordering.before[kind])) {
+    if (ids.includes(ordering.id)) assert.deepEqual(ordering.after[kind][key],[ordering.id,...ids.filter(id=>id!==ordering.id)],'smart progress pins only its task');
+  }
   const result = await page.evaluate(async () => {
     const {plugin,app,ids} = window.cardFixture, adapter = app.vault.adapter;
     const directory = plugin.state.taskDirectory + '/.tracelo-operations'; await adapter.mkdir(directory);

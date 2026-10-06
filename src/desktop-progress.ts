@@ -26,11 +26,12 @@ function installCardDOM() {
   prototype.setAttr = function(name, value) { if (value === null) this.removeAttribute(name); else this.setAttribute(name, String(value)); };
 }
 type Receipt = { id: string; status: 'queued' | 'applied' | 'failed'; message: string; operation?: QuickOperation };
-type TaskSource = { markdown: string; images?: Record<string, string> };
-interface Options { send(value: Record<string, unknown>): void; setIcon(element: HTMLElement, name: string): void; resize(): void; isWin?: boolean; getLocation?(): string; openSettings?(): void }
+type TaskSource = { markdown: string; images?: Record<string, string>; path?: string };
+interface Options { send(value: Record<string, unknown>): void; setIcon(element: HTMLElement, name: string): void; resize(): void; isWin?: boolean; getLocation?(): string; openSettings?(): void; openSmart?(taskId:string):void }
 export function mountQuickProgress(container: HTMLElement, options: Options) {
   installCardDOM();
   let tasks: WorkTask[] = [], groups: WorkGroup[] = [], images = new Map<string, Record<string, string>>();
+  const paths = new Map<string, string>();
   const state = normalizePluginState(null);
   // Quick capture always edits its single selected card, independently of board presentation.
   state.presentationMode = false;
@@ -52,6 +53,8 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
   function setFeedback(value: typeof feedback, message: string) {
     feedback = value; container.dataset.feedback = value; status.textContent = message;
     status.setAttribute('aria-busy', String(value === 'saving'));
+    const cancel = body.querySelector<HTMLButtonElement>('.wt-progress-cancel');
+    if (cancel) cancel.disabled = pending.size > 0 || confirming.size > 0;
     options.resize();
   }
   function setDraft(id: string, text: string) {
@@ -103,7 +106,7 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
     event.stopPropagation(); const menu = document.createElement('dialog'); menu.className = 'wt-modal wt-quick-menu'; menu.setAttribute('aria-label', '任务操作');
     const add = (label: string, action: () => void) => { const b = menu.createEl('button', { text: label, attr: { type: 'button' } }); b.onclick = () => { menu.close(); menu.remove(); action(); }; };
     const ask = (label: string, initial: string, kind: QuickOperation['kind'], multiline = false) => add(label, () => prompt(label, initial, '', multiline, text => perform(task.id, kind, { text })));
-    add('打开任务文件夹', () => options.send({ action: 'openTaskFolder', taskId: task.id }));
+    add('打开任务文件夹', () => options.send({ action: 'openTaskFolder', taskId: task.id, path: paths.get(task.id) }));
     ask('改名', task.title, 'rename'); ask('编辑详情', task.notes ?? '', 'notes', true);
     ask('设置截止日期', task.dueDate ?? '', 'due');
     for (const group of [...groups, { id: '', name: '未分组' }]) add(`移到分组：${group.name}`, () => { void perform(task.id, 'group', { text: group.id }).catch(error => notice(String(error))); });
@@ -143,8 +146,23 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
     setIcon: options.setIcon,
     iconButton: (parent, icon, label, cls = 'wt-icon-button') => { const b = parent.createEl('button', { cls, attr: { type: 'button', 'aria-label': label } }); options.setIcon(b, icon); return b; },
     showTaskMenu: taskMenu,
+    showTodoMenu: (anchor, actions) => {
+      const menu = document.createElement('dialog');
+      menu.className = 'wt-modal wt-quick-menu'; menu.setAttribute('aria-label', '待办操作');
+      const close = () => { menu.close(); menu.remove(); if (anchor.isConnected) anchor.focus(); };
+      for (const action of actions) {
+        const button = menu.createEl('button', { attr: { type: 'button' } });
+        options.setIcon(button.createSpan({ attr: { 'aria-hidden': 'true' } }), action.icon);
+        button.createSpan({ text: action.title });
+        button.onclick = () => { close(); void action.run(); };
+      }
+      menu.createEl('button', { text: '取消', attr: { type: 'button' } }).onclick = close;
+      menu.addEventListener('cancel', event => { event.preventDefault(); close(); });
+      menu.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } });
+      document.body.append(menu); menu.showModal();
+    },
     openDueDate: task => prompt('截止日期（YYYY-MM-DD，留空清除）', task.dueDate ?? '', 'YYYY-MM-DD', false, text => perform(task.id, 'due', { text })),
-    collapseCard: () => { if (!pending.size && !composing) options.send({ action: 'progressDismiss' }); },
+    collapseCard: () => { if (!pending.size && !confirming.size && !composing) options.send({ action: 'progressDismiss' }); },
     focusCard: () => body.querySelector<HTMLTextAreaElement>('.wt-card-composer textarea')?.focus(),
     render, notice, prompt,
     renderNotes: (parent, task) => {
@@ -202,7 +220,7 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       if (selectedIcon) setContentIcon(title.createSpan({ cls: 'wt-task-icon', attr: { 'aria-hidden': 'true' } }), selectedIcon);
       const targetCopy = title.createSpan({ cls: 'wt-quick-target-copy' });
       targetCopy.createEl('strong', { text: task.title });
-      targetCopy.createEl('small', { text: `${task.groupName} · ${task.dueDate ? cardDueLabel(task) : '未设置截止日期'}` });
+      targetCopy.createEl('small', { text: [task.groupName, task.dueDate ? cardDueLabel(task) : ''].filter(Boolean).join(' · ') });
       options.setIcon(title.createSpan({ cls: 'wt-target-switch', attr: { 'aria-hidden': 'true' } }), 'chevrons-up-down');
       title.onclick = togglePicker;
       if (choosing) {
@@ -214,12 +232,16 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       const context = cardBody.createDiv({ cls: 'wt-quick-context' });
       const today = dayKey(new Date());
       context.createEl('small', { text: latest ? `上次进展 / ${latest.day === today ? formatTime(latest.at) : formatDateTime(latest.at)}` : '上次进展' });
-      context.createEl('p', { text: latest?.text ?? '还没有进展，从这一步开始。' });
+      context.createEl('p', { text: latest?.text ?? '暂无进展' });
       // Share editing and persistence behavior, not the board card's navigation/layout.
       renderCardComposer(host, cardBody, task);
+      if (task.status === 'active' && options.openSmart) {
+        const smart = cardBody.createEl('button', { text: '一句话记录进展', attr: { type:'button' } });
+        smart.onclick = () => options.openSmart!(task!.id);
+      }
       const form = cardBody.querySelector<HTMLFormElement>('.wt-card-composer')!;
       form.id = 'quick-progress-form';
-      form.querySelector('label > span')!.textContent = '这次推进了什么？';
+      form.querySelector('label > span')!.textContent = '本次进展';
       form.querySelector('textarea')!.setAttribute('aria-label','这次推进了什么？');
       form.querySelector('textarea')!.placeholder = '记下结果、问题，或下一步要做的事';
       const input = form.querySelector('textarea')!;
@@ -231,7 +253,7 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       });
       editor.set(draftImages.get(task.id) ?? []); imagesReady = true;
       const extras = cardBody.createEl('details', { cls: 'wt-quick-extras' });
-      const summary = extras.createEl('summary', { text: '顺手更新待办 ' });
+      const summary = extras.createEl('summary', { text: '待办 ' });
       summary.createSpan({ cls: 'wt-quick-todo-count', text: `${task.todos?.filter(todo => todo.done).length ?? 0}/${task.todos?.length ?? 0}` });
       extras.open = expandedExtras.has(task.id);
       renderCardTodos(host, extras, task, true, true);
@@ -240,11 +262,14 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       menu.onclick = event => taskMenu(event, task);
       extras.addEventListener('toggle', () => { if (extras.open) { expandedExtras.add(task.id); for (const child of extras.children) if (child !== summary) revealQuickContent(child as HTMLElement); } else expandedExtras.delete(task.id); options.resize(); });
       const footer = form.querySelector<HTMLElement>('.wt-composer-footer')!;
-      footer.querySelector('.wt-composer-close')?.remove();
+      const cancel = footer.querySelector<HTMLButtonElement>('.wt-composer-close')!;
+      cancel.className = 'wt-secondary-action wt-progress-cancel';
+      cancel.textContent = '取消';
+      cancel.setAttribute('aria-label', '取消');
+      cancel.title = '关闭并保留草稿';
       const submit = footer.querySelector<HTMLButtonElement>('button[type=submit]')!;
       submit.setAttribute('form', form.id);
       submit.setAttribute('aria-label', '记录进展');
-      submit.createEl('kbd', { text: options.isWin ? 'Ctrl ↵' : '⌘ ↵' });
       const location = footer.createEl('button', { cls: 'wt-quick-location', text: options.getLocation?.() || '工作记录', attr: { type: 'button', 'aria-label': '设置保存位置' } });
       location.onclick = () => options.openSettings?.();
       footer.prepend(location);
@@ -254,6 +279,7 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
         form.querySelector('textarea')!.disabled = submit.disabled = true;
       }
       if (confirming.has(task.id) || [...pending.values()].some(item => item.operation.taskId === task.id)) {
+        cancel.disabled = true;
         submit.disabled = input.disabled = true;
         submit.setAttribute('aria-busy', 'true');
       }
@@ -323,8 +349,8 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       let changed = !!value.groups || value.location !== undefined;
       const savedTodos: string[] = [];
       if (value.tasks && JSON.stringify(value.tasks) !== sourcesKey) {
-        sourcesKey = JSON.stringify(value.tasks); images = new Map(); tasks = [];
-        for (const item of value.tasks) { try { const task = parseTaskMarkdown(item.markdown); if (!tasks.some(t => t.id === task.id)) { tasks.push(task); images.set(task.id, item.images ?? {}); } } catch { notice('部分任务无法读取，请在插件中检查存档'); } }
+        sourcesKey = JSON.stringify(value.tasks); images = new Map(); tasks = []; paths.clear();
+        for (const item of value.tasks) { try { const task = parseTaskMarkdown(item.markdown); if (!tasks.some(t => t.id === task.id)) { tasks.push(task); images.set(task.id, item.images ?? {}); if (item.path) paths.set(task.id, item.path); } } catch { notice('部分任务无法读取，请在插件中检查存档'); } }
         changed = true;
       }
       for (const receipt of value.receipts ?? []) {

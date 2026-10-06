@@ -9,5 +9,7 @@ playwright-report/
 test-results/
 .env
 .env.*
+**/*api-key*.md
 .obsidian/
+.local/
 工作记录/

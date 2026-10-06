@@ -16,7 +16,7 @@ button { appearance: none; -webkit-appearance: none; }
 .capture-modal .wt-new-shortcut { white-space: nowrap; }
 .capture-modal .modal-title { display:flex; align-items:center; gap:7px; color:var(--wt-text); }
 .capture-brand-icon { display:flex; color:var(--wt-muted); }
-.capture-brand-icon svg { width:16px; height:16px; }
+.capture-brand-icon svg { display:block; width:23px; height:23px; }
 .capture-workspace { position:absolute; top:22px; right:55px; max-width:45%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--wt-muted); font-size:10px; }
 .capture-modal.is-progress-mode { padding-bottom:0; }
 .capture-modal.is-progress-mode .capture-context { display:none; }
@@ -40,7 +40,7 @@ button { appearance: none; -webkit-appearance: none; }
 /* Collection mockup: 47px window chrome, 44px tabs, independently scrolling form. */
 .wt-modal.wt-new-task-modal.capture-modal { padding:0; border-radius:var(--wt-radius); }
 .capture-modal .modal-title { height:47px; min-height:47px; display:flex; align-items:center; gap:8px; margin:0; padding:0 16px; border-bottom:1px solid var(--wt-line); font-size:14px; font-weight:650; }
-.capture-brand-icon { width:23px; height:23px; align-items:center; justify-content:center; border-radius:var(--wt-small-radius); background:var(--wt-accent); color:var(--wt-on-accent); }
+.capture-brand-icon { width:23px; height:23px; flex:none; align-items:center; justify-content:center; background:transparent; }
 .capture-modal .modal-close-button { top:12px; right:12px; width:24px; height:24px; }
 .capture-workspace { top:16px; right:46px; }
 .capture-workspace { display:none; }
@@ -58,4 +58,29 @@ button { appearance: none; -webkit-appearance: none; }
 @media(max-width:480px) {
  .capture-modal .wt-new-task-body,.capture-modal.is-progress-mode .wt-quick-editor .wt-card-body { padding-left:18px; padding-right:18px; }
  .capture-modal .wt-capture-tabs,.capture-modal .wt-new-task-footer,.capture-modal.is-progress-mode .wt-composer-footer { padding-left:18px; padding-right:18px; }
+}
+
+/* Smart capture uses the same 47px window chrome and a single content surface. */
+dialog.wt-modal:is(.wt-smart-modal,.wt-smart-settings) {
+ position:fixed; inset:0; margin:0; width:100%; max-width:none;
+ height:100%; max-height:none; padding:0; border:1px solid var(--wt-line);
+ border-radius:var(--wt-radius); box-shadow:none;
+ display:flex; flex-direction:column; background:var(--wt-card);
+}
+dialog.wt-modal::backdrop { background:transparent; }
+.capture-modal:has(.wt-smart-panel) { height:100vh; }
+.capture-modal > .modal-content:has(.wt-smart-panel) { flex-direction:column; }
+.capture-modal dialog.wt-modal.wt-smart-panel { position:static; flex:1; width:100%; min-height:0; height:auto; border:0; border-radius:0; margin:0; padding:0; box-shadow:none; }
+.wt-smart-panel > .wt-smart-chrome,.wt-smart-panel > .modal-title { display:none; }
+.wt-smart-chrome { flex:none; height:47px; display:flex; align-items:center; gap:8px; padding:0 16px; font-size:14px; font-weight:650; }
+.wt-smart-chrome .modal-close-button { position:absolute; top:12px; right:12px; width:24px; height:24px; padding:0; font-size:23px; font-weight:400; line-height:1; background:transparent; }
+dialog.wt-modal > .modal-title { flex:none; margin:0; padding:15px 23px; border-bottom:1px solid var(--wt-line); font-size:14px; font-weight:600; }
+dialog.wt-modal > .modal-content { flex:1; min-height:0; max-height:none; padding:0; display:flex; flex-direction:column; overflow:hidden; }
+dialog .wt-smart-body { padding:18px 23px; }
+dialog .wt-smart-footer { padding:12px 23px; }
+dialog.wt-smart-settings .wt-modal-form { flex:1; padding:0; overflow:hidden; }
+dialog.wt-smart-settings .wt-smart-settings-body { flex:1; padding:18px 23px; }
+dialog.wt-smart-settings .wt-modal-actions { margin:0; padding:12px 23px; background:var(--wt-card); }
+@media(max-width:480px) {
+ dialog.wt-modal > .modal-title,dialog .wt-smart-body,dialog .wt-smart-footer,dialog.wt-smart-settings .wt-smart-settings-body,dialog.wt-smart-settings .wt-modal-actions { padding-left:18px; padding-right:18px; }
 }

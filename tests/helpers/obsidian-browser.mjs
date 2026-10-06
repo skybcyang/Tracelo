@@ -21,6 +21,8 @@ HTMLElement.prototype.setAttr = function (name, value) { this.setAttribute(name,
 
 export function setIcon(el, name) {
   el.firstChild?.remove();
+  // Obsidian 1.13.7 registers this icon as grid-2x-2, not Lucide's grid-2x2 alias.
+  if (name.replace(/^lucide-/, '') === 'grid-2x2') return;
   const key = name.replace(/^lucide-/, '').replace(/(^|-)(\w)/g, (_, separator, letter) => letter.toUpperCase());
   const svg = createElement(icons[key] ?? icons.Circle, { class: name + ' svg-icon', 'aria-hidden': 'true' });
   el.appendChild(svg);
@@ -66,7 +68,8 @@ export class Modal {
     this.modalEl = document.createElement("div");
     this.modalEl.className = "modal";
     this.containerEl.append(this.modalEl);
-    this.titleEl = this.modalEl.createEl("h2", { cls: "modal-title" });
+    const header = window.fixtureModalHeaderWrapper ? this.modalEl.createDiv({cls:'modal-header'}) : this.modalEl;
+    this.titleEl = header.createEl("h2", { cls: "modal-title" });
     this.contentEl = this.modalEl.createDiv({ cls: "modal-content" });
   }
   setTitle(title) { this.titleEl.textContent = title; }
@@ -84,6 +87,10 @@ export class TFile {}
 export class TFolder { constructor(path) { this.path = path; } }
 export class FileSystemAdapter { getFullPath(path) { return '/test-vault/' + path; } }
 export const Platform = { isDesktopApp: true, isWin: false };
+export async function requestUrl(request) {
+  if (!window.modelRequest) throw new Error('No model transport configured in this test');
+  return window.modelRequest(request);
+}
 export class Setting {
   constructor(container) {
     this.settingEl = container.createDiv({ cls: 'setting-item' });
@@ -146,6 +153,10 @@ export class Menu {
     document.querySelector('[role=menu]')?.remove(); document.body.append(this.el);
     this.position(event?.clientX ?? 0, event?.clientY ?? 0);
   }
+  showAtPosition({ x, y }) {
+    document.querySelector('[role=menu]')?.remove(); document.body.append(this.el);
+    this.position(x, y);
+  }
   position(x, y) {
     Object.assign(this.el.style, { position: 'fixed', zIndex: '100', display: 'flex', flexDirection: 'column', maxHeight: `${innerHeight - 16}px`, overflowY: 'auto' });
     // Preserve inline palette values assigned before opening the host menu.
@@ -198,6 +209,7 @@ export function createApp() {
       getLeaf() {
         const leaf = {
           app,
+          async openFile(file) { (app.openedFiles ??= []).push(file.path); },
           async setViewState({ type }) {
             this.type = type;
             this.view = app.factories.get(type)(this);

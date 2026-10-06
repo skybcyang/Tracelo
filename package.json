@@ -1,6 +1,6 @@
 {
   "name": "tracelo",
-  "version": "0.9.3",
+  "version": "0.9.5",
   "private": true,
   "description": "Tracelo — task cards and append-only progress timelines for Obsidian.",
   "repository": {
@@ -15,11 +15,14 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "test": "vitest run",
-    "test:layout": "node tests/header-navigation.browser.mjs && node tests/collection-interface.browser.mjs && node tests/auxiliary-theme.browser.mjs && node tests/card-layout.browser.mjs && node tests/card-masonry.browser.mjs && node tests/pane-scroll.browser.mjs && node tests/card-interactions.browser.mjs && node tests/card-content.browser.mjs && node tests/card-polish.browser.mjs && node tests/card-readability.browser.mjs && node tests/view-details.browser.mjs && node tests/task-acceptance.browser.mjs && node tests/timeline.browser.mjs && node tests/create-task.browser.mjs && node tests/search-navigation.browser.mjs",
+    "test:smart": "vitest run tests/smart-capture.test.ts tests/quick-operations.test.ts && node tests/smart-capture.browser.mjs && node tests/smart-desktop.browser.mjs",
+    "test:smart:live": "node tests/smart-capture.live.mjs",
+    "test:conversation": "vitest run tests/work-conversation.test.ts && node tests/work-conversation.browser.mjs",
+    "test:layout": "node tests/monochrome-theme.browser.mjs && node tests/header-navigation.browser.mjs && node tests/collection-interface.browser.mjs && node tests/auxiliary-theme.browser.mjs && node tests/card-layout.browser.mjs && node tests/card-masonry.browser.mjs && node tests/pane-scroll.browser.mjs && node tests/card-interactions.browser.mjs && node tests/card-content.browser.mjs && node tests/card-polish.browser.mjs && node tests/card-readability.browser.mjs && node tests/view-details.browser.mjs && node tests/task-acceptance.browser.mjs && node tests/timeline.browser.mjs && node tests/create-task.browser.mjs && node tests/search-navigation.browser.mjs",
     "test:capture": "node tests/capture-shell.browser.mjs && node tests/entry-audit.browser.mjs && node tests/calendar.browser.mjs && node tests/create-images.browser.mjs && node tests/quick-progress.browser.mjs && node tests/quick-sync.browser.mjs && node tests/quick-feedback.browser.mjs",
     "test:presentation": "node tests/card-display.browser.mjs && node tests/presentation-mode.browser.mjs && node tests/presentation-edge.browser.mjs && node tests/view-motion.browser.mjs && node tests/masonry-refresh.browser.mjs",
     "test:icons": "node tests/color-icons.browser.mjs",
-    "check": "npm test && npm run build && npm run test:icons && npm run test:layout && npm run test:capture && npm run test:presentation"
+    "check": "npm test && npm run build && node tests/editable-sync.browser.mjs && npm run test:icons && npm run test:layout && npm run test:capture && npm run test:presentation && node tests/smart-capture.browser.mjs && node tests/smart-desktop.browser.mjs && node tests/work-conversation.browser.mjs"
   },
   "devDependencies": {
     "@iconify-json/noto": "1.2.9",
@@ -32,5 +35,8 @@
     "playwright": "^1.63.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
   }
 }

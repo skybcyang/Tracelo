@@ -29,6 +29,18 @@ try {
     assert.equal(await card.getByRole('textbox', { name: '新增待办', exact: true }).inputValue(), '还没有提交的下一步');
     assert.equal(await page.locator('.wt-card-composer').count(), 1);
   });
+  await check('deferred card focus respects a newly selected todo input', async (page, card, ids) => {
+    const retained = await page.evaluate(async id => {
+      const view = window.cardFixture.app.workspace.getLeavesOfType('work-timeline-view')[0].view;
+      const card = document.querySelector(`[data-task-id="${id}"]`);
+      card.querySelector('.wt-card-open').focus();
+      view.focusCard(id, true);
+      const input = card.querySelector('.wt-add-todo input'); input.focus();
+      await new Promise(requestAnimationFrame);
+      return document.activeElement === input;
+    }, ids.payment);
+    assert.equal(retained, true, 'deferred initial focus must not redirect user typing into the progress field');
+  });
   await check('a delayed mode preference write does not detach a composing editor', async (page, card) => {
     await page.evaluate(() => {
       const plugin = window.cardFixture.plugin;
@@ -206,6 +218,7 @@ try {
     assert.ok(Math.abs(result.before - result.middle) < 2 && Math.abs(result.before - result.end) < 2, `reading anchor moved ${result.before} → ${result.middle} → ${result.end}`);
   });
   await check('real progress commit produces one event and highlights only that new timeline node', async (page, card, ids) => {
+    await page.evaluate(id => window.cardFixture.app.workspace.getLeavesOfType('work-timeline-view')[0].view.openHistory(id), ids.payment);
     await card.getByRole('textbox', { name: '记录当前进展', exact: true }).fill('只确认一次的新记录');
     await card.locator('.wt-card-composer button[type="submit"]').click();
     await card.getByText('✓ 进展已记录', { exact: true }).waitFor();

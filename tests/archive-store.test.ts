@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ArchiveStore, type ArchiveAdapter } from "../src/archive-store";
-import { parseTaskMarkdown } from "../src/archive";
+import { parseTaskMarkdown, serializeLegacyTaskMarkdown } from "../src/archive";
 import { createTask } from "../src/domain";
 import { AGENT_RULE } from "../src/agent-rule";
 
@@ -69,6 +69,60 @@ const makeTask = () => createTask(
 );
 
 describe("archive store", () => {
+  it('migrates v1 only after a byte-exact non-pruned backup, retaining history and identity', async () => {
+    const adapter = new MemoryAdapter(), store = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
+    const task = makeTask(), source = serializeLegacyTaskMarkdown(task);
+    await adapter.mkdir('任务'); await adapter.write('任务/task-1.md', source);
+    const loaded = await store.loadTasksSafe(); await store.migrateTaskNames(loaded.tasks);
+    expect(await adapter.read('.plugin/backups/format-v1/task-1.md')).toBe(source);
+    const current = parseTaskMarkdown(await adapter.read(store.taskPath(task.id)));
+    expect(current.events).toEqual(task.events); expect(current.id).toBe(task.id);
+    expect(await adapter.read(store.taskPath(task.id))).toMatch(/^---\ntracelo: 2/);
+    const restarted = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
+    expect((await restarted.loadTasksSafe()).tasks).toEqual([current]);
+  });
+  it('refreshes external edits without overwriting the source, then rejects a stale card write', async () => {
+    const adapter = new MemoryAdapter();
+    const store = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
+    const task = makeTask(); await store.saveTask(task);
+    const path = store.taskPath(task.id), source = await adapter.read(path);
+    const edited = source.replace('# 任务', '# 文件编辑后的任务');
+    await adapter.write(path, edited);
+    await expect(store.saveTask({ ...task, urgent: true })).rejects.toThrow(/变化|冲突/);
+    expect(await adapter.read(path)).toBe(edited);
+    const refreshed = await store.readExternalTask(task.id, path);
+    expect(refreshed?.title).toBe('文件编辑后的任务');
+    expect(await adapter.read(path)).toBe(edited);
+    await store.saveTask({ ...refreshed!, urgent: true });
+    expect(parseTaskMarkdown(await adapter.read(store.taskPath(task.id))).urgent).toBe(true);
+  });
+  it('keeps malformed editable files intact across reload and allows a later correction', async () => {
+    const adapter = new MemoryAdapter();
+    const store = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
+    await store.saveTask(makeTask());
+    const path = store.taskPath('task-1'), source = await adapter.read(path);
+    const malformed = source.replace('urgent: false', 'urgent: [unfinished');
+    await adapter.write(path, malformed);
+    const restarted = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
+    const result = await restarted.loadTasksSafe();
+    expect(result.errors).toHaveLength(1);
+    expect(result.tasks[0]?.title).toBe('任务');
+    expect(await adapter.read(path)).toBe(malformed);
+    await adapter.write(path, source.replace('# 任务', '# 修正后的任务'));
+    expect((await restarted.readExternalTask('task-1', path))?.title).toBe('修正后的任务');
+  });
+  it('does not overwrite an editor change arriving during the final write', async () => {
+    const adapter = new MemoryAdapter();
+    let conflict = false;
+    const store = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则', () => {}, async (path, expected, source) => {
+      if (conflict) await adapter.write(path, expected.replace('# 任务', '# 最后一刻的编辑'));
+      if (await adapter.read(path) !== expected) throw Error('并发编辑冲突');
+      await adapter.write(path, source);
+    });
+    const task = makeTask(); await store.saveTask(task); conflict = true;
+    await expect(store.saveTask({ ...task, urgent: true })).rejects.toThrow('并发编辑冲突');
+    expect(await adapter.read(store.taskPath(task.id))).toContain('# 最后一刻的编辑');
+  });
   it("updates the former built-in readonly rule but preserves user-written rules", async () => {
     const adapter = new MemoryAdapter();
     const oldRule = `# 任务存档：Agent 只读规则
@@ -115,7 +169,7 @@ Agent 仅可读取、检索和分析正式存档。任务变更统一由用户�
     const recovered = await store.recoverTask("task-1", "external edit", new Date("2026-09-18T03:00:00.000Z"));
 
     expect(recovered.id).toBe("task-1");
-    expect(adapter.files.get(store.taskPath("task-1"))).toContain("work-timeline-task:v1");
+    expect(adapter.files.get(store.taskPath("task-1"))).toContain("tracelo: 2");
     expect([...adapter.files.keys()].some((path) => path.includes("external/2026-09-18") && path.endsWith("task-1.md"))).toBe(true);
   });
 

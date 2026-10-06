@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ArchiveStore } from "../src/archive-store";
-import { parseTaskMarkdown, serializeTaskMarkdown } from "../src/archive";
+import { parseTaskMarkdown, serializeTaskMarkdown, serializeLegacyTaskMarkdown } from "../src/archive";
 import { createTask, renameTask } from "../src/domain";
 import { DiskAdapter } from "./helpers/disk-adapter";
 
@@ -26,7 +26,7 @@ it("uses original local creation day and title, resolving duplicate and case-ins
 
 it("migrates a legacy file and material tree, then renames both without changing history", async () => {
   const original = task();
-  await adapter.write("任务/task-1.md", serializeTaskMarkdown(original));
+  await adapter.write("任务/task-1.md", serializeLegacyTaskMarkdown(original));
   await adapter.mkdir("工作记录/材料/task-1/日志");
   await adapter.write("工作记录/材料/task-1/日志/error.log", "keep me");
   const loaded = await store.loadTasksSafe();
@@ -52,13 +52,25 @@ it("rolls back failed rename without losing source task or material", async () =
   expect(store.taskPath(original.id)).toBe(oldPath);
 });
 
-it("recovers a completely corrupted human-named file after restart using its backup identity", async () => {
+it('preserves an editor change arriving while a renamed archive is being staged', async () => {
+  const original = task(); await store.saveTask(original);
+  const oldPath = store.taskPath(original.id), oldSource = await adapter.read(oldPath);
+  const copy = adapter.copy.bind(adapter);
+  adapter.copy = async (path, target) => {
+    await copy(path, target);
+    if (target.endsWith('新名字.md')) await adapter.write(oldPath, oldSource.replace('# 完成支付模块', '# 编辑器的新内容'));
+  };
+  await expect(store.saveTask(renameTask(original, '新名字', new Date('2026-10-01T03:00:00Z'), 'rename'))).rejects.toThrow('变化');
+  expect(await adapter.read(oldPath)).toContain('# 编辑器的新内容');
+});
+
+it("keeps a corrupted editable file after restart and displays its last valid backup", async () => {
   await store.saveTask(task()); const path = store.taskPath("task-1");
   await adapter.write(path, "corrupted");
   store = new ArchiveStore(adapter, "任务", ".plugin/backups", "规则");
   const result = await store.loadTasksSafe();
-  expect(result.errors).toEqual([]); expect(result.tasks[0]?.id).toBe("task-1");
-  expect(parseTaskMarkdown(await adapter.read(path)).id).toBe("task-1");
+  expect(result.errors).toHaveLength(1); expect(result.tasks[0]?.id).toBe("task-1");
+  expect(await adapter.read(path)).toBe('corrupted');
 });
 
 it("sanitizes filesystem characters without changing the card title or overwriting unrelated files", async () => {
@@ -130,6 +142,7 @@ it("keeps a damaged task eligible for recovery if attachment restoration fails",
   await expect(store.recoverTask(original.id)).rejects.toThrow("disk full");
   expect(await adapter.read(path)).toBe("damaged");
   adapter.writeBinary = writeBinary;
+  await store.recoverTask(original.id);
   expect((await store.loadTasksSafe()).errors).toEqual([]);
   expect(new Uint8Array(await adapter.readBinary(`${original.materialFolder}/${image.path}`))).toEqual(new Uint8Array([1, 2]));
 });

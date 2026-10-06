@@ -49,7 +49,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   const form = el(container, 'form', 'wt-modal-form');
   const body = el(form, 'div', 'wt-new-task-body');
   const draftRow = el(body, 'div', 'wt-new-draft-row');
-  const draftStatus = el(draftRow, 'span', 'wt-new-draft-status', '关闭后保留本次草稿', { role: 'status' });
+  const draftStatus = el(draftRow, 'span', 'wt-new-draft-status', '', { role: 'status' });
   const clear = el(draftRow, 'button', 'wt-new-clear', '清空草稿', { type: 'button' });
   let cleared: NewTaskDraft | null = null, creationId = newId();
   const undoClear = el(draftRow, 'button', 'wt-new-clear', '撤销清空草稿', { type: 'button' }); undoClear.hidden = true;
@@ -61,7 +61,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
     return label;
   };
   const title = el(field(body, '任务名称', false, 'wt-title-field'), 'input', 'wt-modal-title', '', { id: 'task-title', type: 'text', placeholder: '例如：验证自动备份', maxlength: '160', required: '' });
-  const details = el(field(body, '详情', true), 'textarea', '', '', { id: 'task-details', rows: '2', 'aria-label': '任务详情', placeholder: '补充目标、要求或参考资料，可直接粘贴图片' });
+  const details = el(field(body, '详情', true), 'textarea', '', '', { id: 'task-details', rows: '2', 'aria-label': '任务详情', placeholder: '目标、要求或参考资料' });
   const metadata = el(body, 'div', 'wt-capture-meta');
   const groupControl = el(field(metadata, '任务分组'), 'span', 'wt-select-control');
   const group = el(groupControl, 'select', '', '', { 'aria-label': '任务分组' });
@@ -112,9 +112,11 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
   extraBody.append(clear);
   const error = el(footer, 'p', 'wt-form-error', '', { role: 'alert' });
   const actions = el(footer, 'div', 'wt-modal-actions');
-  el(actions, 'span', 'wt-new-shortcut', options.isWin ? 'Ctrl Enter 创建' : '⌘ Enter 创建');
   const cancel = action(actions, '取消');
+  cancel.title = '关闭并保留草稿';
   const submit = el(actions, 'button', 'wt-primary-action', '', { id: 'submit', type: 'submit' });
+  submit.title = options.isWin ? '创建任务（Ctrl + Enter）' : '创建任务（⌘ + Enter）';
+  submit.setAttribute('aria-keyshortcuts', 'Meta+Enter Control+Enter');
   options.setIcon(submit, 'plus');
   const submitLabel = el(submit, 'span', '', '创建任务');
   const feedbackStatus = el(footer, 'span', 'wt-submit-feedback', '', { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
@@ -155,7 +157,7 @@ export function mountNewTaskForm(container: HTMLElement, options: Options) {
     todoList.replaceChildren(); for (const value of draft?.todos ?? []) addTodoRow(value);
     Object.assign(expanded, { todos: false, due: false, progress: false }, draft?.expanded);
     advanced.open = Boolean(draft && (draft.todos?.length || draft.initialProgress || draft.images?.length || draft.expanded?.todos || draft.expanded?.progress));
-    draftStatus.textContent = draft ? '已恢复草稿' : '关闭后保留本次草稿';
+    draftStatus.textContent = draft ? '已恢复草稿' : '';
     refresh();
   }
   todoButton.onclick = () => { expanded.todos = !expanded.todos; if (expanded.todos && !todoList.childElementCount) addTodoRow(); changed(); if (expanded.todos) { revealQuickContent(todoSection); todoList.querySelector('input')?.focus(); } };

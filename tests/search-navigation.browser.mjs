@@ -130,7 +130,7 @@ try {
     await page.getByRole('textbox', {name:'记录当前进展',exact:true}).fill('保留这份草稿');
     await page.locator('.wt-task-column').evaluate(el => { el.scrollTop = 80; });
     const before = await page.locator('.wt-task-column').evaluate(el => el.scrollTop);
-    await page.getByRole('button', {name:'时间线',exact:true}).click();
+    await page.getByRole('button', {name:'工作对话',exact:true}).click();
     assert.equal(await page.locator('.wt-task-column').isVisible(), false);
     assert.equal(await page.locator('.wt-timeline-column').isVisible(), true);
     const rect = await page.locator('.wt-timeline-column').boundingBox();
@@ -142,6 +142,7 @@ try {
   });
   await check('milestones are visibly emphasized without dropping or folding property records', async () => {
     await page.evaluate(async () => { const {plugin,ids}=window.cardFixture; await plugin.finishTask(ids.payment); });
+    await page.evaluate(() => window.cardFixture.app.workspace.getLeavesOfType('work-timeline-view')[0].view.openHistory(null));
     const all = await page.locator('.wt-event-list li').count();
     assert.ok(all > 10);
     assert.equal(await page.locator('.wt-event-list details').count(), 0);
@@ -154,7 +155,8 @@ try {
   await check('narrow history keeps its reading position across pane switches and background updates', async () => {
     await page.setViewportSize({width:720,height:800});
     await page.evaluate(async () => { const {plugin,ids}=window.cardFixture; for(let i=0;i<15;i++) await plugin.recordProgress(ids.payment,'追加历史 '+i); });
-    await page.getByRole('button',{name:'时间线',exact:true}).click();
+    await page.getByRole('button',{name:'工作对话',exact:true}).click();
+    await page.getByRole('button',{name:'活动记录',exact:true}).click();
     const pane = page.locator('.wt-timeline-scroll');
     await pane.evaluate(el => { el.scrollTop = 100; });
     await page.getByRole('button',{name:'任务看板',exact:true}).click();

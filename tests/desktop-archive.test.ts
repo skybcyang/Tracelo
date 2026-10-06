@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { parseTaskMarkdown, serializeTaskMarkdown } from "../src/archive";
+import { parseTaskMarkdown, serializeLegacyTaskMarkdown as serializeTaskMarkdown } from "../src/archive";
 import { buildNewTask } from "../src/new-task-form";
 import { QUADRANTS } from "../src/domain";
 

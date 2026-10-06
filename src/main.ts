@@ -1,3 +1,5 @@
+import { THEMES } from './appearance';
+import { setBrandMark } from './brand';
 import {
   App,
   FileSystemAdapter,
@@ -13,12 +15,14 @@ import {
   Setting,
   TFile,
   TFolder,
+  type TAbstractFile,
   WorkspaceLeaf,
   setIcon,
+  requestUrl,
 } from "obsidian";
 
 import { AGENT_RULE } from "./agent-rule";
-import { renderTaskCard, formatTime, dueLabel, dueState } from "./task-card";
+import { renderTaskCard, formatTime, dueState } from "./task-card";
 import { mountDeadlineCalendar } from './deadline-calendar';
 import { prepareImages } from './draft-images';
 import { applyQuickOperation, decodeQuickImages, QUICK_DIRECTORY, type QuickOperation } from './quick-operations';
@@ -78,6 +82,11 @@ import {
 
 import { mountGroupOverflow } from './group-navigation';
 import { themeMenu } from './themed-menu';
+import { createSmartCaptureModal, type SmartCaptureMount } from './smart-capture-modal';
+import { applySmartProgress, extractCapture, requestModel, readApiKey, validateApiKey, CONNECTION_TEST_TEXT, connectionTestContext, type CaptureConfig, type CaptureContext, type CapturePlan } from './smart-capture';
+import { ConversationPanel } from './conversation-panel';
+import { applyConversationUpdate, buildConversationRequest, parseConversationReply, type ConversationMessage, type ConversationProposal } from './work-conversation';
+const SmartCaptureModal = createSmartCaptureModal(Modal, Platform, setIcon);
 
 const VIEW_TYPE = "work-timeline-view";
 
@@ -146,12 +155,17 @@ const newTaskDrafts = new WeakMap<App, Map<string, NewTaskDraft>>();
 
 class NewTaskModal extends Modal {
   private controller?: ReturnType<typeof mountNewTaskForm>;
+  private smart?: InstanceType<typeof SmartCaptureModal>;
+  private methodRevision = 0;
+  private closing = false;
   constructor(
     app: App, private readonly groups: WorkGroup[],
     private readonly submitTask: (values: NewTaskValues) => Promise<void>,
     private readonly context: NewTaskContext = {}, private readonly returnFocus?: HTMLElement,
     private readonly draftScope = '',
     private readonly openProgress?: () => void,
+    private readonly openSmart?: (mount: SmartCaptureMount) => InstanceType<typeof SmartCaptureModal> | undefined,
+    private readonly initialMethod: 'manual' | 'smart' = 'manual',
   ) { super(app); }
 
   onOpen(): void {
@@ -159,13 +173,40 @@ class NewTaskModal extends Modal {
     this.modalEl.addClass("wt-modal");
     this.modalEl.addClass("wt-new-task-modal");
     this.modalEl.addClass('wt-capture-dialog');
-    const brand = this.titleEl.createSpan({cls:'wt-capture-brand'}); setIcon(brand,'workflow'); this.titleEl.prepend(brand);
+    const brand = this.titleEl.createSpan({cls:'wt-capture-brand'}); setBrandMark(brand); this.titleEl.prepend(brand);
     const tabs = this.contentEl.createDiv({cls:'wt-capture-tabs'});
     for (const [label, icon, active] of [['新建任务','square-pen',true],['记录进展','message-square-plus',false]] as const) {
       const button = tabs.createEl('button',{attr:{type:'button','aria-pressed':String(active)}});
       setIcon(button.createSpan(),icon); button.createSpan({text:label});
-      if (!active) { button.disabled = !this.openProgress; button.onclick = () => { this.close(); this.openProgress?.(); }; }
+      if (!active) { button.disabled = !this.openProgress; button.onclick = () => { void this.requestClose().then(closed => { if (closed) this.openProgress?.(); }); }; }
     }
+    const methods = this.contentEl.createDiv({cls:'wt-create-methods',attr:{role:'group','aria-label':'新建方式'}});
+    const showManual = () => {
+      this.controller!.form.hidden = false;
+      methods.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed',String(button.dataset.method === 'manual')));
+      this.controller?.focus();
+    };
+    const selectMethod = async (method: string) => {
+      if (this.closing || this.controller?.isSaving() || this.controller?.isComposing()) return;
+      const revision = ++this.methodRevision;
+      if (this.smart?.modalEl.isConnected) {
+        if (method === 'smart' && !this.smart.isClosing()) return;
+        if (!await this.smart.requestClose() || revision !== this.methodRevision || this.closing) return;
+      }
+      if (method === 'manual') { showManual(); return; }
+      this.smart = this.openSmart?.({container:this.contentEl,onClose:saved => {
+        if (saved) { this.closing = true; super.close(); }
+        else if (!this.closing) showManual();
+      }});
+      if (!this.smart) return;
+      this.controller!.form.hidden = true;
+      methods.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed',String(button.dataset.method === 'smart')));
+    };
+    if (this.openSmart) for (const [method,label] of [['manual','手动填写'],['smart','一句话整理']]) {
+      const button = methods.createEl('button',{text:label,attr:{type:'button','aria-pressed':String(method==='manual')}});
+      button.dataset.method = method; button.onclick = () => { void selectMethod(method); };
+    }
+    else methods.hidden = true;
     let drafts = newTaskDrafts.get(this.app);
     if (!drafts) { drafts = new Map(); newTaskDrafts.set(this.app, drafts); }
     const scopedDrafts = drafts;
@@ -185,11 +226,18 @@ class NewTaskModal extends Modal {
         super.close();
       },
     });
+    if (this.initialMethod === 'smart') void selectMethod('smart');
     requestAnimationFrame(() => {
       if (this.modalEl.isConnected && !this.modalEl.contains(this.modalEl.ownerDocument.activeElement)) this.controller?.focus();
     });
   }
-  close(): void { if (!this.controller?.isSaving()) super.close(); }
+  private async requestClose(): Promise<boolean> {
+    if (this.closing || this.controller?.isSaving() || this.controller?.isComposing()) return false;
+    this.closing = true; this.methodRevision++;
+    if (this.smart?.modalEl.isConnected && !await this.smart.requestClose()) { this.closing = false; return false; }
+    super.close(); return true;
+  }
+  close(): void { void this.requestClose(); }
   onClose(): void {
     this.controller?.destroy();
     this.contentEl.empty();
@@ -482,13 +530,14 @@ interface TimelineReading {
 }
 
 class WorkTimelineView extends ItemView {
+  private sidebarMode: 'chat' | 'activity' | 'task' = 'chat';
+  private conversation?: ConversationPanel;
   private selectedDay = dayKey(new Date());
   private currentDay = this.selectedDay;
   private selectedTaskId: string | null = null;
   private expandedTaskId: string | null = null;
   private searchQuery = "";
   private boardFilter = 'all';
-  private dueTodayOnly = false;
   private narrowPane: 'tasks' | 'history' = 'tasks';
   private taskScrollTop = 0;
   private hiddenTimelineReading?: TimelineReading;
@@ -501,6 +550,20 @@ class WorkTimelineView extends ItemView {
   private editingNotes = new Set<string>();
   private uploadingNoteForms = new Map<string, HTMLFormElement>();
   private recordedTaskId: string | null = null;
+  private composingInput: EventTarget | null = null;
+  private deferredRender: { displayOnly: boolean } | null = null;
+  private compositionTimer: number | null = null;
+  private compositionStart = (event: CompositionEvent) => { this.composingInput = event.target; };
+  private compositionEnd = () => {
+    this.composingInput = null;
+    // The final input event follows compositionend. Let it update the draft first.
+    this.compositionTimer = window.setTimeout(() => {
+      this.compositionTimer = null;
+      const pending = this.deferredRender;
+      this.deferredRender = null;
+      if (pending) this.render(pending.displayOnly, true);
+    }, 0);
+  };
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: WorkTimelinePlugin) {
     super(leaf);
@@ -510,6 +573,8 @@ class WorkTimelineView extends ItemView {
   getDisplayText(): string { return this.plugin.manifest.name; }
   getIcon(): string { return "history"; }
   async onOpen(): Promise<void> {
+    this.contentEl.addEventListener('compositionstart', this.compositionStart);
+    this.contentEl.addEventListener('compositionend', this.compositionEnd);
     this.render();
     this.registerInterval(window.setInterval(() => {
       const today = dayKey(new Date());
@@ -520,6 +585,11 @@ class WorkTimelineView extends ItemView {
     }, 60_000));
   }
   async onClose(): Promise<void> {
+    await this.conversation?.dispose();
+    this.contentEl.removeEventListener('compositionstart', this.compositionStart);
+    this.contentEl.removeEventListener('compositionend', this.compositionEnd);
+    if (this.compositionTimer !== null) window.clearTimeout(this.compositionTimer);
+    this.composingInput = null; this.deferredRender = null;
     this.disposeGroupOverflow?.();
     this.cardObserver?.disconnect();
     this.masonryCleanups.forEach(cleanup => cleanup());
@@ -543,7 +613,7 @@ class WorkTimelineView extends ItemView {
     if (restoreFocus) this.focusCard(taskId);
   }
 
-  openNewTask(context: NewTaskContext = {}, returnFocus?: HTMLElement): void {
+  openNewTask(context: NewTaskContext = {}, returnFocus?: HTMLElement, method: 'manual' | 'smart' = 'manual'): void {
     const groupId = this.boardFilter === 'all' || this.boardFilter === 'ungrouped' ? null : this.boardFilter;
     context = { groupId, ...context };
     new NewTaskModal(this.app, this.plugin.groups, async (values) => {
@@ -551,16 +621,20 @@ class WorkTimelineView extends ItemView {
       this.selectedTaskId = id;
       this.expandedTaskId = id;
       if (this.boardFilter !== 'all') this.boardFilter = values.groupId ?? 'ungrouped';
-      this.dueTodayOnly = false;
       this.searchQuery = "";
       this.searchTarget = undefined;
       this.narrowPane = 'tasks';
       this.render();
       requestAnimationFrame(() => this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${id}"] .wt-card-open`)?.focus());
-    }, context, returnFocus, this.plugin.state.taskDirectory, () => this.openQuickRecord()).open();
+    }, context, returnFocus, this.plugin.state.taskDirectory, () => this.openQuickRecord(),
+    Platform.isDesktopApp ? mount => this.plugin.openSmartCapture(undefined, mount) : undefined, method).open();
   }
 
-  render(displayOnly = false): void {
+  render(displayOnly = false, preserveInput = false): void {
+    if (this.composingInput || this.compositionTimer !== null) {
+      this.deferredRender = { displayOnly: displayOnly && (this.deferredRender?.displayOnly ?? true) };
+      return;
+    }
     const root = this.contentEl;
     const motion = captureViewMotion(root);
     const existingShell = displayOnly ? root.querySelector<HTMLElement>(".wt-shell") : null;
@@ -579,15 +653,17 @@ class WorkTimelineView extends ItemView {
     // Preserve transient input values and selection when only the display preference changes.
     const active = root.ownerDocument.activeElement;
     const focusedCard = active instanceof HTMLElement ? active.closest<HTMLElement>('.wt-card') : null;
-    const inputState = displayOnly && focusedCard && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)
-      ? { taskId: focusedCard.dataset.taskId!, label: active.getAttribute('aria-label'), value: active.value,
+    const inputState = (displayOnly || preserveInput) && root.contains(active) && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)
+      ? { taskId: focusedCard?.dataset.taskId, label: active.getAttribute('aria-label'), value: active.value,
           start: active.selectionStart, end: active.selectionEnd } : undefined;
     const layoutScrollTop = root.querySelector(".wt-layout")?.scrollTop ?? 0;
     const timelineReading = existingShell ? undefined : this.captureTimelineReading();
     this.cardObserver?.disconnect();
     this.masonryCleanups.forEach(cleanup => cleanup());
     this.masonryCleanups = [];
-    if (!existingShell) root.empty();
+    const chatFocus = this.conversation?.element.contains(active) ? active as HTMLElement : null;
+    const chatScroll = this.conversation?.element.querySelector('.wt-chat-stream')?.scrollTop ?? 0;
+    if (!existingShell) { this.conversation?.element.remove(); root.empty(); }
     root.addClass("work-timeline-view");
     root.classList.toggle('is-compact-cards', !this.plugin.state.presentationMode);
     root.classList.toggle('is-presentation-mode', this.plugin.state.presentationMode);
@@ -601,7 +677,7 @@ class WorkTimelineView extends ItemView {
     this.renderHeader(shell, header ?? undefined);
     if (!shell.querySelector('.wt-pane-switch')) {
       const panes = shell.createDiv({ cls: 'wt-pane-switch' });
-      for (const [pane, label] of [['tasks', '任务看板'], ['history', '时间线']] as const) {
+      for (const [pane, label] of [['tasks', '任务看板'], ['history', '工作对话']] as const) {
         const button = panes.createEl('button', { text: label, attr: { type: 'button', 'aria-pressed': String(this.narrowPane === pane) } });
         button.onclick = () => this.showPane(pane);
       }
@@ -630,9 +706,11 @@ class WorkTimelineView extends ItemView {
     });
     tasks.querySelectorAll<HTMLElement>(".wt-card-body").forEach((body) => this.cardObserver?.observe(body));
     if (!existingShell) {
-      const history = layout.createEl('aside', { cls: 'wt-timeline-column', attr: { 'aria-label': this.selectedTaskId ? '任务历史' : '每日时间线' } });
+      const history = layout.createEl('aside', { cls: 'wt-timeline-column', attr: { 'aria-label': '工作侧栏' } });
       this.renderTimeline(history, timelineReading);
-      history.createDiv({ cls: 'wt-history-foot', text: '记录按时间保留，变化有迹可循' });
+      const chatStream = this.conversation?.element.querySelector('.wt-chat-stream');
+      if (chatStream) chatStream.scrollTop = chatScroll;
+      if (chatFocus?.isConnected) chatFocus.focus({ preventScroll: true });
     }
     tasks.scrollTop = taskScrollTop;
     layout.scrollTop = layoutScrollTop;
@@ -641,7 +719,8 @@ class WorkTimelineView extends ItemView {
       if (anchor) tasks.scrollTop += anchor.getBoundingClientRect().top - tasks.getBoundingClientRect().top - cardAnchor.offset;
     }
     if (inputState?.label) {
-      const input = tasks.querySelector<HTMLInputElement | HTMLTextAreaElement>(`.wt-card[data-task-id="${CSS.escape(inputState.taskId)}"] [aria-label="${CSS.escape(inputState.label)}"]`);
+      const scope = inputState.taskId ? tasks.querySelector<HTMLElement>(`.wt-card[data-task-id="${CSS.escape(inputState.taskId)}"]`) : root;
+      const input = scope?.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[aria-label="${CSS.escape(inputState.label)}"]`);
       if (input) {
         input.value = inputState.value;
         input.focus({ preventScroll: true });
@@ -682,7 +761,12 @@ class WorkTimelineView extends ItemView {
         // Keep IME sessions, pending-save closures, selection and unsubmitted todo text alive.
         const label = this.plugin.state.presentationMode ? '结束编辑' : '收起';
         const close = card.querySelector<HTMLElement>('.wt-read-more');
-        if (close) { close.setText(label); close.setAttribute('aria-label', label); }
+        if (close) {
+          close.setText(this.plugin.state.presentationMode ? '' : label);
+          close.classList.toggle('wt-card-edit-close', this.plugin.state.presentationMode);
+          if (this.plugin.state.presentationMode) { setIcon(close, 'x'); close.querySelector('svg')?.setAttribute('aria-hidden', 'true'); }
+          close.setAttribute('aria-label', label); close.setAttribute('title', label);
+        }
         card.querySelector<HTMLElement>('.wt-composer-close')?.setText(label);
         continue;
       }
@@ -700,6 +784,7 @@ class WorkTimelineView extends ItemView {
   }
 
   private openHistory(taskId: string | null): void {
+    this.sidebarMode = taskId ? 'task' : 'activity';
     this.selectedTaskId = taskId;
     this.showPane('history');
   }
@@ -709,21 +794,21 @@ class WorkTimelineView extends ItemView {
     if (!['all', 'ungrouped', ...this.plugin.groups.map(group => group.id)].includes(this.boardFilter)) this.boardFilter = 'all';
     const header = existingHeader ?? shell.createEl("header", { cls: "wt-header" });
     const brand = header.createDiv({ cls: "wt-brand" });
-    setIcon(brand.createSpan({ cls: "wt-brand-mark", attr: { "aria-hidden": "true" } }), 'workflow');
+    setBrandMark(brand.createSpan({ cls: "wt-brand-mark", attr: { "aria-hidden": "true" } }));
     const identity = brand.createDiv();
     identity.createEl("h1", { text: 'Tracelo' });
     const activeTasks = this.plugin.tasks.filter(({ status }) => status === "active");
-    identity.createEl("p", { text: '工作时间线' });
 
     const viewTools = header.createDiv({ cls: "wt-view-tools", attr: { role: "group", "aria-label": "看板显示设置" } });
-    const viewSwitch = viewTools.createDiv({ cls: "wt-view-switch", attr: { role: "group", "aria-label": "任务视图" } });
+    const viewStart = viewTools.createDiv({ cls: 'wt-view-start' });
+    const viewSwitch = viewStart.createDiv({ cls: "wt-view-switch", attr: { role: "group", "aria-label": "任务视图" } });
     for (const [mode, label] of [["group", "分组看板"], ["quadrant", "四象限"]] as const) {
       const button = viewSwitch.createEl("button", {
         text: label,
         cls: this.plugin.state.viewMode === mode ? "is-active" : "",
         attr: { type: "button", "aria-pressed": String(this.plugin.state.viewMode === mode) },
       });
-      const mark = button.createSpan(); setIcon(mark, mode === 'group' ? 'columns-3' : 'grid-2x2'); button.prepend(mark);
+      const mark = button.createSpan(); setIcon(mark, mode === 'group' ? 'columns-3' : 'grid-2x-2'); button.prepend(mark);
       button.addEventListener("click", () => void runWithNotice(async () => {
         await this.plugin.setViewMode(mode);
         this.contentEl.querySelector<HTMLButtonElement>('.wt-view-switch button[aria-pressed="true"]')?.focus({ preventScroll: true });
@@ -753,7 +838,7 @@ class WorkTimelineView extends ItemView {
     });
     const contextActions = viewTools.createDiv({ cls:'wt-context-actions' });
     const presentation = contextActions.createEl('button', {
-      cls: 'wt-presentation-toggle',
+      cls: 'wt-presentation-toggle wt-header-action',
       attr: { type: 'button', 'aria-label': '展示模式', 'aria-pressed': String(this.plugin.state.presentationMode),
         title: this.plugin.state.presentationMode ? '已完整展示卡片，点击恢复紧凑显示' : '完整展示所有卡片内容' },
     });
@@ -770,17 +855,14 @@ class WorkTimelineView extends ItemView {
         }
       });
     };
-    const today = iconButton(contextActions, 'calendar-clock', '仅看今天截止');
-    today.addClass('wt-due-filter'); today.setAttr('aria-pressed',String(this.dueTodayOnly));
-    today.onclick = () => { this.dueTodayOnly = !this.dueTodayOnly; this.searchQuery = ''; this.render(); this.contentEl.querySelector<HTMLButtonElement>('.wt-due-filter')?.focus({preventScroll:true}); };
-    const manage = contextActions.createEl('button', { cls:'wt-manage-groups', attr:{type:'button','aria-label':'管理分组',title:'管理分组'} });
+    const manage = contextActions.createEl('button', { cls:'wt-manage-groups wt-header-action', attr:{type:'button','aria-label':'管理分组',title:'管理分组'} });
     setIcon(manage.createSpan(),'folder-cog'); manage.createSpan({text:'管理分组'});
     manage.onclick = () => new GroupManagerModal(this.app, this.plugin).open();
 
     const actions = header.createDiv({ cls: "wt-header-actions", attr:{'aria-label':'全局工具'} });
     header.insertBefore(actions, viewTools);
     const calendar = iconButton(actions, 'calendar-days', '截止日历');
-    calendar.addClass('wt-calendar-trigger');
+    calendar.addClass('wt-calendar-trigger', 'wt-header-action'); calendar.createSpan({ text: '截止日历' });
     calendar.addEventListener('click', () => {
       const modal = new Modal(this.app);
       modal.setTitle('截止日历'); modal.modalEl.addClass('wt-modal'); modal.modalEl.addClass('wt-calendar-modal');
@@ -797,7 +879,8 @@ class WorkTimelineView extends ItemView {
       modal.open();
     });
     const more = actions.createEl('details', { cls: 'wt-board-options' });
-    const summary = more.createEl('summary', { attr: { 'aria-label': '界面与工具设置' } }); setIcon(summary, 'settings-2');
+    const summary = more.createEl('summary', { cls: 'wt-header-action', attr: { 'aria-label': '界面与工具设置', title: '界面与工具设置' } });
+    setIcon(summary.createSpan({ attr: { 'aria-hidden': 'true' } }), 'settings-2'); summary.createSpan({ text: '设置' });
     const tools = more.createDiv({ cls: 'wt-board-options-body' });
     this.plugin.renderAppearanceControls(tools);
     this.renderBoardControls(tools);
@@ -815,7 +898,6 @@ class WorkTimelineView extends ItemView {
         setIcon(control.createSpan({attr:{'aria-hidden':'true'}}),'chevron-down');
       });
       const board = body.createEl('section', {cls:'wt-settings-section',attr:{'aria-label':'任务看板'}});
-      board.createEl('h3',{text:'任务看板'});
       this.renderBoardControls(board);
       const shortcuts = body.createEl('section', {cls:'wt-settings-section wt-settings-shortcuts',attr:{'aria-label':'桌面快捷键'}});
       shortcuts.createEl('h3',{text:'桌面快捷键'});
@@ -824,7 +906,7 @@ class WorkTimelineView extends ItemView {
         const keys = row.createSpan({cls:'wt-settings-keys',attr:{'aria-label':`Control + ${Platform.isWin ? 'Alt' : 'Option'} + ${key}`}});
         for (const text of [Platform.isWin ? 'Ctrl' : '⌃', Platform.isWin ? 'Alt' : '⌥', key!]) keys.createEl('kbd',{text,attr:{'aria-hidden':'true'}});
       }
-      shortcuts.createEl('p',{cls:'wt-settings-help',text:'以上为默认快捷键，可在桌面工具设置中修改。'});
+      shortcuts.createEl('p',{cls:'wt-settings-help',text:'默认快捷键，可在桌面工具设置中修改。'});
       const footer = modal.contentEl.createDiv({cls:'wt-settings-footer'});
       const transfer = footer.createEl('button', {cls:'wt-settings-transfer',attr:{type:'button'}});
       setIcon(transfer.createSpan({attr:{'aria-hidden':'true'}}),'arrow-right-left'); transfer.createSpan({text:'导入与导出'});
@@ -843,7 +925,7 @@ class WorkTimelineView extends ItemView {
   private openQuickRecord(): void {
     const modal = new Modal(this.app);
     modal.setTitle('Tracelo'); modal.modalEl.addClass('wt-modal', 'wt-quick-modal', 'wt-capture-dialog');
-    const brand = modal.titleEl.createSpan({cls:'wt-capture-brand'}); setIcon(brand,'workflow'); modal.titleEl.prepend(brand);
+    const brand = modal.titleEl.createSpan({cls:'wt-capture-brand'}); setBrandMark(brand); modal.titleEl.prepend(brand);
     const tabs = modal.contentEl.createDiv({ cls: 'wt-capture-tabs' });
     const createTab = tabs.createEl('button', { attr: { type:'button', 'aria-pressed':'false' } });
     setIcon(createTab.createSpan(),'square-pen'); createTab.createSpan({text:'新建任务'}); createTab.onclick = () => { modal.close(); this.openNewTask(); };
@@ -912,15 +994,11 @@ class WorkTimelineView extends ItemView {
     }
 
     const matches = searchTasks(this.plugin.tasks, this.searchQuery).filter(task =>
-      (this.boardFilter === 'all' || (task.groupId ?? 'ungrouped') === this.boardFilter) && (!this.dueTodayOnly || task.dueDate === dayKey(new Date())));
+      this.boardFilter === 'all' || (task.groupId ?? 'ungrouped') === this.boardFilter);
     const sections = this.plugin.state.viewMode === "group"
       ? groupTasks(matches, this.plugin.groups, this.plugin.state.orders.group)
       : quadrantTasks(matches, this.plugin.state.orders.quadrant);
     const board = container.createDiv({ cls: `wt-board is-${this.plugin.state.viewMode}${this.boardFilter !== 'all' ? ' is-filtered-group' : ''}` });
-    if (this.dueTodayOnly && !matches.some(task => task.status === 'active')) {
-      const empty = container.createEl('p', { text: '今天没有到期的进行中任务。', cls: 'wt-filter-empty', attr: { role: 'status' } });
-      board.before(empty);
-    }
     board.style.setProperty("zoom", String(zoom / 100));
     for (const section of sections) {
       if (this.plugin.state.viewMode === 'group' && this.boardFilter === 'all' && section.id === null && !section.tasks.length && this.plugin.groups.length >= 3) continue;
@@ -941,7 +1019,6 @@ class WorkTimelineView extends ItemView {
       const modal = new Modal(this.app); modal.setTitle('已结束的任务'); modal.modalEl.addClass('wt-modal','wt-archive-modal');
       const renderArchive = () => {
         modal.contentEl.empty();
-        modal.contentEl.createEl('p',{text:'完成和关闭的任务保留详情与历史。',cls:'wt-settings-help'});
         const tasks = this.plugin.tasks.filter(isTaskEnded).sort((a,b)=>(b.events.at(-1)?.at ?? '').localeCompare(a.events.at(-1)?.at ?? ''));
         if (!tasks.length) modal.contentEl.createEl('p',{text:'暂无已结束任务',cls:'wt-empty'});
         for (const task of tasks) {
@@ -949,7 +1026,7 @@ class WorkTimelineView extends ItemView {
           const copy = row.createDiv();
           const title = copy.createEl('button',{text:task.title,attr:{type:'button','aria-label':`查看已结束任务：${task.title}`}});
           title.onclick = () => {
-            modal.close(); this.boardFilter = 'all'; this.dueTodayOnly = false; this.searchQuery = ''; this.narrowPane = 'tasks'; this.render();
+            modal.close(); this.boardFilter = 'all'; this.searchQuery = ''; this.narrowPane = 'tasks'; this.render();
             const section = this.contentEl.querySelector<HTMLDetailsElement>('.wt-ended-section'); if(section) section.open = true;
             requestAnimationFrame(() => { const card = this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"]`); card?.scrollIntoView({block:'nearest'}); card?.querySelector<HTMLElement>('.wt-card-open')?.focus({preventScroll:true}); });
           };
@@ -983,7 +1060,7 @@ class WorkTimelineView extends ItemView {
     if (!results.length) {
       const empty = container.createDiv({ cls: 'wt-search-empty', attr: { role: 'status' } });
       empty.createEl('h3', { text: `未找到“${this.searchQuery.trim()}”的相关记录` });
-      empty.createEl('p', { text: '已搜索全部任务的当前名称、详情、历史名称和进展。试试更短的关键词，或清除搜索查看全部任务。' });
+      empty.createEl('p', { text: '试试更短的关键词，或清除搜索。' });
     }
     for (const { task, matches } of results) {
       const result = container.createEl('section', { cls: 'wt-search-result' });
@@ -1012,10 +1089,10 @@ class WorkTimelineView extends ItemView {
   }
 
   private openSearchMatch(task: WorkTask, match: TaskMatch): void {
+    if (match.eventId) this.sidebarMode = 'task';
     this.selectedTaskId = task.id;
     if (!match.eventId) {
       this.boardFilter = 'all';
-      this.dueTodayOnly = false;
       this.expandedTaskId = task.id;
       this.searchQuery = '';
       this.searchTarget = undefined;
@@ -1120,6 +1197,13 @@ class WorkTimelineView extends ItemView {
       setIcon, iconButton, notice: (message, duration) => new Notice(message, duration),
       prompt: (heading, initial, placeholder, multiline, submit) => new TextPromptModal(this.app, heading, initial, placeholder, multiline, submit).open(),
       showTaskMenu: (event, task) => this.showTaskMenu(event, task), openDueDate: task => this.openDueDate(task),
+      showTodoMenu: (anchor, actions) => {
+        const menu = themeMenu(new Menu(), this.contentEl);
+        for (const action of actions) menu.addItem(item => item.setTitle(action.title).setIcon(action.icon).onClick(action.run));
+        const rect = anchor.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.right, y: rect.bottom });
+      },
+      openTaskFile: task => { void this.plugin.openTaskFile(task.id).catch(reason => new Notice(String(reason))); },
       collapseCard: id => this.collapseCard(id), focusCard: id => this.focusCard(id, true), render: () => this.render(),
       renderNotes: (body, task) => this.renderNotes(body, task),
       renderProgress: (parent, task, text) => this.renderCardMarkdown(parent, task, text),
@@ -1150,7 +1234,10 @@ class WorkTimelineView extends ItemView {
   }
 
   private focusCard(taskId: string, composer = false): void {
+    const doc = this.contentEl.ownerDocument, initialFocus = doc.activeElement;
     requestAnimationFrame(() => {
+      // A user can choose another field before this deferred initial focus runs.
+      if (doc.activeElement !== initialFocus && doc.activeElement !== doc.body) return;
       const card = this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${taskId}"]`);
       card?.querySelector<HTMLElement>(composer ? '.wt-card-composer textarea' : '.wt-card-open')?.focus({ preventScroll: true });
       const title = card?.querySelector('.wt-card-heading')?.getBoundingClientRect();
@@ -1189,7 +1276,7 @@ class WorkTimelineView extends ItemView {
     input.value = this.plugin.state.noteDrafts[task.id] ?? task.notes ?? "";
     const remember = () => this.plugin.updateNoteDraft(task.id, input.value);
     input.oninput = remember;
-    form.createDiv({ cls: 'wt-notes-help', text: '支持 Markdown · 可粘贴或拖入图片' });
+    form.createDiv({ cls: 'wt-notes-help', text: 'Markdown · 可粘贴或拖入图片' });
     const status = form.createDiv({ cls: 'wt-notes-status', attr: { role: "status", 'aria-live': 'polite' } });
     const actions = form.createDiv({ cls: "wt-notes-actions" });
     const upload = actions.createEl("input", { type: "file", attr: { accept: "image/*", multiple: "", "aria-label": "插入详情图片" } });
@@ -1223,7 +1310,7 @@ class WorkTimelineView extends ItemView {
     form.addEventListener('dragover', event => event.preventDefault());
     form.addEventListener('drop', event => { event.preventDefault(); event.stopPropagation(); void insertFiles(Array.from(event.dataTransfer?.files ?? [])); });
     const cancel = group.createEl("button", { text: "取消", cls: 'wt-secondary-action', attr: { type: "button" } });
-    cancel.onclick = () => { if (uploading || saving) return; this.editingNotes.delete(task.id); this.plugin.clearNoteDraft(task.id); this.render(); this.focusCard(task.id); };
+    cancel.onclick = () => { if (uploading || saving) return; remember(); this.editingNotes.delete(task.id); this.render(); this.focusCard(task.id); };
     const submit = group.createEl("button", { text: "保存详情", cls: 'wt-primary-action', attr: { type: "submit" } });
     form.onsubmit = async event => {
       event.preventDefault(); if (uploading || saving) return;
@@ -1269,6 +1356,11 @@ class WorkTimelineView extends ItemView {
   private showTaskMenu(event: MouseEvent, task: WorkTask): void {
     event.stopPropagation();
     const menu = themeMenu(new Menu(), this.contentEl);
+    menu.addItem(item => item.setTitle('加入对话').setIcon('at-sign').onClick(() => {
+      this.sidebarMode = 'chat'; this.showPane('history'); this.conversation?.addReference(task.id);
+    }));
+    menu.addItem(item => item.setTitle('查看历史').setIcon('history').onClick(() => this.openHistory(task.id)));
+    menu.addItem(item => item.setTitle('打开任务文件').setIcon('file-text').onClick(() => void this.plugin.openTaskFile(task.id).catch(reason => new Notice(String(reason)))));
     const exists = this.plugin.hasTaskFolder(task.id);
     menu.addItem((item) => item.setTitle(this.plugin.canOpenTaskFolder ? (exists ? "打开文件夹" : "创建文件夹") : "任务文件夹（仅桌面端）")
       .setIcon(exists ? "folder-open" : "folder-plus")
@@ -1282,6 +1374,7 @@ class WorkTimelineView extends ItemView {
     const hasNotes = Boolean(task.notes) || Object.prototype.hasOwnProperty.call(this.plugin.state.noteDrafts, task.id);
     menu.addItem(item => item.setTitle(hasNotes ? '编辑详情' : '添加详情').setIcon('file-pen-line').onClick(() => this.openNotes(task)));
     if (task.status === 'active') {
+      if (Platform.isDesktopApp) menu.addItem(item => item.setTitle('一句话记录进展').setIcon('sparkles').onClick(() => this.plugin.openSmartCapture(task.id)));
       menu.addItem(item => item.setTitle('记录进展').setIcon('message-square-plus').onClick(() => {
         this.selectedTaskId = task.id; this.expandedTaskId = task.id; this.render(); this.focusCard(task.id, true);
       }));
@@ -1326,42 +1419,10 @@ class WorkTimelineView extends ItemView {
   }
 
   private renderTimeline(container: HTMLElement, reading?: TimelineReading): void {
-    const task = this.selectedTaskId ? this.plugin.tasks.find(({ id }) => id === this.selectedTaskId) : undefined;
-    const header = container.createDiv({ cls: `wt-timeline-header${task ? " is-task-history" : ""}` });
-    if (task) {
-      const title = header.createDiv();
-      title.createSpan({ text: "进展时间线", cls: "wt-eyebrow" });
-      title.createEl("h2", { text: task.title });
-      title.createEl("p", { text: `${task.groupName} · ${quadrantName(task)}` });
-      if (task.dueDate) {
-        const due = title.createDiv({ cls: `wt-task-due ${dueState(task)}` });
-        due.createSpan({ text: dueLabel(task) });
-        due.createEl("button", { text: "查看截止日", attr: { type: "button" } }).addEventListener("click", () => {
-          this.selectedDay = task.dueDate!;
-          this.selectedTaskId = null;
-          this.render();
-        });
-      }
-      const back = header.createEl("button", { text: "返回每日时间线", cls: "wt-back-button", attr: { type: "button" } });
-      back.addEventListener("click", () => {
-        this.selectedTaskId = null;
-        this.render();
-        this.contentEl.querySelector<HTMLInputElement>('.wt-date-controls input')?.focus({ preventScroll: true });
-      });
-      const body = container.createDiv({ cls: "wt-timeline-scroll", attr: { "data-timeline-key": `task:${task.id}`, tabindex: "-1", "aria-label": "任务历史" } });
-      const stream = body.createDiv({ cls: "wt-event-stream" });
-      for (const section of eventsByDay(task.events).reverse()) {
-        const day = stream.createEl("section", { cls: "wt-timeline-day" });
-        day.createEl("h3", { text: formatDay(section.day) });
-        this.renderEvents(day, section.events, false);
-      }
-      if (!task.events.length) body.createEl("p", { text: "这个任务还没有记录", cls: "wt-empty" });
-      this.restoreTimelineReading(body, reading);
-      return;
-    }
-
+    const task = this.sidebarMode === 'task' && this.selectedTaskId ? this.plugin.tasks.find(({ id }) => id === this.selectedTaskId) : undefined;
+    const header = container.createDiv({ cls: 'wt-timeline-header' });
     const title = header.createDiv();
-    title.createSpan({ text: "每日时间线", cls: "wt-eyebrow" });
+    title.createSpan({ text: "工作日历", cls: "wt-eyebrow" });
     title.createEl("h2", { text: formatDay(this.selectedDay) });
     const controls = header.createDiv({ cls: "wt-date-controls" });
     const shiftDay = (delta: number, label: string): void => {
@@ -1407,8 +1468,45 @@ class WorkTimelineView extends ItemView {
         const row = due.createEl("button", { cls: `wt-due-row ${dueState(item)}`, attr: { type: "button" } });
         row.createSpan({ text: item.title });
         row.createSpan({ text: item.status === "completed" ? "已完成" : item.status === "closed" ? "已关闭" : this.selectedDay < dayKey(new Date()) ? "已逾期" : "进行中" });
-        row.addEventListener("click", () => { this.selectedTaskId = item.id; this.render(); });
+        row.addEventListener("click", () => this.openHistory(item.id));
       }
+    }
+    if (this.sidebarMode === 'chat') {
+      if (this.conversation?.directory !== this.plugin.state.taskDirectory) { this.conversation?.dispose(); this.conversation = undefined; }
+      if (!this.conversation) {
+        const plugin = this.plugin, directory = plugin.state.taskDirectory;
+        const key = `${directory}:conversation`;
+        const guard = () => { if (plugin.state.taskDirectory !== directory) throw Error('任务目录已变化，请在新目录重新开始对话。'); };
+        this.conversation = new ConversationPanel({
+          get tasks() { return plugin.tasks; }, get groups() { return plugin.groups; }, directory,
+          read: () => plugin.state.smartDrafts[key] ?? '',
+          write: async value => { plugin.state.smartDrafts[key] = value; await plugin.persistState(); },
+          ask: (messages, refs) => { guard(); return plugin.askConversation(messages, refs); },
+          apply: proposal => { guard(); return plugin.applyConversation(proposal, directory); },
+          settings: () => { plugin.openSmartCapture(undefined, undefined, true); },
+          history: id => this.openHistory(id),
+          focus: id => { this.selectedTaskId = id; this.focusCard(id); }, setIcon,
+        }, container.ownerDocument);
+      }
+      container.append(this.conversation.element);
+      return;
+    }
+    const back = container.createEl('button', { text: '返回对话', cls: 'wt-back-button', attr: { type:'button' } });
+    back.onclick = () => { this.sidebarMode = 'chat'; this.render(); this.conversation?.element.querySelector('textarea')?.focus(); };
+    if (task) {
+      const taskHeader = container.createDiv({ cls:'wt-task-history-heading' });
+      taskHeader.createEl('h2', { text:task.title });
+      taskHeader.createEl('p', { text:`${task.groupName} · ${quadrantName(task)}` });
+      if (task.dueDate) taskHeader.createEl('button', {text:'查看截止日',attr:{type:'button'}}).onclick = () => {
+        this.selectedDay = task.dueDate!; this.sidebarMode = 'activity'; this.render();
+      };
+      const body = container.createDiv({ cls:'wt-timeline-scroll', attr:{'data-timeline-key':`task:${task.id}`,tabindex:'-1','aria-label':'任务历史'} });
+      const stream = body.createDiv({ cls:'wt-event-stream' });
+      for (const section of eventsByDay(task.events).reverse()) {
+        const day = stream.createEl('section', { cls:'wt-timeline-day' });
+        day.createEl('h3', { text:formatDay(section.day) }); this.renderEvents(day, section.events, false);
+      }
+      this.restoreTimelineReading(body, reading); return;
     }
     const body = container.createDiv({ cls: "wt-timeline-scroll", attr: { "data-timeline-key": `day:${this.selectedDay}`, tabindex: "-1", "aria-label": "每日记录" } });
     const entries = eventsForDay(this.plugin.tasks, this.selectedDay);
@@ -1442,11 +1540,14 @@ class WorkTimelineView extends ItemView {
     if (showTask && taskId) {
       const link = body.createEl("button", { text: event.title, cls: "wt-event-task", attr: { type: "button" } });
       link.addEventListener("click", () => {
+        this.sidebarMode = 'task';
         this.selectedTaskId = taskId;
         this.render();
         this.contentEl.querySelector<HTMLButtonElement>('.wt-back-button')?.focus({ preventScroll: true });
       });
     }
+    const repeatedSummary = (event.kind === 'created' && event.text === '创建任务') || (event.kind === 'icon_changed' && event.text === '更新任务图标');
+    if (repeatedSummary && this.searchTarget?.eventId !== event.id) return;
     const text = body.createEl("p", { cls: "wt-event-text" });
     if (this.searchTarget?.eventId === event.id) {
       const value = event.kind === 'progress' ? event.text : `${event.title} · ${event.text}`;
@@ -1582,6 +1683,114 @@ export default class WorkTimelinePlugin extends Plugin {
   private writeQueue: Promise<void> = Promise.resolve();
   readonly openingTaskFolders = new Set<string>();
   storageBusy = false;
+  private smartModal?: InstanceType<typeof SmartCaptureModal>;
+
+  openSmartCapture(taskId?: string, mount?: SmartCaptureMount, settingsOnly = false): InstanceType<typeof SmartCaptureModal> | undefined {
+    if (!Platform.isDesktopApp) { new Notice('一句话录入目前仅支持电脑端'); return; }
+    if (this.smartModal?.modalEl.isConnected) return;
+    if (!taskId && !mount && !settingsOnly) {
+      const view = this.currentView();
+      if (view) view.openNewTask({}, undefined, 'smart');
+      else void this.activateView().then(() => this.currentView()?.openNewTask({}, undefined, 'smart'));
+      return;
+    }
+    const plugin = this, directory = this.state.taskDirectory;
+    const guard = () => { if (plugin.state.taskDirectory !== directory) throw Error('任务目录已变化，请关闭后重新打开一句话录入。'); };
+    this.smartModal = new SmartCaptureModal(this.app, {
+      get groups() { return plugin.groups; }, get tasks() { return plugin.tasks; }, get config() { return plugin.state.smartCapture; },
+      readDraft: scope => plugin.state.smartDrafts[`${directory}:${scope}`] ?? '',
+      writeDraft: (scope, value) => {
+        const key = `${directory}:${scope}`;
+        if (value) plugin.state.smartDrafts[key] = value; else delete plugin.state.smartDrafts[key];
+        if (plugin.draftTimer !== null) window.clearTimeout(plugin.draftTimer);
+        plugin.draftTimer = window.setTimeout(() => {
+          plugin.draftTimer = null;
+          void plugin.persistState().catch(() => new Notice('一句话草稿暂存在内存中，未能写入备份。'));
+        }, 250);
+      },
+      flushDraft: () => plugin.persistState(),
+      configure: async config => {
+        const previous = plugin.state.smartCapture;
+        plugin.state.smartCapture = config;
+        try { await plugin.persistState(); } catch (error) { plugin.state.smartCapture = previous; throw error; }
+      },
+      testConnection: async config => { await plugin.extractSmartCapture(CONNECTION_TEST_TEXT, connectionTestContext(), config); },
+      pickKeyFile: () => new Promise((resolve, reject) => {
+        const input = document.createElement('input'); input.type = 'file'; input.style.display = 'none'; document.body.append(input);
+        const finish = (path: string | null) => { input.remove(); resolve(path); };
+        input.addEventListener('cancel', () => finish(null), { once: true });
+        input.onchange = () => {
+          try {
+            const file = input.files?.[0];
+            const electron = require('electron') as { webUtils?: { getPathForFile(file: File): string } };
+            const path = file ? electron.webUtils?.getPathForFile(file) || (file as File & { path?: string }).path : null;
+            if (file && !path) throw Error('无法读取文件路径');
+            finish(path ?? null);
+          } catch (error) { input.remove(); reject(error); }
+        };
+        input.click();
+      }),
+      extract: (text, context) => { guard(); return plugin.extractSmartCapture(text, context); },
+      create: values => {
+        guard();
+        if (values.groupId && !plugin.groups.some(g => g.id === values.groupId)) throw Error('分组已变化，请重新整理。');
+        return plugin.addTask({ ...values, groupName: plugin.groups.find(g => g.id === values.groupId)?.name ?? UNGROUPED_TASKS });
+      },
+      progress: (plan, id) => { guard(); return plugin.saveSmartProgress(plan, id); },
+    }, taskId, mount);
+    if (settingsOnly) this.smartModal.openSettings(() => {});
+    else this.smartModal.open();
+    return this.smartModal;
+  }
+
+  async extractSmartCapture(text: string, context: CaptureContext, candidate?: CaptureConfig): Promise<CapturePlan> {
+    const config = { ...(candidate ?? this.state.smartCapture) };
+    return extractCapture(text, context, config, await this.modelKey(config), request => requestUrl({ ...request, method: 'POST', throw: false }));
+  }
+
+  private async modelKey(config: CaptureConfig): Promise<string> {
+    if (!config.apiKey && !config.keyFile) throw Error('请先在“模型设置”中填写 API Key。');
+    let key = config.apiKey?.trim() ? validateApiKey(config.apiKey) : '';
+    if (!key) try {
+      // Obsidian desktop exposes Node through window.require; keep it out of the shared/browser bundle.
+      const nodeRequire = (window as unknown as { require: (name: string) => { promises: { readFile: (path: string, encoding: string) => Promise<string> } } }).require;
+      const source = await nodeRequire('fs').promises.readFile(config.keyFile!, 'utf8');
+      key = readApiKey(source);
+    } catch { throw Error('无法读取唯一密钥，请检查文件路径，并使用一行密钥或 API_KEY= 格式。'); }
+    return key;
+  }
+
+  async askConversation(messages: ConversationMessage[], refs: string[]) {
+    const tasks = refs.map(id => { const task = this.tasks.find(t => t.id === id); if (!task) throw Error('引用任务已移除，请移除引用或新建对话。'); return task; });
+    const context = JSON.parse(JSON.stringify({ tasks, groups:this.groups, today:dayKey(new Date()), timezone:Intl.DateTimeFormat().resolvedOptions().timeZone }));
+    const config = { ...this.state.smartCapture };
+    const source = await requestModel(buildConversationRequest(messages, context, config), config, await this.modelKey(config), request => requestUrl({ ...request, method:'POST', throw:false }));
+    return parseConversationReply(source, context, makeId());
+  }
+
+  async applyConversation(proposal: ConversationProposal, directory: string): Promise<string> {
+    if (directory !== this.state.taskDirectory) throw Error('任务目录已变化，请重新整理。');
+    if (proposal.type === 'create') {
+      const v = proposal.values;
+      if (v.groupId && !this.groups.some(g => g.id === v.groupId)) throw Error('分组已变化，请修改后重试。');
+      return this.addTask({ ...v, groupName:this.groups.find(g => g.id === v.groupId)?.name ?? UNGROUPED_TASKS, creationId:proposal.id }, directory);
+    }
+    const next = await this.updateTask(proposal.taskId, current => {
+      if (directory !== this.state.taskDirectory) throw Error('任务目录已变化，请重新整理。');
+      return applyConversationUpdate(current, proposal, this.groups);
+    });
+    if (proposal.actions.some(a => a.kind === 'progress')) this.state.orders = pinTask(this.state.orders, next);
+    await this.persistState().catch(() => new Notice('任务已保存，排序偏好暂未写入。'));
+    this.renderViews();
+    return next.id;
+  }
+
+  async saveSmartProgress(plan: Extract<CapturePlan, { mode: 'progress' }>, operationId: string): Promise<void> {
+    const task = await this.updateTask(plan.taskId, current => applySmartProgress(current, plan, operationId));
+    this.state.orders = pinTask(this.state.orders, task);
+    try { await this.persistState(); } catch { new Notice('进展已保存，但排序偏好未保存；无需重复提交。'); }
+    this.renderViews(task.id);
+  }
 
   get canOpenTaskFolder(): boolean { return Platform.isDesktopApp && this.app.vault.adapter instanceof FileSystemAdapter; }
 
@@ -1664,7 +1873,7 @@ export default class WorkTimelinePlugin extends Plugin {
     }
     const today = dayKey(new Date());
     if (this.state.lastDailyBackup !== today) {
-      for (const task of this.tasks) await this.store.saveTask(task);
+      for (const task of this.tasks) if (!this.lockedTasks.has(task.id)) await this.store.saveTask(task);
       await this.store.saveGroups(this.groupArchive);
       this.state.lastDailyBackup = today;
     }
@@ -1676,6 +1885,7 @@ export default class WorkTimelinePlugin extends Plugin {
     this.addRibbonIcon("history", "打开 Tracelo", () => void this.activateView());
     this.addCommand({ id: "open-work-timeline", name: "打开 Tracelo", callback: () => void this.activateView() });
     this.addCommand({ id: "transfer-work-timeline", name: "导入与导出", callback: () => this.openTransfer() });
+    if (Platform.isDesktopApp) this.addCommand({ id: 'smart-capture', name: '一句话创建任务', callback: () => this.openSmartCapture() });
     this.addCommand({ id: "create-work-task", name: "新建工作任务", callback: async () => {
       await this.activateView();
       this.currentView()?.openNewTask();
@@ -1695,6 +1905,7 @@ export default class WorkTimelinePlugin extends Plugin {
   }
 
   async onunload(): Promise<void> {
+    this.smartModal?.close();
     if (this.draftTimer !== null) window.clearTimeout(this.draftTimer);
     await this.saveData(this.state);
     this.app.workspace.detachLeavesOfType(VIEW_TYPE);
@@ -1704,36 +1915,35 @@ export default class WorkTimelinePlugin extends Plugin {
 
   private createStore(directory: string): ArchiveStore {
     const backup = `${this.app.vault.configDir}/plugins/${this.manifest.id}/backups`;
-    return new ArchiveStore(this.app.vault.adapter, directory, backup, AGENT_RULE, path => this.guardWrite(path));
+    return new ArchiveStore(this.app.vault.adapter, directory, backup, AGENT_RULE, path => this.guardWrite(path), async (path, expected, source) => {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (file instanceof TFile && this.app.vault.process) {
+        await this.app.vault.process(file, current => {
+          if (current !== expected) throw Error('任务文件已有新的编辑，未覆盖。请等待刷新后重试。');
+          return source;
+        });
+      } else {
+        if (await this.app.vault.adapter.read(path) !== expected) throw Error('任务文件已有新的编辑，未覆盖。');
+        await this.app.vault.adapter.write(path, source);
+      }
+    });
   }
 
   private async loadArchive(): Promise<void> {
     const loaded = await this.store.loadTasksSafe();
     this.tasks = loaded.tasks;
-    await this.store.migrateTaskNames(this.tasks);
+    this.lockedTasks.clear();
     for (const failure of loaded.errors) {
       this.lockedTasks.add(failure.taskId);
-      new Notice(`${failure.path} 无法恢复，已暂停该任务写入`);
+      new Notice(`${failure.path} 格式无效，原文件已保留。修正后会自动刷新：${failure.error.message}`);
     }
+    await this.store.migrateTaskNames(this.tasks.filter(task => !this.lockedTasks.has(task.id)));
     try {
       this.groupArchive = await this.store.loadGroups();
-      const groups = new Map(this.groups.map((group) => [group.id, group.name]));
-      const reconciled: WorkTask[] = [];
       for (const task of this.tasks) {
-        const name = task.groupId ? groups.get(task.groupId) : UNGROUPED_TASKS;
-        if (task.groupId && !name) {
-          const changed = changeTaskGroup(task, null, UNGROUPED_TASKS, new Date(), makeId(), "分组不存在");
-          await this.persistTask(changed);
-          reconciled.push(changed);
-        } else if (name && task.groupName !== name) {
-          const changed = { ...task, groupName: name };
-          await this.persistTask(changed);
-          reconciled.push(changed);
-        } else {
-          reconciled.push(task);
-        }
+        try { this.resolveEditedGroup(task); }
+        catch (reason) { this.lockedTasks.add(task.id); new Notice(String(reason)); }
       }
-      this.tasks = reconciled;
     } catch (reason) {
       new Notice(reason instanceof Error ? reason.message : "无法读取分组档案");
     }
@@ -1748,8 +1958,9 @@ export default class WorkTimelinePlugin extends Plugin {
     await this.app.workspace.revealLeaf(leaf);
   }
 
-  async addTask(input: NewTaskValues): Promise<string> {
+  async addTask(input: NewTaskValues, expectedDirectory?: string): Promise<string> {
     return this.enqueueWrite(async () => {
+      if (expectedDirectory && this.state.taskDirectory !== expectedDirectory) throw Error('任务目录已变化，请重新整理。');
       if (input.creationId && this.tasks.some(task => task.id === input.creationId)) return input.creationId;
       const prepared = prepareImages(input.notes ?? '', input.images ?? []);
       const task = buildNewTask({ ...input, notes: prepared.notes }, new Date(), makeId);
@@ -1792,9 +2003,9 @@ export default class WorkTimelinePlugin extends Plugin {
             await this.persistTask(next);
             this.tasks = this.tasks.map(task => task.id === next.id ? next : task);
           }
-          if (['progress', 'reopen'].includes(op.kind)) this.state.orders = pinTask(this.state.orders, next);
+          if (['progress', 'smart_progress', 'reopen'].includes(op.kind)) this.state.orders = pinTask(this.state.orders, next);
           await this.persistState().catch(() => {});
-          this.renderViews(op.kind === 'progress' ? op.taskId : undefined);
+          this.renderViews(['progress', 'smart_progress'].includes(op.kind) ? op.taskId : undefined);
           result = { status: 'applied', message: '已写入任务' };
         } catch (reason) { result = { status: 'failed', message: reason instanceof Error ? reason.message : '未能写入任务，草稿已保留' }; }
         await adapter.write(receipt, JSON.stringify({ version: 1, id: op.id, ...result }));
@@ -1845,6 +2056,12 @@ export default class WorkTimelinePlugin extends Plugin {
   }
 
   taskArchivePath(taskId: string): string { return this.store.taskPath(taskId); }
+
+  async openTaskFile(taskId: string): Promise<void> {
+    const file = this.app.vault.getAbstractFileByPath(this.store.taskPath(taskId));
+    if (!(file instanceof TFile)) throw Error('任务文件暂时不可用，请等待文件列表更新。');
+    await this.app.workspace.getLeaf('tab').openFile(file);
+  }
 
   updateNoteDraft(taskId: string, value: string): void {
     this.state.noteDrafts[taskId] = value;
@@ -2173,7 +2390,7 @@ export default class WorkTimelinePlugin extends Plugin {
   renderAppearanceControls(container: HTMLElement): void {
     const fields = container.createDiv({ cls: 'wt-appearance-controls' });
     const theme = fields.createEl('label', { text: '主题' }).createEl('select', { attr: { 'aria-label': '界面主题' } });
-    for (const [id, name] of [['evergreen','A 矿物绿'],['graphite','D 石墨紫'],['glacier','E 冰川蓝'],['vermilion','F 暖白朱砂']]) theme.createEl('option', { text: name, attr: { value: id! } });
+    for (const [id, name] of THEMES) theme.createEl('option', { text: name, attr: { value: id } });
     theme.value = this.state.theme;
     const mode = fields.createEl('label', { text: '外观' }).createEl('select', { attr: { 'aria-label': '界面外观' } });
     for (const [id, name] of [['system','跟随宿主'],['light','浅色'],['dark','深色']]) mode.createEl('option', { text: name, attr: { value: id! } });
@@ -2224,32 +2441,22 @@ export default class WorkTimelinePlugin extends Plugin {
   }
 
   private watchArchive(): void {
-    const ingest = (file: TFile) => {
-      if (this.internalWrites.has(file.path)) return;
-      void this.enqueueWrite(async () => {
-        const task = await this.store.ingestTaskFile(file.path);
-        if (!task || this.tasks.some(current => current.id === task.id)) return;
-        this.tasks = [...this.tasks, task];
-        this.state.orders = pinTask(this.state.orders, task);
-        await this.persistState(); this.renderViews();
-      }).catch(reason => new Notice(`无法接入新任务：${reason instanceof Error ? reason.message : String(reason)}`));
+    const timers = new Map<string, number>();
+    const schedule = (file: TFile, oldPath = file.path) => {
+      const id = this.taskIdFromPath(oldPath), path = file.path, key = id ?? path;
+      if (!path.startsWith(`${this.state.taskDirectory}/`) || !path.endsWith('.md')) return;
+      window.clearTimeout(timers.get(key));
+      timers.set(key, window.setTimeout(() => {
+        timers.delete(key);
+        void this.enqueueWrite(() => this.refreshExternalTask(id, path)).catch(reason => new Notice(String(reason)));
+      }, 250));
     };
-    this.registerEvent(this.app.vault.on("create", file => { if (file instanceof TFile) ingest(file); }));
-    this.registerEvent(this.app.vault.on("modify", (file) => {
-      const taskId = this.taskIdFromPath(file.path);
-      if (taskId && file instanceof TFile && !this.internalWrites.has(file.path)) {
-        void this.recoverExternalTask(taskId, file);
-      }
-    }));
-    this.registerEvent(this.app.vault.on("delete", (file) => {
-      const taskId = this.taskIdFromPath(file.path);
-      if (taskId && !this.internalWrites.has(file.path)) void this.recoverExternalTask(taskId);
-    }));
-    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
-      const taskId = this.taskIdFromPath(oldPath);
-      if (taskId && !this.internalWrites.has(oldPath)) void this.recoverExternalTask(taskId, file instanceof TFile ? file : undefined, file.path);
-      else if (!taskId && file instanceof TFile) ingest(file);
-    }));
+    this.register(() => timers.forEach(timer => window.clearTimeout(timer)));
+    const changed = (file: TAbstractFile) => { if (file instanceof TFile) schedule(file); };
+    this.registerEvent(this.app.vault.on('create', changed));
+    this.registerEvent(this.app.vault.on('modify', changed));
+    this.registerEvent(this.app.vault.on('delete', changed));
+    this.registerEvent(this.app.vault.on('rename', (file, oldPath) => { if (file instanceof TFile) schedule(file, oldPath); }));
   }
 
   private taskIdFromPath(path: string): string | null {
@@ -2282,32 +2489,49 @@ export default class WorkTimelinePlugin extends Plugin {
     });
   }
 
-  private async recoverExternalTask(taskId: string, file?: TFile, renamedPath?: string): Promise<void> {
+  private async refreshExternalTask(taskId: string | null, path: string): Promise<void> {
+    taskId ??= this.taskIdFromPath(path);
     try {
-      const source = file ? await this.app.vault.read(file) : undefined;
-      this.guardWrite(this.store.taskPath(taskId));
-      const task = await this.store.recoverTask(taskId, source);
-      if (renamedPath && renamedPath !== this.store.taskPath(taskId) && await this.app.vault.adapter.exists(renamedPath)) {
-        this.guardWrite(renamedPath);
-        await this.app.vault.adapter.remove(renamedPath);
+      if (!await this.app.vault.adapter.exists(path)) {
+        if (!taskId || await this.app.vault.adapter.exists(this.store.taskPath(taskId))) return;
+        this.tasks = this.tasks.filter(task => task.id !== taskId);
+        this.store.forgetTask(taskId); this.lockedTasks.delete(taskId);
+        this.renderViews(undefined, false, true); return;
       }
-      this.tasks = this.tasks.some(({ id }) => id === taskId)
-        ? this.tasks.map((entry) => entry.id === taskId ? task : entry)
+      if (taskId && !this.lockedTasks.has(taskId) && await this.store.isCurrentSource(taskId, path)) return;
+      const task = taskId ? await this.store.readExternalTask(taskId, path) : await this.store.ingestTaskFile(path);
+      if (!task) return;
+      taskId = task.id;
+      const previous = this.tasks.find(entry => entry.id === task.id);
+      this.resolveEditedGroup(task);
+      if (!previous) await this.store.migrateTaskNames([task]);
+      this.tasks = previous
+        ? this.tasks.map(entry => entry.id === task.id ? task : entry)
         : [...this.tasks, task];
-      this.lockedTasks.delete(taskId);
-      new Notice(`已从最近有效备份恢复 ${taskId}.md，备份之后的修改可能未包含`);
-      this.renderViews();
+      this.lockedTasks.delete(task.id);
+      this.lockedTasks.delete(path.split('/').at(-1)!.slice(0, -3));
+      if (!previous || previous.groupId !== task.groupId || previous.important !== task.important || previous.urgent !== task.urgent) {
+        this.state.orders = pinTask(this.state.orders, task); await this.persistState();
+      }
+      this.renderViews(undefined, false, true);
     } catch (reason) {
-      this.lockedTasks.add(taskId);
-      new Notice(reason instanceof Error ? reason.message : `任务 ${taskId} 无法恢复`);
+      if (taskId) this.lockedTasks.add(taskId);
+      new Notice(`文件已保留，修正后会自动刷新：${reason instanceof Error ? reason.message : String(reason)}`);
     }
   }
 
-  private renderViews(recordedTaskId?: string, displayOnly = false): void {
+  private resolveEditedGroup(task: WorkTask): void {
+    const byName = this.groups.find(group => group.name === task.groupName);
+    if (task.groupName === UNGROUPED_TASKS) task.groupId = null;
+    else if (byName) { task.groupId = byName.id; task.groupName = byName.name; }
+    else throw Error('分组名称不存在，请先在看板创建分组。');
+  }
+
+  private renderViews(recordedTaskId?: string, displayOnly = false, preserveInput = false): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
       if (!(leaf.view instanceof WorkTimelineView)) continue;
       if (recordedTaskId) leaf.view.taskRecorded(recordedTaskId);
-      else leaf.view.render(displayOnly);
+      else leaf.view.render(displayOnly, preserveInput);
     }
   }
 

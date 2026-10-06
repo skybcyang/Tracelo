@@ -25,6 +25,16 @@ try {
     await page.goto('about:blank');
     await page.setContent(html);
     await page.waitForFunction(() => window.capture);
+    const brand = await page.locator('.capture-brand-icon').innerHTML();
+    assert.equal(await page.locator('.capture-brand-icon .wt-brand-icon').count(), 1);
+    for (const theme of ['monochrome', 'evergreen', 'graphite', 'glacier', 'vermilion', 'unknown']) {
+      for (const appearance of ['light', 'dark']) {
+        await page.evaluate(uiSettings => window.capture.update({uiSettings}), {theme, appearance});
+        assert.equal(await page.locator('body').getAttribute('data-tracelo-theme'), theme === 'unknown' ? 'monochrome' : theme);
+        assert.equal(await page.locator('.capture-brand-icon').innerHTML(), brand, 'brand stays neutral across themes');
+      }
+    }
+    await page.evaluate(() => window.capture.update({uiSettings:{theme:'monochrome',appearance:'system'}}));
     const title = page.locator('#task-title'), details = page.getByRole('textbox', { name: '任务详情', exact: true });
     const submit = page.locator('#submit');
     assert.equal(await submit.isDisabled(), true);
@@ -112,7 +122,7 @@ try {
     assert.equal(await page.evaluate(() => window.messages.at(-1).action), 'settings');
     for (const dark of [false, true]) {
       await page.evaluate(dark => window.capture.update({ dark, configured: true, draft: { title: '示例任务', notes: '完整详情', todos: Array(10).fill('待办'), expanded: { todos: true, due: true, progress: true } }, focus: true }), dark);
-      await page.waitForFunction(dark => getComputedStyle(document.querySelector('.capture-modal')).backgroundColor === (dark ? 'rgb(32, 45, 37)' : 'rgb(252, 253, 252)'), dark);
+      await page.waitForFunction(dark => getComputedStyle(document.querySelector('.capture-modal')).backgroundColor === (dark ? 'rgb(34, 34, 34)' : 'rgb(255, 255, 255)'), dark);
       for (const [width, height] of [[560, 650], [360, 320]]) {
         await page.setViewportSize({ width, height });
         const bounds = await submit.boundingBox();

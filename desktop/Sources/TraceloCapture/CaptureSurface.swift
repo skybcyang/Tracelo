@@ -73,6 +73,8 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
     }
 
     func smokeTest(screenshots: URL?, completion: @escaping (Bool) -> Void) {
+        // This legacy palette regression intentionally verifies the evergreen tokens.
+        update(["uiSettings": ["theme": "evergreen", "appearance": "system"]])
         update(["draft": ["title": "整理本周工作进展", "notes": "补充目标、要求或参考资料，支持 Markdown。", "groupId": "", "quadrant": "important_urgent", "todos": [], "dueDate": "", "initialProgress": "", "expanded": ["todos": false, "due": false, "progress": false]], "groupsSource": "", "configured": true, "saving": false, "error": "", "location": "示例仓库", "dark": false, "focus": true])
         view.callAsyncJavaScript("""
           const check = (ok, message) => { if (!ok) throw new Error(message); };
@@ -85,11 +87,11 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
           const body = document.querySelector('.wt-new-task-body');
           check(input && details && group && quadrant && button && footer, 'shared form controls are missing');
           const deadline = performance.now() + 2500;
-          while ((button.getBoundingClientRect().bottom > innerHeight || body.scrollHeight > body.clientHeight + 1 || document.activeElement !== input) && performance.now() < deadline) {
+          while ((button.getBoundingClientRect().bottom > innerHeight || body.scrollHeight > body.clientHeight + 1 || document.activeElement !== input || getComputedStyle(button).backgroundColor !== 'rgb(53, 109, 84)') && performance.now() < deadline) {
             await new Promise(resolve => requestAnimationFrame(resolve));
           }
           check(getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(252, 253, 252)', 'light modal does not use plugin styles');
-          check(getComputedStyle(button).backgroundColor === 'rgb(53, 109, 84)', 'primary action does not use plugin accent');
+          check(getComputedStyle(button).backgroundColor === 'rgb(53, 109, 84)', 'primary action does not use plugin accent: '+getComputedStyle(button).backgroundColor);
           check(input.value === '整理本周工作进展' && details.value === '补充目标、要求或参考资料，支持 Markdown。', 'title and details must be independent fields');
           check(document.activeElement === input, 'title did not receive focus');
           const values = ['important_urgent', 'important_not_urgent', 'not_important_urgent', 'not_important_not_urgent'];
@@ -175,6 +177,49 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
             self.view.callAsyncJavaScript("return document.querySelector('.wt-form-error')?.textContent", arguments: [:], in: nil, in: .page) { result in
                 fputs("Shared form did not submit: \(result)\n", stderr)
                 completion(false)
+            }
+        }
+    }
+
+    func smartSmokeTest(screenshots: URL?, completion: @escaping (Bool) -> Void) {
+        view.callAsyncJavaScript("""
+          const wait = async (predicate, label, ms=80000) => { const deadline=Date.now()+ms; while(!predicate()) {if(Date.now()>deadline) throw Error(label+': '+[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent).join(';')); await new Promise(r=>setTimeout(r,50));} };
+          const button = (root,text) => [...root.querySelectorAll('button')].find(b=>b.textContent.trim()===text);
+          const fill=(input,value)=>{input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));};
+          button(document,'一句话整理').click();
+          await wait(()=>document.querySelector('.wt-smart-input'),'open');
+          let modal=document.querySelector('.wt-smart-modal');
+          fill(modal.querySelector('.wt-smart-input'),'创建一个任务叫原生一句话验收，待办只有抓日志。没有其他进展。');
+          button(modal,'整理成任务').click();
+          await wait(()=>modal.querySelector('#task-title'),'extract-create');
+          fill(modal.querySelector('#task-title'),'原生一句话验收');
+          button(modal,'创建任务').click();
+          await wait(()=>!document.querySelector('.wt-smart-modal'),'save-create');
+          button(document,'记录进展').click();
+          await wait(()=>button(document,'一句话记录进展'),'task-loaded');
+          button(document,'一句话记录进展').click();
+          await wait(()=>document.querySelector('.wt-smart-input'),'open-progress');
+          modal=document.querySelector('.wt-smart-modal');
+          fill(modal.querySelector('.wt-smart-input'),'日志已经抓完，发现初始化耗时偏高。');
+          button(modal,'整理进展').click();
+          await wait(()=>modal.querySelector('.wt-smart-progress-form'),'extract-progress');
+          button(modal,'保存进展').click();
+          await wait(()=>modal.textContent.includes('已暂存'),'queued');
+          button(modal,'关闭').click();
+          await wait(()=>!document.querySelector('.wt-smart-modal'),'closed');
+          button(document,'一句话记录进展').click();
+          await wait(()=>document.querySelector('.wt-smart-modal')?.textContent.includes('已暂存'),'restored');
+          modal=document.querySelector('.wt-smart-modal');
+          if(button(modal,'关闭').getBoundingClientRect().bottom>innerHeight) throw Error('footer clipped');
+          return true;
+          """, arguments: [:], in: nil, in: .page) { [weak self] result in
+            guard let self, case .success(let value) = result, (value as? Bool) == true else {
+                fputs("Native smart UI failed: \(result)\n", stderr)
+                self?.snapshot(screenshots?.appendingPathComponent("smart-failure.png")) { completion(false) }; return
+            }
+            self.snapshot(screenshots?.appendingPathComponent("smart-light.png")) {
+                self.update(["uiSettings": ["theme": "monochrome", "appearance": "dark"]])
+                self.snapshot(screenshots?.appendingPathComponent("smart-dark.png")) { completion(true) }
             }
         }
     }

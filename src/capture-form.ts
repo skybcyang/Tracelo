@@ -1,8 +1,11 @@
 export { mountNewTaskForm, buildNewTask } from './new-task-form';
-export { parseGroupArchive, serializeTaskMarkdown } from './archive';
+export { parseGroupArchive, serializeLegacyTaskMarkdown as serializeTaskMarkdown } from './archive';
 export { prepareImages } from './draft-images';
 export { mountQuickProgress } from './desktop-progress';
 export { revealQuickContent, leaveQuickContent } from './quick-feedback';
+export { setBrandMark } from './brand';
+export { normalizeTheme } from './appearance';
+export { mountDesktopSmartCapture } from './desktop-smart-capture';
 
 import { createElement, icons } from 'lucide';
 import { setContentIcon } from './content-icons';

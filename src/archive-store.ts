@@ -9,7 +9,7 @@ import {
   serializeTaskMarkdown,
 } from "./archive";
 import { dayKey, type GroupArchive, type WorkTask } from "./domain";
-import { LEGACY_AGENT_RULE } from "./agent-rule";
+import { LEGACY_AGENT_RULE, PREVIOUS_AGENT_RULE } from "./agent-rule";
 import { assertTaskFolder, canonicalPath, MATERIALS_DIRECTORY, relocateTaskReferences, safeSegment, taskBaseName } from "./storage-names";
 
 export interface ArchiveAdapter {
@@ -55,6 +55,7 @@ interface SaveJournal {
 
 export class ArchiveStore {
   private readonly paths = new Map<string, string>();
+  private readonly sources = new Map<string, string>();
   private queue: Promise<void> = Promise.resolve();
   private pruningSuspensions = 0;
   constructor(
@@ -63,6 +64,7 @@ export class ArchiveStore {
     readonly backupDirectory: string,
     private readonly agentSource: string,
     private readonly beforeWrite: (path: string) => void = () => {},
+    private readonly writeIfUnchanged?: (path: string, expected: string, source: string) => Promise<void>,
   ) {}
 
   taskPath(taskId: string): string {
@@ -72,6 +74,42 @@ export class ArchiveStore {
 
   taskIdFromPath(path: string): string | null {
     return [...this.paths].find(([, value]) => value === path)?.[0] ?? null;
+  }
+
+  forgetTask(taskId: string): void { this.paths.delete(taskId); this.sources.delete(taskId); }
+
+  private alignPath(task: WorkTask, path: string): void {
+    assertTaskFolder(task, this.taskDirectory);
+    task.archiveName = path.split('/').at(-1)!.slice(0, -3);
+    const parent = path.slice(0, path.lastIndexOf('/'));
+    if (parent !== this.taskDirectory) task.materialFolder = parent;
+    else if (task.materialFolder) throw Error('带附件的任务请连同任务文件夹一起移动。');
+    assertTaskFolder(task, this.taskDirectory);
+  }
+
+  async isCurrentSource(taskId: string, path: string): Promise<boolean> {
+    return this.paths.get(taskId) === path && this.sources.has(taskId)
+      && await this.adapter.exists(path) && await this.adapter.read(path) === this.sources.get(taskId);
+  }
+
+  async readExternalTask(taskId: string, path = this.taskPath(taskId), now = new Date()): Promise<WorkTask> {
+    if (!this.isCandidate(path)) throw Error('任务文件不在有效的存档位置。');
+    const source = await this.adapter.read(path);
+    const task = parseTaskMarkdown(source);
+    if (task.id !== taskId) throw Error('任务 ID 不可修改，请恢复原 ID。');
+    this.alignPath(task, path);
+    const previous = this.sources.get(taskId);
+    if (previous && previous !== source) {
+      const directory = join(this.backupDirectory, 'editor', taskId);
+      await this.ensureFolder(directory);
+      await this.adapter.write(join(directory, `${stamp(now)}.md`), previous);
+    }
+    if (await this.adapter.read(path) !== source) throw Error('文件仍在变化，等待下一次保存。');
+    const daily = join(this.backupDirectory, 'daily', dayKey(now));
+    await this.ensureFolder(daily);
+    await this.adapter.write(join(daily, `${taskId}.md`), source);
+    this.paths.set(taskId, path); this.sources.set(taskId, source);
+    return task;
   }
 
   suspendBackupPruning(): () => void {
@@ -139,6 +177,7 @@ export class ArchiveStore {
       if (!this.isCandidate(path) || this.taskIdFromPath(path)) return null;
       const source = await this.adapter.read(path);
       const task = parseTaskMarkdown(source);
+      if (/^(?:\uFEFF)?---\r?\n/.test(source)) this.alignPath(task, path);
       assertTaskFolder(task, this.taskDirectory);
       if (path.split("/").at(-1) !== `${task.archiveName ?? task.id}.md`) throw new Error("任务文件名与存档身份不匹配");
       if (this.paths.has(task.id)) throw new Error("新增文件使用了已有任务 ID，已忽略且未覆盖原任务");
@@ -150,6 +189,7 @@ export class ArchiveStore {
       if (await this.adapter.read(join(daily, `${task.id}.md`)) !== source) throw new Error("外部新增任务备份校验失败");
       await this.backupMaterials(task, daily);
       this.paths.set(task.id, path);
+      this.sources.set(task.id, source);
       return task;
     });
     this.queue = operation.then(() => {}, () => {});
@@ -160,7 +200,7 @@ export class ArchiveStore {
     await this.ensureFolder(this.taskDirectory);
     await this.recoverPendingSaves();
     const agentPath = join(this.taskDirectory, AGENT_FILE);
-    if (!await this.adapter.exists(agentPath) || (await this.adapter.read(agentPath)).trim() === LEGACY_AGENT_RULE.trim()) {
+    if (!await this.adapter.exists(agentPath) || [LEGACY_AGENT_RULE.trim(), PREVIOUS_AGENT_RULE.trim()].includes((await this.adapter.read(agentPath)).trim())) {
       await this.adapter.write(agentPath, this.agentSource);
     }
     const groupsPath = join(this.taskDirectory, GROUPS_FILE);
@@ -189,13 +229,22 @@ export class ArchiveStore {
       const source = await this.adapter.read(path);
       try {
         const task = parseTaskMarkdown(source);
+        if (/^(?:\uFEFF)?---\r?\n/.test(source)) this.alignPath(task, path);
         assertTaskFolder(task, this.taskDirectory);
         if ((task.archiveName ?? task.id) !== name) throw new Error("任务身份不匹配");
         taskId = task.id;
         if (tasks.some(t => t.id === taskId)) throw new Error("重复的任务 ID");
         this.paths.set(taskId, path);
+        this.sources.set(taskId, source);
         tasks.push(task);
-      } catch {
+      } catch (error) {
+        if (!source.startsWith('<!-- work-timeline-task:v1')) {
+          if (backupIds.has(name) && !this.paths.has(taskId)) this.paths.set(taskId, path);
+          errors.push({ taskId, path, error: error instanceof Error ? error : Error('任务格式无效') });
+          const backup = await this.latestBackup(taskId);
+          if (backup && !tasks.some(task => task.id === taskId)) tasks.push(backup.task);
+          continue;
+        }
         try {
           if (tasks.some(t => t.id === taskId)) throw new Error("重复的任务 ID");
           this.paths.set(taskId, path);
@@ -266,6 +315,7 @@ export class ArchiveStore {
     await this.ensureFolder(this.taskDirectory);
     const oldPath = this.taskPath(task.id);
     const oldSource = await this.adapter.exists(oldPath) ? await this.adapter.read(oldPath) : null;
+    if (this.sources.has(task.id) && oldSource !== this.sources.get(task.id)) throw Error('任务文件已有变化，请等待刷新后重试，未覆盖文件。');
     if (oldSource && parseTaskMarkdown(oldSource).id !== task.id) throw new Error("目标文件属于另一项任务");
     const oldName = oldPath.split("/").at(-1)!.slice(0, -3);
     const base = taskBaseName(task);
@@ -281,6 +331,7 @@ export class ArchiveStore {
     // Keep a previously allocated suffix when saving unchanged tasks.
     const preferred = task.archiveName ?? oldName;
     if (preferred === base || (preferred.startsWith(`${base}（`) && /^\d+）$/.test(preferred.slice(base.length + 1)))) name = preferred;
+    if (oldSource?.startsWith('---') && parseTaskMarkdown(oldSource).title === task.title && safeSegment(oldName)) name = oldName;
     for (let n = 2; occupied.has(canonicalPath(`${this.taskDirectory}/${name}.md`)) || occupied.has(canonicalPath(`${this.taskDirectory}/${name}`)) || occupied.has(canonicalPath(`${MATERIALS_DIRECTORY}/${name}`)); n++) name = `${base}（${n}）`;
     const nextFolder = `${this.taskDirectory}/${name}`;
     const useFolder = hasFolder || createFolder;
@@ -290,6 +341,7 @@ export class ArchiveStore {
     if (useFolder) next.materialFolder = nextFolder;
     if (next.notes) next.notes = relocateTaskReferences(next.notes, oldFolder, nextFolder);
     const source = serializeTaskMarkdown(next);
+    parseTaskMarkdown(source);
     const daily = join(this.backupDirectory, "daily", dayKey(now));
     await this.ensureFolder(daily);
     const backupPath = join(daily, `${task.id}.md`);
@@ -303,6 +355,7 @@ export class ArchiveStore {
     const journal: SaveJournal = { version: 1, taskId: task.id, oldPath, path, oldSource, oldFolder, nextFolder, hasFolder, backupPath, previousBackup, createdFolder: useFolder && !hasFolder, targetSource: source, stagedPath };
     const pending = `${this.backupDirectory}/pending-names/${task.id}.json`;
     await this.ensureFolder(`${this.backupDirectory}/pending-names`);
+    if (oldSource !== (await this.adapter.exists(oldPath) ? await this.adapter.read(oldPath) : null)) throw Error('任务文件发生变化，请刷新后重试。');
     if (await this.adapter.exists(pending)) throw new Error("存在未恢复的写入，请重新加载插件后重试");
     await this.adapter.write(pending, JSON.stringify(journal));
     if (await this.adapter.read(pending) !== JSON.stringify(journal)) throw new Error("写入恢复记录校验失败");
@@ -314,7 +367,13 @@ export class ArchiveStore {
       }
       if (journal.createdFolder) await this.ensureFolder(nextFolder);
       const movedOldPath = hasFolder && oldPath.startsWith(`${oldFolder}/`) ? nextFolder + oldPath.slice(oldFolder.length) : oldPath;
-      if (oldSource && path === movedOldPath) await this.adapter.write(path, source);
+      if (oldSource && path === movedOldPath) {
+        if (this.writeIfUnchanged && path === oldPath) await this.writeIfUnchanged(path, oldSource, source);
+        else {
+          if (await this.adapter.read(path) !== oldSource) throw Error('任务文件发生变化，未覆盖编辑内容。');
+          await this.adapter.write(path, source);
+        }
+      }
       else {
         if (await this.adapter.exists(path)) throw new Error("目标文件已被其他文件占用，未覆盖");
         await this.adapter.write(stagedPath, source);
@@ -328,7 +387,10 @@ export class ArchiveStore {
       if (await this.adapter.read(path) !== source) throw new Error("任务写入校验失败");
       await this.adapter.write(backupPath, source);
       if (await this.adapter.read(backupPath) !== source) throw new Error("备份校验失败");
-      if (oldSource && movedOldPath !== path && await this.adapter.exists(movedOldPath)) await this.adapter.remove(movedOldPath);
+      if (oldSource && movedOldPath !== path && await this.adapter.exists(movedOldPath)) {
+        if (await this.adapter.read(movedOldPath) !== oldSource) throw Error('改名时原文件发生变化，已保留编辑内容，请刷新后重试。');
+        await this.adapter.remove(movedOldPath);
+      }
       await this.backupMaterials(next, daily);
       await this.adapter.remove(pending);
     } catch (reason) {
@@ -338,6 +400,7 @@ export class ArchiveStore {
     }
     Object.assign(task, next);
     this.paths.set(task.id, path);
+    this.sources.set(task.id, source);
     // Retention failure must not turn a committed task save into a failed operation.
     await this.pruneDailyBackups().catch(() => {});
   }
@@ -358,7 +421,7 @@ export class ArchiveStore {
       if (await this.adapter.exists(oldFolder)) throw new Error("恢复时发现同名材料目录，请保留两份目录并检查迁移备份");
       await this.adapter.rename(nextFolder, oldFolder);
     }
-    if (oldSource) await this.adapter.write(oldPath, oldSource);
+    if (oldSource && (!await this.adapter.exists(oldPath) || await this.adapter.read(oldPath) === journal.targetSource)) await this.adapter.write(oldPath, oldSource);
     if (!oldSource && await this.adapter.exists(path)
       && (journal.targetSource === undefined || await this.adapter.read(path) === journal.targetSource)) await this.adapter.remove(path);
     if (journal.createdFolder && await this.adapter.exists(nextFolder)) {
@@ -406,12 +469,24 @@ export class ArchiveStore {
   async migrateTaskNames(tasks: WorkTask[]): Promise<void> {
     const legacy: WorkTask[] = [];
     for (const task of tasks) {
-      if (!task.archiveName || task.materialFolder?.startsWith(`${MATERIALS_DIRECTORY}/`)
+      if (this.sources.get(task.id)?.startsWith('<!-- work-timeline-task:v1') || !task.archiveName || task.materialFolder?.startsWith(`${MATERIALS_DIRECTORY}/`)
         || (!task.materialFolder && (await this.adapter.stat(`${MATERIALS_DIRECTORY}/${task.archiveName}`))?.type === "folder")) legacy.push(task);
     }
     if (!legacy.length) return;
     await this.backupLegacy({ tasks, paths: Object.fromEntries(this.paths) });
-    for (const task of legacy) await this.saveTask(task);
+    for (const task of legacy) {
+      const source = this.sources.get(task.id);
+      if (source?.startsWith('<!-- work-timeline-task:v1')) {
+        const directory = join(this.backupDirectory, 'format-v1');
+        await this.ensureFolder(directory);
+        const path = join(directory, `${task.id}.md`);
+        if (!await this.adapter.exists(path)) {
+          await this.adapter.write(path, source);
+          if (await this.adapter.read(path) !== source) throw Error('旧格式备份校验失败');
+        }
+      }
+      await this.saveTask(task);
+    }
   }
 
   async removeImportedTask(task: WorkTask): Promise<void> {
@@ -419,6 +494,7 @@ export class ArchiveStore {
     this.beforeWrite(path);
     if (await this.adapter.exists(path)) await this.adapter.remove(path);
     this.paths.delete(task.id);
+    this.sources.delete(task.id);
     const daily = join(this.backupDirectory, "daily");
     if (await this.adapter.exists(daily)) for (const folder of (await this.adapter.list(daily)).folders) {
       const backup = join(folder, `${task.id}.md`);
@@ -474,6 +550,12 @@ export class ArchiveStore {
       await this.ensureFolder(directory);
       await this.adapter.write(join(directory, `${stamp(now)}-${taskId}.md`), externalSource);
     }
+    const picked = await this.latestBackup(taskId);
+    if (!picked) throw new Error(`任务 ${taskId} 没有可用备份，已暂停写入`);
+    return this.restoreBackup(taskId, picked);
+  }
+
+  private async latestBackup(taskId: string) {
     const dailyPath = join(this.backupDirectory, "daily");
     const candidates: Array<{ path: string; source: string }> = [];
     if (await this.adapter.exists(dailyPath)) {
@@ -483,8 +565,10 @@ export class ArchiveStore {
         if (await this.adapter.exists(path)) candidates.push({ path, source: await this.adapter.read(path) });
       }
     }
-    const picked = pickLatestValidBackup(taskId, candidates);
-    if (!picked) throw new Error(`任务 ${taskId} 没有可用备份，已暂停写入`);
+    return pickLatestValidBackup(taskId, candidates);
+  }
+
+  private async restoreBackup(taskId: string, picked: NonNullable<ReturnType<typeof pickLatestValidBackup>>): Promise<WorkTask> {
     assertTaskFolder(picked.task, this.taskDirectory);
     await this.ensureFolder(this.taskDirectory);
     const path = this.paths.get(taskId) ?? (picked.task.materialFolder
@@ -494,6 +578,7 @@ export class ArchiveStore {
     if (picked.task.materialFolder) await this.copyTree(join(picked.path.slice(0, picked.path.lastIndexOf("/")), "attachments", taskId), picked.task.materialFolder, true);
     await this.adapter.write(path, picked.source);
     this.paths.set(taskId, path);
+    this.sources.set(taskId, picked.source);
     return picked.task;
   }
 

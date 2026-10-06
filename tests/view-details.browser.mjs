@@ -23,6 +23,7 @@ try {
   await check('display settings preserve the live timeline, scroll and complete history', async () => {
     await page.evaluate(async id => { for (let i=0; i<12; i++) await window.cardFixture.plugin.recordProgress(id, `时间线位置检查 ${i}`); }, ids.payment);
     await card(ids.payment).locator('.wt-card-open').click();
+    await page.evaluate(id => window.cardFixture.app.workspace.getLeavesOfType('work-timeline-view')[0].view.openHistory(id), ids.payment);
     await settle();
     assert.equal(await page.locator('.wt-timeline-scroll details').count(), 0);
     await page.evaluate(() => {
@@ -66,6 +67,11 @@ try {
     await card(ids.plain).getByRole('textbox', { name: '任务详情', exact: true }).fill('取消的内容');
     await card(ids.plain).getByRole('button', { name: '取消', exact: true }).click();
     assert.match(await preview.textContent(), /最后一段详情$/);
+    await card(ids.plain).locator('.wt-card-menu').click();
+    await page.getByRole('menuitem', { name: '编辑详情', exact: true }).click();
+    assert.equal(await card(ids.plain).getByRole('textbox', { name: '任务详情', exact: true }).inputValue(), '取消的内容');
+    assert.equal(await page.evaluate(id => window.cardFixture.plugin.state.noteDrafts[id], ids.plain), '取消的内容');
+    await card(ids.plain).getByRole('button', { name: '取消', exact: true }).click();
   });
   await check('creation accepts multiline details and retains them after a failed save', async () => {
     await page.getByRole('button', { name: '新建任务', exact: true }).click();

@@ -40,6 +40,7 @@ try {
       timeline.selectedDay = '2026-01-01';
       timeline.render();
       timeline.selectedTaskId = taskMode ? task.id : null;
+      timeline.sidebarMode = taskMode ? 'task' : 'activity';
       timeline.narrowPane = 'history';
       timeline.selectedDay = '2026-09-28';
       timeline.render();
@@ -93,7 +94,7 @@ try {
     await page.getByRole('button', { name: '后一天', exact: true }).press('Enter');
     assert.equal(await page.getByLabel('选择时间线日期').inputValue(), '2026-09-28');
     await pane.locator('.wt-event-task').first().press('Enter');
-    await page.getByRole('button', { name: '返回每日时间线', exact: true }).waitFor();
+    await page.getByRole('button', { name: '返回对话', exact: true }).waitFor();
     assert.equal(await pane.locator('.wt-event-task').count(), 0);
   });
   await check('bottom reading follows newly created tasks but not property-only updates', async () => {

@@ -24,7 +24,7 @@ public sealed class QuickWorkspace(string directory) {
         foreach (var path in candidates) {
             if (!File.Exists(path) || !Plain(path)) continue;
             var source = File.ReadAllText(path);
-            if (!source.StartsWith("<!-- work-timeline-task:v1\n", StringComparison.Ordinal)) continue;
+            if (!source.StartsWith("<!-- work-timeline-task:v1\n", StringComparison.Ordinal) && !source.StartsWith("---\n", StringComparison.Ordinal) && !source.StartsWith("---\r\n", StringComparison.Ordinal)) continue;
             var images = new Dictionary<string, string>();
             foreach (Match match in Regex.Matches(source, @"!\[[^\]]*\]\(<?([^>\n)]+)>?\)")) {
                 var name = match.Groups[1].Value;

@@ -23,7 +23,7 @@ createServer(async (request, response) => {
         if (message.action === 'submit') window.capture.update({draft:null,saving:false});
       }}}};
     `;
-    const theme = ['evergreen','graphite','glacier','vermilion'].includes(url.searchParams.get('theme')) ? url.searchParams.get('theme') : 'evergreen';
+    const theme = ['monochrome','evergreen','graphite','glacier','vermilion'].includes(url.searchParams.get('theme')) ? url.searchParams.get('theme') : 'monochrome';
     const appearance = url.searchParams.get('appearance') === 'dark' || url.searchParams.has('dark') ? 'dark' : 'light';
     const initial = `window.capture.update({uiSettings:{theme:'${theme}',appearance:'${appearance}'},configured:true,groupsSource:'',location:'临时预览仓库',tasks:[{markdown:TraceloCreateTask.serializeTaskMarkdown(task)}],mode:'${mode}',dark:${url.searchParams.has('dark')}});`;
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
