@@ -167,28 +167,23 @@ try {
     assert.doesNotMatch(attempt.markdown,/tracelo-draft:/);
     await page.waitForFunction(()=>!Object.keys(window.smartStore).some(key=>key.startsWith('createRequest:')&&window.smartStore[key]));
     await page.locator('.wt-capture-tabs').getByRole('button',{name:'记录进展',exact:true}).click();
-    await page.getByRole('button',{name:'一句话记录进展',exact:true}).click();
-    await modal.getByRole('textbox',{name:'说说要做的事',exact:true,includeHidden:true}).fill('日志抓完了');
-    await modal.getByRole('button',{name:'整理进展',exact:true}).click();
-    await modal.getByRole('button',{name:'保存进展',exact:true}).click();
-    await modal.getByRole('status').filter({hasText:'已暂存'}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'一句话记录进展',exact:true}).count(),0,'quick progress has no separate AI entry');
+    const progressInput=page.getByRole('textbox',{name:'这次推进了什么？',exact:true});
+    assert.equal(await progressInput.inputValue(),'普通进展草稿');
+    await progressInput.fill('日志抓完了');
     for(const [width,height] of [[560,760],[390,450]]) {
       await page.setViewportSize({width,height});
-      assert.equal(await modal.getByRole('button',{name:'关闭',exact:true}).evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight),true,JSON.stringify(await modal.evaluate(el=>({height:innerHeight, panel:el.getBoundingClientRect().toJSON(), content:el.parentElement.getBoundingClientRect().toJSON(), body:el.querySelector('.wt-smart-body').getBoundingClientRect().toJSON(),footer:el.querySelector('.wt-smart-footer').getBoundingClientRect().toJSON()}))));
-      assert.equal(await modal.evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,'no horizontal overflow');
+      assert.equal(await page.locator('.wt-quick-progress .wt-composer-footer button[type=submit]').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight),true,'direct progress submit stays reachable');
+      assert.equal(await page.locator('.wt-quick-progress').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,'no horizontal overflow');
     }
     await page.setViewportSize({width:560,height:760});
-    assert.equal(await modal.getByRole('button',{name:'保存进展',exact:true}).isEnabled(),false);
-    await modal.getByRole('button',{name:'关闭',exact:true}).click();
-    await page.getByRole('button',{name:'一句话记录进展',exact:true}).click();
-    await modal.getByRole('status').filter({hasText:'已暂存'}).waitFor();
-    mkdirSync('test-results/smart-capture',{recursive:true});
-    await page.screenshot({path:`test-results/smart-capture/desktop-${platform}-queued.png`});
-    await page.evaluate(()=>window.capture.update({receipts:[{id:window.queued.id,status:'applied',message:'已保存',operation:window.queued}]}));
+    await page.screenshot({path:`test-results/smart-capture/desktop-${platform}-direct-progress.png`});
+    await openSmart();
+    await page.locator('.wt-capture-tabs').getByRole('button',{name:'记录进展',exact:true}).click();
     await modal.waitFor({state:'detached'});
-    await page.waitForFunction(()=>!window.smartStore['progress:task']);
+    assert.equal(await progressInput.inputValue(),'日志抓完了','switching to AI creation preserves direct progress');
     assert.deepEqual(errors,[]);
-    assert.equal(await page.evaluate(()=>window.messages.filter(m=>m.method==='progress').length),1);
+    assert.equal(await page.evaluate(()=>window.messages.filter(m=>m.method==='progress').length),0,'direct progress does not request AI progress');
     await page.getByRole('button',{name:'新建任务',exact:true}).click();
     await openSmart();
     await modal.getByRole('textbox',{name:'说说要做的事',exact:true,includeHidden:true}).fill('只能留在原目录的任务');
@@ -210,7 +205,7 @@ try {
     await page.evaluate(()=>{window.holdCreateDraft=false;window.capture.update({workspace:'qa-workspace',configured:true,groupsSource:'',tasks:[]});});
     await openSmart();
     assert.equal(await modal.getByRole('textbox',{name:'说说要做的事',exact:true,includeHidden:true}).inputValue(),'只能留在原目录的任务');
-    console.log('PASS '+platform+': direct masked key, shared surface, connection, confirmed create, queued progress, restart and receipt');
+    console.log('PASS '+platform+': masked key, connection, confirmed AI creation, direct progress without AI entry and independent drafts');
     await page.close();
   }
 } finally {await browser.close();}

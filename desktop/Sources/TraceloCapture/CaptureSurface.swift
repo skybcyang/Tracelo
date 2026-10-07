@@ -196,21 +196,14 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
           button(modal,'创建任务').click();
           await wait(()=>!document.querySelector('.wt-smart-modal'),'save-create');
           button(document,'记录进展').click();
-          await wait(()=>button(document,'一句话记录进展'),'task-loaded');
-          button(document,'一句话记录进展').click();
-          await wait(()=>document.querySelector('.wt-smart-input'),'open-progress');
-          modal=document.querySelector('.wt-smart-modal');
-          fill(modal.querySelector('.wt-smart-input'),'日志已经抓完，发现初始化耗时偏高。');
-          button(modal,'整理进展').click();
-          await wait(()=>modal.querySelector('.wt-smart-progress-form'),'extract-progress');
-          button(modal,'保存进展').click();
-          await wait(()=>modal.textContent.includes('已暂存'),'queued');
-          button(modal,'关闭').click();
-          await wait(()=>!document.querySelector('.wt-smart-modal'),'closed');
-          button(document,'一句话记录进展').click();
-          await wait(()=>document.querySelector('.wt-smart-modal')?.textContent.includes('已暂存'),'restored');
-          modal=document.querySelector('.wt-smart-modal');
-          if(button(modal,'关闭').getBoundingClientRect().bottom>innerHeight) throw Error('footer clipped');
+          await wait(()=>document.querySelector('.wt-card-composer textarea'),'task-loaded');
+          if(button(document,'一句话记录进展')) throw Error('removed AI progress entry remains');
+          const progress=document.querySelector('.wt-card-composer textarea');
+          fill(progress,'日志已经抓完，发现初始化耗时偏高。');
+          document.querySelector('.wt-card-composer').requestSubmit();
+          await wait(()=>document.querySelector('.wt-quick-status').textContent.includes('已暂存'),'queued-direct-progress');
+          if(progress.value!=='日志已经抓完，发现初始化耗时偏高。') throw Error('queued progress draft lost');
+          if(document.querySelector('.wt-quick-progress .wt-composer-footer').getBoundingClientRect().bottom>innerHeight) throw Error('footer clipped');
           return true;
           """, arguments: [:], in: nil, in: .page) { [weak self] result in
             guard let self, case .success(let value) = result, (value as? Bool) == true else {

@@ -79,7 +79,6 @@
     send, setIcon: shared.setCaptureIcon, resize, isWin: !!window.chrome?.webview,
     getLocation: () => document.querySelector('#location').textContent,
     openSettings: () => send({ action: 'settings', draft: controller.read() }),
-    openSmart: taskId => setMode('smart', taskId),
   });
   const smart = shared.mountDesktopSmartCapture({send, setIcon:shared.setCaptureIcon, isWin:!!window.chrome?.webview, container:content, onResize:resize,
     onClose:()=> { if(mode==='smart') applyMode(smartReturnMode); }});

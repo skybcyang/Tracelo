@@ -184,9 +184,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         guard let self else { exit(1) }
                         let workspace = try? QuickWorkspace(directory: self.configuration().destination())
                         let receipts = try? workspace?.receipts()
-                        let queued = receipts?.contains { ($0["status"] as? String) == "queued" && (($0["operation"] as? [String: Any])?["kind"] as? String) == "smart_progress" } == true
+                        let queued = receipts?.contains { ($0["status"] as? String) == "queued" && (($0["operation"] as? [String: Any])?["kind"] as? String) == "progress" } == true
                         self.preferences.removePersistentDomain(forName: "app.tracelo.capture.qa.\(ProcessInfo.processInfo.processIdentifier)")
-                        print(passed && queued ? "PASS native WebKit: real model, confirmed task on disk, durable offline smart progress, draft recovery" : "FAIL native smart capture")
+                        print(passed && queued ? "PASS native WebKit: real model creation, confirmed task on disk, durable direct progress and preserved draft" : "FAIL native smart capture")
                         print("Isolated artifacts: " + self.persistence.root.deletingLastPathComponent().path)
                         exit(passed && queued ? 0 : 1)
                     }

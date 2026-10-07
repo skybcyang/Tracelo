@@ -115,4 +115,9 @@ jobs:
           mkdir -p evidence
           find . -maxdepth 1 -type f \( -name '*smoke*' \) -exec mv {} evidence/ \;
           sha256sum *.zip main.js manifest.json styles.css > SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" *.zip main.js manifest.json styles.css SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --title "Tracelo $GITHUB_REF_NAME" --notes-file "../docs/releases/$GITHUB_REF_NAME.md"
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" *.zip main.js manifest.json styles.css SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "Tracelo $GITHUB_REF_NAME" --notes-file "../docs/releases/$GITHUB_REF_NAME.md"
+          else
+            gh release create "$GITHUB_REF_NAME" *.zip main.js manifest.json styles.css SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --title "Tracelo $GITHUB_REF_NAME" --notes-file "../docs/releases/$GITHUB_REF_NAME.md"
+          fi

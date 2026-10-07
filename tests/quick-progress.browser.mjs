@@ -20,6 +20,7 @@ try {
   await page.getByRole('button', { name: '记录进展', exact: true }).click();
   assert.equal(await page.locator('.wt-quick-target .wt-color-icon').count(), 1, 'quick target uses the same bundled color icons as the board');
   assert.equal(await page.getByRole('textbox', { name: '这次推进了什么？', exact: true }).isVisible(), true, 'open directly in the compact editor, as in the approved mockup');
+  assert.equal(await page.getByRole('button', { name: '一句话记录进展', exact: true }).count(), 0, 'quick progress records directly without a separate AI entry');
   assert.equal(await page.getByRole('button', { name: '切换任务', exact: true }).count(), 0, 'the record target is the sole switcher');
   const targetButton = page.getByRole('button', { name: '切换任务：快捷进展测试', exact: true });
   const draftInput = page.getByRole('textbox', { name: '这次推进了什么？', exact: true });

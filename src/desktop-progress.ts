@@ -27,7 +27,7 @@ function installCardDOM() {
 }
 type Receipt = { id: string; status: 'queued' | 'applied' | 'failed'; message: string; operation?: QuickOperation };
 type TaskSource = { markdown: string; images?: Record<string, string>; path?: string };
-interface Options { send(value: Record<string, unknown>): void; setIcon(element: HTMLElement, name: string): void; resize(): void; isWin?: boolean; getLocation?(): string; openSettings?(): void; openSmart?(taskId:string):void }
+interface Options { send(value: Record<string, unknown>): void; setIcon(element: HTMLElement, name: string): void; resize(): void; isWin?: boolean; getLocation?(): string; openSettings?(): void }
 export function mountQuickProgress(container: HTMLElement, options: Options) {
   installCardDOM();
   let tasks: WorkTask[] = [], groups: WorkGroup[] = [], images = new Map<string, Record<string, string>>();
@@ -235,10 +235,6 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       context.createEl('p', { text: latest?.text ?? '暂无进展' });
       // Share editing and persistence behavior, not the board card's navigation/layout.
       renderCardComposer(host, cardBody, task);
-      if (task.status === 'active' && options.openSmart) {
-        const smart = cardBody.createEl('button', { text: '一句话记录进展', attr: { type:'button' } });
-        smart.onclick = () => options.openSmart!(task!.id);
-      }
       const form = cardBody.querySelector<HTMLFormElement>('.wt-card-composer')!;
       form.id = 'quick-progress-form';
       form.querySelector('label > span')!.textContent = '本次进展';
