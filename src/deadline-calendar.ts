@@ -42,7 +42,9 @@ export function mountDeadlineCalendar(root: HTMLElement, tasks: () => WorkTask[]
     const byDay = new Map<string, WorkTask[]>();
     for (const task of values) if (task.dueDate) byDay.set(task.dueDate, [...byDay.get(task.dueDate) ?? [], task]);
     for (const label of ['一', '二', '三', '四', '五', '六', '日']) el('span', calendar, 'wt-calendar-weekday', label);
-    for (const day of monthDays(year!, number! - 1)) {
+    const days = monthDays(year!, number! - 1);
+    calendar.style.setProperty('--wt-calendar-weeks', String(days.length / 7));
+    for (const day of days) {
       const items = byDay.get(day) ?? [];
       const cell = button(calendar, '', () => { selected = day; render(); calendar.querySelector<HTMLButtonElement>(`[data-day="${day}"]`)?.focus(); }, `${day}，${items.length} 项截止任务`);
       cell.className = `wt-calendar-day${day.slice(0, 7) !== month ? ' is-outside' : ''}`;

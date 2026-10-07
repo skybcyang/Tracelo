@@ -166,7 +166,7 @@ export class ArchiveStore {
     return { task, path: name };
   }
 
-  private isCandidate(path: string): boolean {
+  isCandidate(path: string): boolean {
     if (!path.startsWith(`${this.taskDirectory}/`) || !isTaskFile(path)) return false;
     const parts = path.slice(this.taskDirectory.length + 1).split("/");
     return parts.length === 1 || (parts.length === 2 && parts[1] === `${parts[0]}.md`);
@@ -263,13 +263,52 @@ export class ArchiveStore {
 
   async loadGroups(): Promise<GroupArchive> {
     await this.initialize();
-    return parseGroupArchive(await this.adapter.read(join(this.taskDirectory, GROUPS_FILE)));
+    return this.readGroups();
+  }
+
+  private groupsSource: string | null = null;
+
+  async readGroups(): Promise<GroupArchive> {
+    const source = await this.adapter.read(join(this.taskDirectory, GROUPS_FILE));
+    const archive = parseGroupArchive(source);
+    this.groupsSource = source;
+    return archive;
+  }
+
+  async assertGroupsCurrent(): Promise<string> {
+    const path = join(this.taskDirectory, GROUPS_FILE);
+    if (!await this.adapter.exists(path)) throw Error('分组档案已移除，请恢复 _groups.md 后重试。');
+    const current = await this.adapter.read(path);
+    parseGroupArchive(current);
+    if (this.groupsSource !== null && current !== this.groupsSource) throw Error('分组档案已有变化，请等待刷新后重试。');
+    return current;
   }
 
   saveTask(task: WorkTask, now = new Date()): Promise<void> {
     const operation = this.queue.then(() => this.writeTask(task, now));
     this.queue = operation.catch(() => {});
     return operation;
+  }
+
+  /** Daily snapshots copy editable bytes; they never perform a formal save. */
+  async backupTask(task: WorkTask, now = new Date()): Promise<void> {
+    const source = await this.adapter.read(this.taskPath(task.id));
+    const current = parseTaskMarkdown(source);
+    if (current.id !== task.id) throw Error('备份任务身份不匹配，原文件已保留。');
+    assertTaskFolder(current, this.taskDirectory);
+    const daily = join(this.backupDirectory, 'daily', dayKey(now));
+    await this.ensureFolder(daily);
+    await this.adapter.write(join(daily, `${task.id}.md`), source);
+    await this.backupMaterials(current, daily);
+    await this.pruneDailyBackups();
+  }
+
+  async backupGroups(now = new Date()): Promise<void> {
+    const source = await this.assertGroupsCurrent();
+    const daily = join(this.backupDirectory, 'daily', dayKey(now));
+    await this.ensureFolder(daily);
+    await this.adapter.write(join(daily, GROUPS_FILE), source);
+    await this.pruneDailyBackups();
   }
 
   /** Publish the whole task directory only after every attachment has been verified. */
@@ -504,9 +543,16 @@ export class ArchiveStore {
 
   async saveGroups(archive: GroupArchive, now = new Date()): Promise<void> {
     await this.ensureFolder(this.taskDirectory);
+    const path = join(this.taskDirectory, GROUPS_FILE);
+    const expected = await this.assertGroupsCurrent();
     const source = serializeGroupArchive(archive);
-    this.beforeWrite(join(this.taskDirectory, GROUPS_FILE));
-    await this.adapter.write(join(this.taskDirectory, GROUPS_FILE), source);
+    this.beforeWrite(path);
+    if (this.writeIfUnchanged) await this.writeIfUnchanged(path, expected, source);
+    else {
+      if (await this.adapter.read(path) !== expected) throw Error('分组档案已有新的编辑，未覆盖。');
+      await this.adapter.write(path, source);
+    }
+    this.groupsSource = source;
     const daily = join(this.backupDirectory, "daily", dayKey(now));
     await this.ensureFolder(daily);
     await this.adapter.write(join(daily, GROUPS_FILE), source);
@@ -538,7 +584,9 @@ export class ArchiveStore {
       await this.adapter.write(join(directory, `${task.id}.md`), serializeTaskMarkdown(task));
       await this.backupMaterials(task, directory);
     }
-    await this.adapter.write(join(directory, GROUPS_FILE), serializeGroupArchive(groups));
+    const groupsPath = join(this.taskDirectory, GROUPS_FILE);
+    await this.adapter.write(join(directory, GROUPS_FILE), await this.adapter.exists(groupsPath)
+      ? await this.adapter.read(groupsPath) : serializeGroupArchive(groups));
     await this.adapter.write(join(directory, "state.json"), JSON.stringify(state, null, 2));
     await this.adapter.write(join(directory, AGENT_FILE), this.agentSource);
     return directory;

@@ -1678,6 +1678,7 @@ export default class WorkTimelinePlugin extends Plugin {
   state: PluginState = normalizePluginState(null);
   private store!: ArchiveStore;
   private readonly lockedTasks = new Set<string>();
+  private groupsUnavailable = false;
   private readonly internalWrites = new Set<string>();
   private draftTimer: number | null = null;
   private writeQueue: Promise<void> = Promise.resolve();
@@ -1761,8 +1762,11 @@ export default class WorkTimelinePlugin extends Plugin {
   }
 
   async askConversation(messages: ConversationMessage[], refs: string[]) {
-    const tasks = refs.map(id => { const task = this.tasks.find(t => t.id === id); if (!task) throw Error('引用任务已移除，请移除引用或新建对话。'); return task; });
-    const context = JSON.parse(JSON.stringify({ tasks, groups:this.groups, today:dayKey(new Date()), timezone:Intl.DateTimeFormat().resolvedOptions().timeZone }));
+    const currentRefs = messages.at(-1)?.refs ?? [];
+    if (currentRefs.some(id => !this.tasks.some(t => t.id === id))) throw Error('引用任务已移除，请移除当前引用后重试。');
+    const tasks = this.tasks.filter(t => refs.includes(t.id));
+    const unavailableTaskIds = refs.filter(id => !tasks.some(t => t.id === id));
+    const context = JSON.parse(JSON.stringify({ tasks, unavailableTaskIds, groups:this.groups, today:dayKey(new Date()), timezone:Intl.DateTimeFormat().resolvedOptions().timeZone }));
     const config = { ...this.state.smartCapture };
     const source = await requestModel(buildConversationRequest(messages, context, config), config, await this.modelKey(config), request => requestUrl({ ...request, method:'POST', throw:false }));
     return parseConversationReply(source, context, makeId());
@@ -1872,9 +1876,9 @@ export default class WorkTimelinePlugin extends Plugin {
       await this.store.backupUpgrade(this.tasks, this.groupArchive, this.state, this.manifest.version);
     }
     const today = dayKey(new Date());
-    if (this.state.lastDailyBackup !== today) {
-      for (const task of this.tasks) if (!this.lockedTasks.has(task.id)) await this.store.saveTask(task);
-      await this.store.saveGroups(this.groupArchive);
+    if (!this.groupsUnavailable && this.state.lastDailyBackup !== today) {
+      for (const task of this.tasks) if (!this.lockedTasks.has(task.id)) await this.store.backupTask(task);
+      await this.store.backupGroups();
       this.state.lastDailyBackup = today;
     }
     this.state.pluginVersion = this.manifest.version;
@@ -1937,15 +1941,17 @@ export default class WorkTimelinePlugin extends Plugin {
       this.lockedTasks.add(failure.taskId);
       new Notice(`${failure.path} 格式无效，原文件已保留。修正后会自动刷新：${failure.error.message}`);
     }
-    await this.store.migrateTaskNames(this.tasks.filter(task => !this.lockedTasks.has(task.id)));
     try {
       this.groupArchive = await this.store.loadGroups();
+      this.groupsUnavailable = false;
+      await this.store.migrateTaskNames(this.tasks.filter(task => !this.lockedTasks.has(task.id)));
       for (const task of this.tasks) {
         try { this.resolveEditedGroup(task); }
         catch (reason) { this.lockedTasks.add(task.id); new Notice(String(reason)); }
       }
     } catch (reason) {
-      new Notice(reason instanceof Error ? reason.message : "无法读取分组档案");
+      this.groupsUnavailable = true;
+      new Notice(`分组档案异常，已暂停写入并保留原文件与备份；修正 _groups.md 后自动恢复：${reason instanceof Error ? reason.message : "无法读取分组档案"}`);
     }
   }
 
@@ -1961,6 +1967,7 @@ export default class WorkTimelinePlugin extends Plugin {
   async addTask(input: NewTaskValues, expectedDirectory?: string): Promise<string> {
     return this.enqueueWrite(async () => {
       if (expectedDirectory && this.state.taskDirectory !== expectedDirectory) throw Error('任务目录已变化，请重新整理。');
+      if (input.groupId && !this.groups.some(g => g.id === input.groupId)) throw Error('分组已变化，请修改后重试。');
       if (input.creationId && this.tasks.some(task => task.id === input.creationId)) return input.creationId;
       const prepared = prepareImages(input.notes ?? '', input.images ?? []);
       const task = buildNewTask({ ...input, notes: prepared.notes }, new Date(), makeId);
@@ -2417,9 +2424,15 @@ export default class WorkTimelinePlugin extends Plugin {
     });
   }
 
-  private enqueueWrite<T>(run: () => Promise<T>): Promise<T> {
+  private enqueueWrite<T>(run: () => Promise<T>, externalRefresh = false): Promise<T> {
     if (this.storageBusy) return Promise.reject(new Error("正在导入或导出，请等待完成"));
-    const operation = this.writeQueue.then(run);
+    const operation = this.writeQueue.then(async () => {
+      if (!externalRefresh) {
+        if (this.groupsUnavailable) throw Error('分组档案异常，已暂停写入；请修正 _groups.md 后重试。');
+        await this.store.assertGroupsCurrent();
+      }
+      return run();
+    });
     this.writeQueue = operation.then(() => undefined, () => undefined);
     return operation;
   }
@@ -2444,11 +2457,21 @@ export default class WorkTimelinePlugin extends Plugin {
     const timers = new Map<string, number>();
     const schedule = (file: TFile, oldPath = file.path) => {
       const id = this.taskIdFromPath(oldPath), path = file.path, key = id ?? path;
-      if (!path.startsWith(`${this.state.taskDirectory}/`) || !path.endsWith('.md')) return;
+      const groupsPath = `${this.state.taskDirectory}/_groups.md`;
+      if (!id && path !== groupsPath && oldPath !== groupsPath && !this.store.isCandidate(path)) return;
       window.clearTimeout(timers.get(key));
       timers.set(key, window.setTimeout(() => {
         timers.delete(key);
-        void this.enqueueWrite(() => this.refreshExternalTask(id, path)).catch(reason => new Notice(String(reason)));
+        void this.enqueueWrite(async () => {
+          if (path === groupsPath || oldPath === groupsPath) {
+            try {
+              this.groupArchive = await this.store.readGroups();
+              this.groupsUnavailable = false;
+              for (const task of [...this.tasks]) await this.refreshExternalTask(task.id, this.store.taskPath(task.id));
+              this.renderViews(undefined, false, true);
+            } catch (reason) { this.groupsUnavailable = true; new Notice(`分组档案异常，已暂停写入并保留原文件：${String(reason)}`); }
+          } else await this.refreshExternalTask(id, path);
+        }, true).catch(reason => new Notice(String(reason)));
       }, 250));
     };
     this.register(() => timers.forEach(timer => window.clearTimeout(timer)));
@@ -2492,7 +2515,7 @@ export default class WorkTimelinePlugin extends Plugin {
   private async refreshExternalTask(taskId: string | null, path: string): Promise<void> {
     taskId ??= this.taskIdFromPath(path);
     try {
-      if (!await this.app.vault.adapter.exists(path)) {
+      if (!this.store.isCandidate(path) || !await this.app.vault.adapter.exists(path)) {
         if (!taskId || await this.app.vault.adapter.exists(this.store.taskPath(taskId))) return;
         this.tasks = this.tasks.filter(task => task.id !== taskId);
         this.store.forgetTask(taskId); this.lockedTasks.delete(taskId);

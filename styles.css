@@ -1845,8 +1845,8 @@
   }
 }
 /* Deadline calendar stays above the board; browsing dates never rerenders it. */
-.wt-calendar-modal { width: min(1040px, calc(100vw - 24px)) !important; max-height: 90vh; }
-.wt-calendar-modal .modal-content { overflow: auto; }
+.wt-calendar-modal { width: min(1040px, calc(100vw - 24px)) !important; max-height: 90dvh; display:flex; flex-direction:column; }
+.wt-calendar-modal .modal-content { min-height:0; overflow:auto; overscroll-behavior:contain; }
 .wt-calendar-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
 .wt-calendar-month { margin:0 auto 0 0; font-size:18px; }
 .wt-calendar-toolbar button { min-height:32px; min-width:32px; border:1px solid var(--wt-line); border-radius:var(--wt-small-radius); background:var(--wt-raised); color:var(--wt-text); box-shadow:none; }
@@ -1854,7 +1854,7 @@
 .wt-calendar-layout { display:grid; grid-template-columns:minmax(0, 2fr) minmax(0, 1fr); gap:20px; }
 .wt-calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; align-content:start; }
 .wt-calendar-weekday { text-align:center; padding:6px; color:var(--wt-muted); }
-.wt-calendar-grid .wt-calendar-day { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; height:100px; min-width:0; padding:6px; border:1px solid var(--wt-line); border-radius:6px; box-shadow:none; background:var(--wt-card); color:var(--wt-text); text-align:left; gap:4px; }
+.wt-calendar-grid .wt-calendar-day { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; height:clamp(76px, calc((90dvh - 170px) / var(--wt-calendar-weeks, 6) - 4px), 100px); min-width:0; padding:6px; border:1px solid var(--wt-line); border-radius:6px; box-shadow:none; background:var(--wt-card); color:var(--wt-text); text-align:left; gap:4px; }
 .wt-calendar-day[aria-pressed=true] { background:var(--wt-soft); border-color:var(--wt-accent); }
 .wt-calendar-number { align-self:flex-start; padding:2px 5px; border-radius:4px; }
 .wt-calendar-day[aria-current=date] .wt-calendar-number { background:var(--wt-accent); color:white; }

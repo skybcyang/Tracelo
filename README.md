@@ -20,7 +20,7 @@ Tracelo 将任务看板、工作对话与进展历史放在一起：用分组和
 
 桌面快捷工具的安装与配置见[使用说明](desktop/README.md)。升级时保留 `data.json` 和任务目录，并按对应版本的发布说明操作。
 
-当前版本为 0.9.5，加入工作对话、一句话录入、可编辑任务 Markdown，并精简界面文案、保留卡片紧凑布局。更新与迁移说明见[发布说明](docs/releases/0.9.5.md)。
+当前版本为 0.9.7，修复分组档案保护、文件移动同步、失效历史引用，并改善短窗口日历。更新与迁移说明见[发布说明](docs/releases/0.9.7.md)。
 
 ## 项目边界
 
@@ -28,10 +28,10 @@ Tracelo 将任务看板、工作对话与进展历史放在一起：用分组和
 
 ## 了解更多
 
-桌面 Obsidian 与独立快捷工具支持“一句话创建任务／记录进展”，可直接输入 API Key、测试连接、编辑确认与恢复草稿；独立工具进展收到插件回执后才确认写入。配置及隐私边界见[使用说明](docs/smart-capture.md)。不配置模型也能使用原有离线任务功能。
+桌面 Obsidian 支持“一句话创建任务／记录进展”；独立快捷工具提供一句话创建，进展直接输入。两端均可直接输入 API Key、测试连接、编辑确认与恢复草稿；独立工具进展收到插件回执后才确认写入。配置及隐私边界见[使用说明](docs/smart-capture.md)。不配置模型也能使用原有离线任务功能。
 
 支持[直接编辑任务 Markdown](docs/editable-tasks.md)：属性使用 YAML，详情、待办和进展正文各保存一份；保存后自动刷新看板，双击卡片正文或通过右键菜单打开任务文件。旧格式先备份再迁移，请配套升级桌面工具。
 
 右侧工作对话支持多轮讨论和 @卡片引用；修改建议由你确认后保存，活动记录和单任务历史仍有独立入口。详见[工作对话说明](docs/design/work-conversation.md)。
 
-[版本更新](docs/releases/0.9.5.md) · [开发与文档](docs/development.md) · [问题反馈](https://github.com/skybcyang/Tracelo/issues)
+[版本更新](docs/releases/0.9.7.md) · [开发与文档](docs/development.md) · [问题反馈](https://github.com/skybcyang/Tracelo/issues)

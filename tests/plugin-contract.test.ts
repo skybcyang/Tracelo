@@ -12,7 +12,7 @@ describe("final plugin surface", () => {
   it("advances the plugin version so existing vaults receive an upgrade snapshot", () => {
     const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(manifest.version).toBe("0.9.5");
+    expect(manifest.version).toBe("0.9.7");
     expect(pkg.version).toBe(manifest.version);
     expect(JSON.parse(readFileSync('package-lock.json', 'utf8')).version).toBe(manifest.version);
     expect(JSON.parse(readFileSync('versions.json', 'utf8'))[manifest.version]).toBe(manifest.minAppVersion);

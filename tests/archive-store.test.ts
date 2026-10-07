@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ArchiveStore, type ArchiveAdapter } from "../src/archive-store";
-import { parseTaskMarkdown, serializeLegacyTaskMarkdown } from "../src/archive";
+import { parseTaskMarkdown, serializeLegacyTaskMarkdown, serializeGroupArchive } from "../src/archive";
 import { createTask } from "../src/domain";
 import { AGENT_RULE } from "../src/agent-rule";
 
@@ -69,6 +69,44 @@ const makeTask = () => createTask(
 );
 
 describe("archive store", () => {
+  it('preserves a damaged group archive and its daily backup when saving groups', async () => {
+    const adapter = new MemoryAdapter(), store = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
+    await store.initialize();
+    await store.saveGroups({ version: 1, groups: [], events: [] });
+    const backups = [...adapter.files].filter(([path]) => path.endsWith('/_groups.md') && path.includes('/daily/'));
+    await adapter.write('任务/_groups.md', 'damaged group archive');
+    await expect(store.saveGroups({ version: 1, groups: [], events: [] })).rejects.toThrow();
+    expect(await adapter.read('任务/_groups.md')).toBe('damaged group archive');
+    for (const [path, source] of backups) expect(await adapter.read(path)).toBe(source);
+  });
+  it('backs up the original damaged group source during an upgrade', async () => {
+    const adapter = new MemoryAdapter(), store = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
+    await store.initialize();
+    await adapter.write('任务/_groups.md', 'damaged group archive');
+    const directory = await store.backupUpgrade([], { version: 1, groups: [], events: [] }, {}, '0.9.7');
+    expect(await adapter.read(directory + '/_groups.md')).toBe('damaged group archive');
+  });
+  it('takes a byte-exact daily snapshot without rewriting editable task source', async () => {
+    const adapter = new MemoryAdapter(), store = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
+    await store.saveTask(makeTask());
+    const path = store.taskPath('task-1');
+    const source = (await adapter.read(path)) + '\n';
+    await adapter.write(path, source);
+    const current = (await store.loadTasksSafe()).tasks[0]!;
+    await store.backupTask(current, new Date('2026-10-08T12:00:00+08:00'));
+    expect(await adapter.read(path)).toBe(source);
+    expect(await adapter.read('.plugin/backups/daily/2026-10-08/task-1.md')).toBe(source);
+  });
+  it('rejects valid external group changes until reloaded, preserving source and backup', async () => {
+    const adapter = new MemoryAdapter(), store = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
+    await store.initialize(); const empty = await store.loadGroups(); await store.saveGroups(empty);
+    const external = serializeGroupArchive({ version: 1, groups: [{ id: 'external', name: '外部编辑' }], events: [] });
+    await adapter.write('任务/_groups.md', external);
+    await expect(store.saveGroups(empty)).rejects.toThrow(/变化/);
+    expect(await adapter.read('任务/_groups.md')).toBe(external);
+    await store.readGroups(); await store.saveGroups(await store.readGroups());
+    expect(await adapter.read('任务/_groups.md')).toBe(external);
+  });
   it('migrates v1 only after a byte-exact non-pruned backup, retaining history and identity', async () => {
     const adapter = new MemoryAdapter(), store = new ArchiveStore(adapter, '任务', '.plugin/backups', '规则');
     const task = makeTask(), source = serializeLegacyTaskMarkdown(task);

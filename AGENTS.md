@@ -146,3 +146,42 @@
 | 手机／人生工作台与插件混在本仓 | Herein 独立；本仓聚焦 Tracelo |
 
 主要依据：2026-09-15～18 的产品定义；09-26～30 的卡片／布局、原型对照、主题、快捷工具、验收和发布反馈；10-04～06 的 AI 录入、Herein 拆分和可编辑文件决定。完整细节查阅 [当前需求](docs/requirements.md)、[展示模式](docs/design/presentation-mode.md)、[界面一致性验收](docs/validation/2026-09-29-interface-consistency.md)、[可编辑协议](docs/editable-tasks.md)、[一句话录入](docs/smart-capture.md) 和 [发布复盘](docs/validation/2026-09-30-release-091.md)。旧需求文档的“首版／历史”段落不能覆盖这些较新的决定。
+
+
+<!-- HEREIN:BEGIN project-state/v1 -->
+## 此间观察回传
+
+此间是外部观察者。项目目标、任务、推进与正式决定由本工程及其工具管理；此间读取结果，不接管执行。下面约定只负责报告已有事实，不授权额外开发、测试、提交、安装或发布。
+
+1. **开工先读**根 `PROJECT_STATE.md` 和其指向的相关原始文件。状态文件是恢复上下文的索引；遇到矛盾以核实后的项目来源与用户要求为准。
+2. **事实变化后更新** `PROJECT_STATE.md`：阶段工作结束、阻碍变化、用户确认决定、验证或交付范围变化时更新。普通讨论与无变化的检查不追加进展、不刷新时间。完整计划与历史继续写入原有项目文件，不建立第二份完整清单。
+3. **保留身份与来源**：`project_id` 不变；修改同一事项保留条目 `id`。行动只是原有计划的 ≤5 项近期投影，必须有真实来源；未确认的建议只作为问题，不写成任务或正式决定。进展只写已做事项。
+4. **准确报告验证**：源码、构建、实机、安装、发布分别说明。`passed/failed` 必须有实际执行时间、范围及工程内证据；没有执行写 `not_run`，跳过写 `skipped` 并说明原因。历史记录不冒充本轮复验，不把“未发布”等同于失败或项目完成。
+5. **安全完成写入**：先重读最新文件并保留其他工具的修改，写同目录临时文件、校验后原子替换；不覆盖无关规则，不写入密钥、令牌和敏感配置。此间只读这份结果。
+
+固定格式：YAML 属性＋Markdown 正文。必需属性：
+
+```yaml
+herein: project-state/v1
+project_id: 保留现有文件中的项目身份
+title: 项目名称
+updated_at: 带时区的 ISO 时间
+status: 未确认  # 进行中 / 暂停 / 已完成 / 未确认
+summary: 一句话概况，不超过400字
+goal: 项目自己的目标，尚未确定可为空字符串
+done_when: 已确认的完成标准，尚未确定用空字符串
+sources: []  # 工程内相对文件路径，可含#章节
+actions: []  # ≤5，条目为 id/text/status/source；status: todo/doing/blocked/done
+blockers: []  # ≤5，id/kind/text/impact/evidence；kind: blocker/risk
+questions: []  # ≤5，id/text/source
+checks: []  # ≤10，id/title/result/at/scope/evidence；可附command和note
+decisions: []  # ≤10，id/text/source/basis
+feedbacks: []  # ≤20，id/time/title/text/evidence
+```
+
+时间使用如 `2026-10-07T18:00:00+08:00` 的格式，不复制示例时间当作真实执行时间。所有 `id` 只能用字母、数字、`_`、`-`，同一文件中不重复；`source` 是单个来源路径，`evidence` 是来源路径列表。空值用空字符串、空列表或 `not_run` 表达，不能臆造“无阻碍／已通过”。
+
+`checks.result` 为 `passed/failed/skipped/not_run`；前两种要求真实 `at`、明确 `scope`、非空 `evidence`，后两种填写 `note`，未运行的 `at` 为 `null`。风险和进展都要有非空 `evidence`，正式决定的 `basis` 要指明用户确认或已有决定依据。列表只保留近期重点，完整历史留在原有文件中。
+
+正文使用 `## 交接说明`，补充接手时最容易误解的事情及原始资料入口，不逐项重复 YAML。此规则只维护项目状态投影，不改变本项目的需求和授权范围。
+<!-- HEREIN:END project-state/v1 -->

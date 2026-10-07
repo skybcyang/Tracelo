@@ -87,7 +87,7 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
           const body = document.querySelector('.wt-new-task-body');
           check(input && details && group && quadrant && button && footer, 'shared form controls are missing');
           const deadline = performance.now() + 2500;
-          while ((button.getBoundingClientRect().bottom > innerHeight || body.scrollHeight > body.clientHeight + 1 || document.activeElement !== input || getComputedStyle(button).backgroundColor !== 'rgb(53, 109, 84)') && performance.now() < deadline) {
+          while ((input.value !== '整理本周工作进展' || details.value !== '补充目标、要求或参考资料，支持 Markdown。' || button.getBoundingClientRect().bottom > innerHeight || body.scrollHeight > body.clientHeight + 1 || document.activeElement !== input || getComputedStyle(button).backgroundColor !== 'rgb(53, 109, 84)') && performance.now() < deadline) {
             await new Promise(resolve => requestAnimationFrame(resolve));
           }
           check(getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(252, 253, 252)', 'light modal does not use plugin styles');
