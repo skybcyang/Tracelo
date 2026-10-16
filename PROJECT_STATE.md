@@ -2,9 +2,9 @@
 herein: project-state/v1
 project_id: workassistant-tracelo-15d7d4ce
 title: Tracelo · WorkAssistant
-updated_at: 2026-10-16T05:04:17.732579+00:00
+updated_at: 2026-10-16T13:55:01.007837+08:00
 status: 进行中
-summary: 根据用户追加要求，将macOS／Windows快捷工具同步新版玻璃UI并纳入1.0.0；窗口材质、圆角标签、图文表单已接入，正在核对原生自动高度与发布候选。尚未打标签或发布。
+summary: 1.0.0已正式发布，插件玻璃工作台与新UI快捷工具完成主线整合、三平台候选和正式检查、七附件下载核验及本机正式包安装。Mac锁定使最终宿主重载／实体快捷键复核未执行，人工矩阵与七天观察继续保留。
 goal: 维护 Tracelo Obsidian 插件与 macOS／Windows 独立桌面快捷工具。
 done_when: 本轮1.0.0按确认设计完成实现、适当验证与本地安装；恢复发布后依发布手册冻结候选、完成三平台预检、合并上传并核验Release及七个附件。未测人工设备矩阵与七天使用观察另行保留。
 sources:
@@ -31,11 +31,11 @@ sources:
   - docs/validation/2026-10-08-release-097.md
 actions:
   - id: modular-stage-design-20261016
-    text: 完成快捷工具新版UI同步与原生验证，冻结1.0.0候选，继续三平台预检、合并上传和Release核验
-    status: doing
+    text: 1.0.0工作台与快捷工具新UI已合并、推送、发布，七附件及正式包安装核对完成
+    status: done
     source: docs/validation/2026-10-16-release-100.md
   - id: glass-workbench-production
-    text: 以实体按键确认当前安装版系统全局快捷键；下方卡片已取消循环并实机确认，快捷窗口本轮CUA读取超时
+    text: 解锁Mac后重载实际Obsidian并用实体按键复核新版快捷工具；当前锁屏阻碍UI操作，原生冒烟及安装哈希另有证据
     status: todo
     source: task.md
   - id: continuation1011-observation
@@ -43,6 +43,12 @@ actions:
     status: doing
     source: docs/validation/2026-10-11-usage-observation.md
 blockers:
+  - id: locked-mac-20261016
+    kind: blocker
+    text: Mac锁定，发布后无法操作实际Obsidian或实体快捷键入口。
+    impact: 正式包已安装运行并通过隔离原生检查；宿主重载及实体快捷键须解锁后复核。
+    evidence:
+      - docs/validation/2026-10-16-release-100.md
   - id: risk-installed-desktop-v2
     kind: risk
     text: 10月11日及15日曾有真实宿主与快捷键证据；本轮不继承为复验。真实中文候选、听写、多屏／全屏、系统快捷键冲突与Windows人工GUI仍未完整验收。
@@ -62,6 +68,24 @@ questions:
     text: 待办负责人具体语法、计划日与提醒时间、通知闭环及智能建议范围待确认；本轮仅设计。
     source: docs/design/action-reminders.md
 checks:
+  - id: check-release100-published
+    title: 1.0.0正式发布与安装
+    result: passed
+    at: '2026-10-16T13:55:01.007837+08:00'
+    scope: 冻结SHA三平台候选及正式四任务成功；七附件下载、上传摘要／校验和、版本及UI资源一致；正式安装哈希、数据与草稿保留，macOS原生WebKit冒烟通过。实际宿主与实体快捷键另列未运行。
+    evidence:
+      - docs/validation/2026-10-16-release-100.md
+      - docs/validation/assets/release-100/published-verification.json
+      - .local/release-100/official-install-verify.log
+      - .local/release-100/official-native-smoke.log
+  - id: check-release100-host-locked
+    title: 正式包安装后的宿主与实体快捷键
+    result: not_run
+    at: null
+    scope: 实际Obsidian重载、系统全局快捷键唤起及焦点返回
+    evidence:
+      - docs/validation/2026-10-16-release-100.md
+    note: 发布安装后CUA确认Mac锁定，自动解锁失败；未用隔离原生窗口或安装哈希替代。
   - id: check-release100-local
     title: 1.0.0本地整套与隔离日常流程
     result: passed
@@ -150,26 +174,11 @@ checks:
       - .local/workbench-20261016/host-gutter-red.log
       - .local/workbench-20261016/cards-final.log
       - .local/workbench-20261016/conversation-final.log
-  - id: check-glass-visual-20261016
-    title: 当前生产组件画面
-    result: passed
-    at: 2026-10-16T04:32:02.649957+08:00
-    scope: 隔离内存样本；1728×1080五种状态、800/600/390窄屏和深色2倍像素；无控制台错误、破图或横向溢出。
-    evidence:
-      - docs/validation/2026-10-16-glass-workbench.md
-      - test-results/workbench/production-shots/report.json
-      - test-results/workbench/narrow/report.json
-      - test-results/workbench/zoom-dark/report.json
-  - id: check-current-desktop-installation
-    title: 最新工作台及Emoji精简构建安装一致性
-    result: passed
-    at: 2026-10-16T02:07:30.420Z
-    scope: 最新本项目插件三件套与macOS app哈希一致；应用已重启；正式任务／附件／配置／偏好及草稿均保留。真实宿主与快捷窗口检查另列。
-    evidence:
-      - docs/validation/2026-10-16-glass-workbench.md
-      - .local/workbench-20261016/install-after.json
-      - .local/workbench-20261016/install-unlocked-verify.log
 decisions:
+  - id: decision-release100-desktop
+    text: 快捷工具同步最新玻璃UI，与插件一同发布1.0.0；正式版本已按此执行。
+    source: docs/releases/1.0.0.md
+    basis: 用户明确要求继续合并、文档、完整流程验证、上传及发布1.0.0，随后追加快捷工具按新UI同步并发布到1.0.0。
   - id: decision-stage-background-20261016
     text: 支持背景切换与用户自定义图片；已在生产工作台接入并通过本地检查，作为1.0.0发布范围。
     source: docs/design/task-stage.md
@@ -198,10 +207,6 @@ decisions:
     text: 本工程保留 Tracelo 插件和桌面快捷工具；此间在独立 Herein 工程维护。
     source: README.md#项目边界
     basis: 根 README 已记录项目拆分与维护边界。
-  - id: decision-release097
-    text: 修复审查 1–5，整合与一致性检查后上传远端并发布 0.9.7。
-    source: docs/task-history.md
-    basis: 2026-10-08 本轮用户明确授权。
   - id: decision-continuation1011
     text: 仅推进Tracelo四项：日常验证、七天观察、长历史检索来源定位、需求统一，按既有授权本地安装；本轮不包含远端发布。
     source: task.md#2026-10-11-后续观察
@@ -211,6 +216,13 @@ decisions:
     source: docs/validation/2026-10-15-http-model.md
     basis: 2026-10-15 用户明确要求某些自建服务器使用http协议，也要支持。
 feedbacks:
+  - id: feedback-release100-delivered
+    time: '2026-10-16T13:55:01.007837+08:00'
+    title: 1.0.0工作台与快捷工具正式发布
+    text: 玻璃材质、模块布局、背景与快捷窗口UI同步完成；三平台候选及正式发布通过，七附件下载核验、主线推送及本地正式包安装完成。Mac锁定使宿主重载和实体快捷键未复验。
+    evidence:
+      - docs/validation/2026-10-16-release-100.md
+      - docs/validation/assets/release-100/published-verification.json
   - id: feedback-release100-material
     time: 2026-10-16T04:27:35.471Z
     title: 恢复Mockup玻璃透明材质并暂停发布
@@ -330,10 +342,8 @@ feedbacks:
 
 ## 交接说明
 
-当前集成实现位于 codex/release-1.0.0 独立工作树；原主目录已有未提交改动全部保留，尚未合并。玻璃材质已修正；用户随后明确要求继续先前合并、上传和发布，当前执行最终候选预检，尚未公开发布1.0.0。
+1.0.0已发布，主线整合到冻结提交后仅追加交付文档；标签保持 `1db159ae88d84f82f555c2c60b837b156649cea8`。三平台候选及标签工作流、七附件和本地正式包核验见[本轮验收](docs/validation/2026-10-16-release-100.md)。快捷工具包含新的折光背景、磨砂面板及圆角控件，插件保留按任务布局与自定义背景。
 
-最新实现／验证／安装边界见 [1.0.0集成记录](docs/validation/2026-10-16-release-100.md)。左侧模块悬停预览、拖入加入，布局按任务保存；背景偏好在插件配置，自定义图片没有写入正式任务。当前安装目标为原项目vault的work-timeline插件及本机Tracelo Capture.app，已核对正式文件、配置与草稿保留。
+安装目标为本项目vault的work-timeline插件和本机Tracelo Capture.app。配置、任务／附件、偏好与草稿保留。Mac仍锁定，最终实际宿主重载和实体快捷键复核未执行；Windows自动窗口通过不代表完整人工矩阵。人工边界继续见task.md。
 
-完整本地检查与隔离真实宿主流程早于材质修正，最终材质另有专项及原生包冒烟。当前快捷窗口CUA读取超时，实体全局快捷键与Windows人工GUI未复验；中文候选、听写和全设备矩阵仍按task.md保留。恢复发布后按docs/releasing.md完成候选三平台预检和七个附件核验，不移动公开标签。
-
-负责人及行动提醒仍只是设计提案；七天使用观察见docs/validation/2026-10-11-usage-observation.md。harmony/为无关已有未跟踪内容，不纳入本轮。安装备份含私人配置，保留在.local，不上传。
+原工作区修改保留在本地安全引用 `refs/safety/pre-1.0.0-20261016`，原始设计图还在原位；无关harmony未纳入发布。私人配置备份保留在本地，不上传。负责人／行动提醒仍是设计提案，七天观察继续。
