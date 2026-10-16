@@ -52,6 +52,11 @@ try {
       for (const appearance of ['light', 'dark']) {
         await page.evaluate(uiSettings => window.capture.update({uiSettings}), {theme, appearance});
         assert.equal(await page.locator('body').getAttribute('data-tracelo-theme'), theme === 'unknown' ? 'monochrome' : theme);
+        if (theme === 'monochrome') {
+          const expected = appearance === 'dark' ? 'rgb(54, 67, 80)' : 'rgb(249, 251, 253)';
+          await page.waitForFunction(expected => getComputedStyle(document.querySelector('.capture-modal')).backgroundColor === expected, expected);
+          assert.equal(await page.locator('.capture-modal').evaluate(el => getComputedStyle(el).backgroundColor), expected, 'native smoke and shared silver palette agree');
+        }
         assert.equal(await page.locator('.capture-brand-icon').innerHTML(), brand, 'brand stays neutral across themes');
       }
     }
