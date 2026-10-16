@@ -23,8 +23,10 @@
   function resize() {
     if (resizeScheduled) return;
     resizeScheduled = true;
-    requestAnimationFrame(() => {
-      resizeScheduled = false;
+    let delivered = false, timer;
+    const measure = () => {
+      if (delivered) return;
+      delivered = true; clearTimeout(timer); resizeScheduled = false;
       const modal = document.querySelector('.capture-modal');
       const smartSurface = [...document.querySelectorAll('dialog.wt-smart-modal[open],dialog.wt-smart-settings[open]')].at(-1);
       if (smartSurface) {
@@ -55,7 +57,10 @@
         + quick.querySelector('.wt-quick-toolbar').offsetHeight + quick.querySelector('.wt-quick-status').offsetHeight : 0;
       const contentHeight = mode === 'progress' ? quickHeight + 16 : outerHeight(controller.body, true) + outerHeight(controller.footer);
       send({ action: 'resize', height: Math.ceil(outerHeight(header) + outerHeight(tabs) + outerHeight(methods) + contentHeight + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + 2) });
-    });
+    };
+    // Hidden native WebKit windows may suspend animation frames. Keep measurement
+    // bounded so a background state update can still prepare the next opening.
+    timer = setTimeout(measure, 100); requestAnimationFrame(measure);
   }
   const controller = shared.mountNewTaskForm(document.querySelector('.modal-content'), {
     groups: [], isWin: !!window.chrome?.webview, setIcon: shared.setCaptureIcon,

@@ -143,4 +143,15 @@ try {
     console.log(`${platform}: complete shared form, archive fields, IME, retry, drafts, groups, themes and footer passed.`);
     await page.close();
   }
+  const hidden = await browser.newPage({ viewport: { width: 554, height: 360 } });
+  await hidden.addInitScript(() => {
+    window.messages = [];
+    window.webkit = { messageHandlers: { capture: { postMessage: value => window.messages.push(value) } } };
+    window.requestAnimationFrame = () => 0; // Native WebKit can suspend frames while hidden.
+  });
+  await hidden.goto('about:blank'); await hidden.setContent(html);
+  await hidden.evaluate(() => window.capture.update({ configured:true, groupsSource:'', draft:{title:'后台恢复窗口',notes:'恢复后仍完整显示表单'}, focus:true }));
+  await hidden.waitForFunction(() => window.messages.some(m => m.action === 'resize' && m.height > 360), null, { timeout: 2000, polling: 50 });
+  console.log('PASS hidden native surface: suspended frames still measure the next window opening');
+  await hidden.close();
 } finally { await browser.close(); }

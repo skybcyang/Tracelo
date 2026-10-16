@@ -73,10 +73,16 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
     }
 
     func smokeTest(screenshots: URL?, completion: @escaping (Bool) -> Void) {
+        let availableHeight = (view.window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 900
+        let maximumHeight = min(780, max(1, availableHeight - 32))
+        print("macOS smoke viewport cap: \(maximumHeight), available: \(availableHeight)")
         // This legacy palette regression intentionally verifies the evergreen tokens.
         update(["uiSettings": ["theme": "evergreen", "appearance": "system"]])
         update(["draft": ["title": "整理本周工作进展", "notes": "补充目标、要求或参考资料，支持 Markdown。", "groupId": "", "quadrant": "important_urgent", "todos": [], "dueDate": "", "initialProgress": "", "expanded": ["todos": false, "due": false, "progress": false]], "groupsSource": "", "configured": true, "saving": false, "error": "", "location": "示例仓库", "dark": false, "focus": true])
         view.callAsyncJavaScript("""
+          // Static material/layout smoke must also run while the host screen is locked.
+          // WebKit can suspend CSS animation timelines in a hidden native window.
+          const still = document.createElement('style'); still.textContent='*,*::before,*::after{transition:none!important;animation:none!important}'; document.head.append(still);
           const check = (ok, message) => { if (!ok) throw new Error(message); };
           const input = document.querySelector('input#task-title.wt-modal-title');
           const details = document.querySelector('textarea#task-details');
@@ -88,7 +94,7 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
           check(input && details && group && quadrant && button && footer, 'shared form controls are missing');
           const deadline = performance.now() + 2500;
           while ((input.value !== '整理本周工作进展' || details.value !== '补充目标、要求或参考资料，支持 Markdown。' || button.getBoundingClientRect().bottom > innerHeight || body.scrollHeight > body.clientHeight + 1 || document.activeElement !== input || getComputedStyle(button).backgroundColor !== 'rgb(53, 109, 84)') && performance.now() < deadline) {
-            await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => setTimeout(resolve, 16));
           }
           check(getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(252, 253, 252)', 'light modal does not use plugin styles');
           check(document.querySelector('.capture-wallpaper') && getComputedStyle(body).backdropFilter.includes('blur'), 'workbench glass is missing from native surface');
@@ -105,22 +111,23 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
           radios[0].closest('label').click();
           check(window.capture.getDraft().title === input.value && window.capture.getDraft().notes === details.value, 'changing quadrant altered independent title or details');
           check(group.options.length >= 1 && !group.disabled, 'task group control is unavailable');
-          check(body.scrollHeight <= body.clientHeight + 1, 'default form is clipped after native autosize: '+body.scrollHeight+'/'+body.clientHeight);
+          check(body.scrollHeight <= body.clientHeight + 1 || innerHeight >= maximumHeight - 1, 'default form is clipped before reaching native screen cap: '+JSON.stringify({scroll:body.scrollHeight,client:body.clientHeight,viewport:innerHeight,maximumHeight}));
+          if (body.scrollHeight > body.clientHeight + 1) { body.scrollTop=body.scrollHeight; check(body.scrollTop > 0 && getComputedStyle(body).overflowY === 'auto', 'screen-constrained form must remain scrollable'); body.scrollTop=0; }
           check(group.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1 && quadrant.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1, 'group and quadrant selectors are clipped before resize completes: ' + JSON.stringify({group:group.getBoundingClientRect().bottom,quadrant:quadrant.getBoundingClientRect().bottom,body:body.getBoundingClientRect().bottom,bodyScrollHeight:body.scrollHeight,bodyHeight:body.clientHeight,window:innerHeight}));
           check(footer.getBoundingClientRect().bottom <= innerHeight + 1 && button.getBoundingClientRect().bottom <= innerHeight + 1 && !button.disabled, 'form footer is clipped or disabled');
           return true;
-          """, arguments: [:], in: nil, in: .page) { [weak self] result in
+          """, arguments: ["maximumHeight": maximumHeight], in: nil, in: .page) { [weak self] result in
             guard let self, case .success(let value) = result, (value as? Bool) == true else { fputs("Shared form light smoke failed: \(result)\n", stderr); completion(false); return }
             self.snapshot(screenshots?.appendingPathComponent("shared-form-light.png")) {
                 self.update(["dark": true])
                 self.view.callAsyncJavaScript("""
                   const deadline = performance.now() + 2000;
                   while ((getComputedStyle(document.querySelector('.wt-modal')).backgroundColor !== 'rgb(32, 45, 37)') && performance.now() < deadline) {
-                    await new Promise(resolve => requestAnimationFrame(resolve));
+                    await new Promise(resolve => setTimeout(resolve, 16));
                   }
                   const pixel = () => { const c=document.createElement('canvas').getContext('2d'); c.fillStyle=getComputedStyle(document.querySelector('#task-details')).backgroundColor; c.fillRect(0,0,1,1); return c.getImageData(0,0,1,1).data; };
                   const settled = () => { const p=pixel(); return Math.abs(p[0]-41)<=1 && Math.abs(p[1]-57)<=1 && Math.abs(p[2]-46)<=1 && Math.abs(p[3]-184)<=1; };
-                  while (!settled() && performance.now() < deadline) await new Promise(resolve => requestAnimationFrame(resolve));
+                  while (!settled() && performance.now() < deadline) await new Promise(resolve => setTimeout(resolve, 16));
                   const style = { modal:getComputedStyle(document.querySelector('.wt-modal')).backgroundColor, details:getComputedStyle(document.querySelector('#task-details')).backgroundColor, title:getComputedStyle(document.querySelector('#task-title')).backgroundColor, footer:document.querySelector('.wt-new-task-footer').getBoundingClientRect().bottom, height:innerHeight };
                   const sample = document.createElement('canvas').getContext('2d'); sample.fillStyle = style.details; sample.fillRect(0,0,1,1);
                   if (!settled() || sample.getImageData(0,0,1,1).data[3] >= 255 || style.modal !== 'rgb(32, 45, 37)' || style.title !== 'rgba(0, 0, 0, 0)' || style.footer > style.height + 1) throw new Error(JSON.stringify(style));
