@@ -37,17 +37,24 @@
         const height = 47 + headingHeight + bottom - bodyTop + body.scrollTop + extra + parseFloat(getComputedStyle(body).paddingBottom) + (smartSurface.querySelector('.wt-smart-footer,.wt-modal-actions')?.offsetHeight ?? 0);
         send({action:'resize',height:Math.ceil(height + 2)}); return;
       }
+      const outerHeight = (element, natural = false) => {
+        if (!element || !element.getClientRects().length) return 0;
+        const style = getComputedStyle(element);
+        const borders = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+        return (natural ? element.scrollHeight + borders : element.offsetHeight)
+          + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
+      };
       const header = document.querySelector('.modal-title');
       const tabs = document.querySelector('.wt-capture-tabs');
       const style = getComputedStyle(modal);
       const quick = document.querySelector('.wt-quick-progress');
       const quickBody = quick?.querySelector('.wt-quick-body');
       const editor = quickBody?.querySelector('.wt-quick-editor');
-      const editorHeight = editor ? editor.querySelector('.wt-card-body').scrollHeight + editor.querySelector('.wt-composer-footer').offsetHeight : 0;
+      const editorHeight = editor ? outerHeight(editor.querySelector('.wt-card-body'), true) + outerHeight(editor.querySelector('.wt-composer-footer')) : 0;
       const quickHeight = quickBody ? (editor ? editorHeight : [...quickBody.children].reduce((height, node) => height + node.scrollHeight + 8, 0))
         + quick.querySelector('.wt-quick-toolbar').offsetHeight + quick.querySelector('.wt-quick-status').offsetHeight : 0;
-      const contentHeight = mode === 'progress' ? quickHeight + 16 : controller.body.scrollHeight + controller.footer.offsetHeight;
-      send({ action: 'resize', height: Math.ceil(header.offsetHeight + tabs.offsetHeight + methods.offsetHeight + contentHeight + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + 2) });
+      const contentHeight = mode === 'progress' ? quickHeight + 16 : outerHeight(controller.body, true) + outerHeight(controller.footer);
+      send({ action: 'resize', height: Math.ceil(outerHeight(header) + outerHeight(tabs) + outerHeight(methods) + contentHeight + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + 2) });
     });
   }
   const controller = shared.mountNewTaskForm(document.querySelector('.modal-content'), {

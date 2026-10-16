@@ -48,7 +48,7 @@ try {
     await page.waitForFunction(dark => {
       const card = getComputedStyle(document.querySelector('.wt-card')).backgroundColor;
       const selected = getComputedStyle(document.querySelector('.wt-quick-task[aria-current]')).backgroundColor;
-      return card === (dark ? 'rgb(34, 34, 34)' : 'rgb(255, 255, 255)') && selected === (dark ? 'rgb(56, 56, 56)' : 'rgb(229, 229, 229)');
+      return getComputedStyle(document.querySelector('.capture-modal')).backgroundColor === (dark ? 'rgb(34, 34, 34)' : 'rgb(255, 255, 255)') && card === 'rgba(0, 0, 0, 0)' && selected === (dark ? 'rgb(56, 56, 56)' : 'rgb(229, 229, 229)');
     }, dark);
     const colors = await picker.evaluate(el => {
       const row = el.querySelector('.wt-quick-task:not([aria-current])');
@@ -62,6 +62,7 @@ try {
     assert.equal(colors.row, 'rgba(0, 0, 0, 0)', 'unselected rows use the picker surface, never native gray buttons');
     assert.equal(colors.input, colors.field, 'search and progress fields share a surface');
     assert.notEqual(colors.selected, colors.row, 'the current task has a distinct themed surface');
+    await page.evaluate(async () => { await document.fonts.ready; await Promise.allSettled(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished)); });
     if (process.env.TRACELO_QA_OUTPUT) {
       mkdirSync(process.env.TRACELO_QA_OUTPUT, { recursive: true });
       await page.screenshot({ path: process.env.TRACELO_QA_OUTPUT + '/picker-' + (dark ? 'dark' : 'light') + '.png' });
@@ -107,8 +108,9 @@ try {
   await page.mouse.move(590, 750);
   for (const dark of [false, true]) {
     await page.evaluate(dark => window.capture.update({ dark }), dark);
-    await page.waitForFunction(dark => getComputedStyle(document.querySelector('.wt-card')).backgroundColor === (dark ? 'rgb(34, 34, 34)' : 'rgb(255, 255, 255)'), dark);
+    await page.waitForFunction(dark => document.body.classList.contains('theme-dark') === dark && getComputedStyle(document.querySelector('.wt-card')).backgroundColor === 'rgba(0, 0, 0, 0)', dark);
     assert.equal(await page.locator('.wt-capture-tabs button').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
+    await page.evaluate(async () => { await document.fonts.ready; await Promise.allSettled(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished)); });
     if (process.env.TRACELO_QA_OUTPUT) {
       mkdirSync(process.env.TRACELO_QA_OUTPUT, { recursive: true });
       await page.locator('.wt-quick-body').evaluate(el => el.scrollTop = 0);
@@ -124,7 +126,7 @@ try {
   await card.getByRole('button', { name: '切换任务：另一个任务', exact: true }).click();
   await page.getByRole('button', { name: '选择任务：快捷进展测试', exact: true }).click();
   assert.equal(await input.inputValue(), '正在推进', 'switching back restores the task draft');
-  for (const [width, height] of [[530,640],[360,640]]) {
+  for (const [width, height] of [[530,640],[360,640],[360,320]]) {
     await page.setViewportSize({ width, height });
     const bounds = await card.evaluate(el => ({ fits: document.documentElement.scrollWidth <= innerWidth, footer: el.querySelector('.wt-composer-footer').getBoundingClientRect().bottom <= innerHeight + 1 }));
     assert.deepEqual(bounds, { fits: true, footer: true }, JSON.stringify({ width, height, boxes: await page.locator('.capture-modal, .modal-content, .wt-quick-progress, .wt-quick-body, .wt-card-body, .wt-composer-footer').evaluateAll(items => items.map(el => ({ cls: el.className, rect: el.getBoundingClientRect().toJSON(), overflow: getComputedStyle(el).overflow, client: el.clientHeight, scroll: el.scrollHeight }))) }));

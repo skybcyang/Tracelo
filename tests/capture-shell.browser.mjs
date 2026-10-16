@@ -25,6 +25,10 @@ try {
     await page.goto('about:blank');
     await page.setContent(html);
     await page.waitForFunction(() => window.capture);
+    assert.equal(await page.locator('.capture-wallpaper').count(), 1, 'shortcut window has a local light-catching background behind its reading glass');
+    const material = await page.locator('.wt-new-task-body').evaluate(el => ({ fill:getComputedStyle(el).backgroundColor, blur:getComputedStyle(el).backdropFilter || getComputedStyle(el).webkitBackdropFilter }));
+    assert.match(material.fill, /(?:rgba|color\()/, 'reading surface transmits the background');
+    assert.match(material.blur, /blur/, 'reading surface uses a frosted material');
     const brand = await page.locator('.capture-brand-icon').innerHTML();
     assert.equal(await page.locator('.capture-brand-icon .wt-brand-icon').count(), 1);
     for (const theme of ['monochrome', 'evergreen', 'graphite', 'glacier', 'vermilion', 'unknown']) {

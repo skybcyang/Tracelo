@@ -84,3 +84,72 @@ dialog.wt-smart-settings .wt-modal-actions { margin:0; padding:12px 23px; backgr
 @media(max-width:480px) {
  dialog.wt-modal > .modal-title,dialog .wt-smart-body,dialog .wt-smart-footer,dialog.wt-smart-settings .wt-smart-settings-body,dialog.wt-smart-settings .wt-modal-actions { padding-left:18px; padding-right:18px; }
 }
+
+/* 1.0 workbench material: the same silver folds, quiet glass and rounded controls.
+   All platforms render this offline surface; native shortcuts and drafts stay native. */
+.wt-modal.wt-new-task-modal.capture-modal {
+ --capture-rim:color-mix(in srgb,var(--wt-raised) 72%,transparent);
+ --capture-reading:color-mix(in srgb,var(--wt-card) 60%,transparent);
+ --capture-field:color-mix(in srgb,var(--wt-raised) 64%,transparent);
+ --capture-fold:#ffffffb0;--capture-shade:#9eb2c244;
+ isolation:isolate;position:relative;border-radius:22px;border:1px solid var(--capture-rim);
+ background-color:var(--wt-card);color:var(--wt-text);overflow:hidden;
+}
+.capture-wallpaper {position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden;border-radius:inherit;background:linear-gradient(125deg,color-mix(in srgb,var(--wt-bg) 80%,var(--wt-accent)),var(--wt-bg) 42%,color-mix(in srgb,var(--wt-bg) 68%,var(--wt-accent)));}
+.capture-wallpaper::before,.capture-wallpaper::after {content:'';position:absolute;border-radius:48%;pointer-events:none;background:linear-gradient(120deg,#ffffff08 25%,var(--capture-shade) 45%,var(--capture-fold) 53%,#b3c8d522 70%);box-shadow:inset 16px 12px 28px var(--capture-fold),18px 7px 30px #637c9018;}
+.capture-wallpaper::before {width:160%;height:45%;left:-38%;top:23%;transform:rotate(-38deg);}
+.capture-wallpaper::after {width:110%;height:50%;right:-65%;top:5%;transform:rotate(-40deg);opacity:.6;}
+body[data-tracelo-appearance=dark] .capture-modal,
+body.theme-dark:not([data-tracelo-appearance=light]) .capture-modal {--capture-rim:#b8d2e130;--capture-reading:color-mix(in srgb,var(--wt-card) 66%,transparent);--capture-field:color-mix(in srgb,var(--wt-raised) 72%,transparent);--capture-fold:#9eb6cb38;--capture-shade:#4f6a8055;}
+.capture-modal .modal-title {height:48px;min-height:48px;border-bottom:0;padding-inline:20px;font-size:13px;font-weight:600;letter-spacing:.1px;}
+.capture-modal .capture-context,.capture-modal.is-progress-mode .capture-context {top:17px;right:52px;max-width:48%;}
+.capture-modal .modal-close-button {top:12px;right:15px;border-radius:8px;color:var(--wt-muted);}
+.capture-modal .modal-close-button:hover {background:var(--capture-reading);color:var(--wt-text);}
+.capture-modal .wt-capture-tabs {min-height:40px;padding:0 18px 4px;gap:5px;border-bottom:0;}
+.capture-modal .wt-capture-tabs button {min-height:34px;height:34px;padding:7px 12px;gap:7px;border:1px solid transparent;border-radius:10px;font-size:12px;font-weight:400;box-shadow:none;color:var(--wt-muted);background:transparent;}
+.capture-modal .wt-capture-tabs button[aria-pressed=true] {background:var(--capture-reading);border-color:var(--capture-rim);color:var(--wt-text);box-shadow:inset 0 1px #ffffff30,0 3px 9px #24394b08;}
+.capture-modal .wt-capture-tabs button[aria-pressed=true]::after {display:none;}
+.capture-modal .wt-create-methods {margin:5px 20px 0;min-height:30px;padding:0;gap:4px;}
+.capture-modal .wt-create-methods button {font-size:11px;border-radius:8px;height:28px;min-height:28px;}
+.capture-modal .wt-create-methods button[aria-pressed=true] {background:var(--capture-reading);font-weight:500;}
+.capture-modal .wt-new-task-body {
+ margin:12px 16px 0;padding:16px;gap:13px;border:1px solid var(--capture-rim);border-radius:16px;
+ background:var(--capture-reading);box-shadow:inset 0 1px #ffffff40,0 8px 20px -20px #24394b70;
+ backdrop-filter:blur(22px) saturate(1.12);-webkit-backdrop-filter:blur(22px) saturate(1.12);
+}
+.capture-modal .wt-modal-form input:not([type=radio]):not([type=checkbox]):not(.wt-modal-title),
+.capture-modal .wt-modal-form textarea,.capture-modal .wt-modal-form select,
+.capture-modal .wt-card-composer textarea,.capture-modal .wt-quick-toolbar input {background:var(--capture-field);border-radius:10px;border-color:color-mix(in srgb,var(--wt-line) 65%,transparent);box-shadow:inset 0 1px #ffffff12;}
+.capture-modal .wt-modal-form input.wt-modal-title {font-size:21px;font-weight:500;letter-spacing:-.4px;background:transparent;}
+.capture-modal .wt-quadrant-option {border-radius:9px;background:transparent;}
+.capture-modal .wt-quadrant-option:has(input:checked) {background:var(--capture-field);border-color:var(--wt-accent);}
+.capture-modal .wt-new-task-footer,.capture-modal.is-progress-mode .wt-composer-footer {background:var(--capture-reading);border-top:1px solid var(--capture-rim);padding:12px 20px;margin:12px 0 0;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);}
+.capture-modal .wt-primary-action {border-radius:10px;min-height:34px;padding-inline:16px;box-shadow:inset 0 1px #ffffff20;}
+.capture-modal .wt-quick-progress {background:transparent;}
+.capture-modal.is-progress-mode .wt-quick-editor .wt-card-body {margin:12px 16px 0;padding:16px;border:1px solid var(--capture-rim);border-radius:16px;background:var(--capture-reading);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);gap:14px;}
+.capture-modal .wt-quick-target {background:var(--capture-reading);border:1px solid var(--capture-rim);border-radius:12px;box-shadow:inset 0 1px #ffffff30;}
+.capture-modal .wt-quick-result {border-radius:12px;background:var(--capture-reading);}
+.capture-modal .wt-quick-task,.capture-modal .wt-card-todos {background:transparent;box-shadow:none;}
+.capture-modal .wt-quick-toolbar,.capture-modal.is-progress-mode .wt-quick-toolbar {margin:10px 20px 0;}
+.capture-modal .wt-quick-results {padding:8px 20px 16px;}
+.capture-modal dialog.wt-modal.wt-smart-panel {background:transparent;}
+.capture-modal .wt-smart-body:not(.is-confirming-create) {margin:12px 16px 0;padding:16px;border:1px solid var(--capture-rim);border-radius:16px;background:var(--capture-reading);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);}
+.capture-modal .wt-smart-footer {background:var(--capture-reading);border-top:1px solid var(--capture-rim);margin-top:12px;padding:12px 20px;}
+.capture-modal .is-confirming-create .wt-smart-preview .wt-new-task-body {padding:16px;}
+.capture-modal .is-confirming-create .wt-smart-preview .wt-new-task-footer {margin:12px 0 0;padding:12px 20px;}
+body > dialog.wt-smart-settings {border-radius:22px;background:color-mix(in srgb,var(--wt-card) 92%,var(--wt-bg));border-color:var(--wt-line);}
+body > dialog.wt-smart-settings .wt-smart-settings-body {padding:18px 20px;}
+body > dialog.wt-smart-settings input {border-radius:10px;}
+.capture-modal :is(button,input,textarea,select):focus-visible {outline:2px solid var(--wt-accent);outline-offset:2px;}
+@media(max-width:480px) {.capture-modal .wt-new-task-body,.capture-modal.is-progress-mode .wt-quick-editor .wt-card-body{margin-inline:10px;padding:14px;}.capture-modal .wt-capture-tabs{padding-inline:12px;}.capture-modal .wt-create-methods{margin-inline:14px;}}
+@media(prefers-reduced-transparency:reduce) {.capture-modal{--capture-reading:var(--wt-card);--capture-field:var(--wt-raised);}.capture-wallpaper{display:none;}.capture-modal .wt-new-task-body,.capture-modal .wt-quick-editor .wt-card-body{backdrop-filter:none;-webkit-backdrop-filter:none;}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {.capture-modal{--capture-reading:var(--wt-card);--capture-field:var(--wt-raised);}}
+@media(prefers-contrast:more) {.capture-modal{--capture-reading:var(--wt-card);--capture-field:var(--wt-raised);--capture-rim:var(--wt-text);}}
+
+.capture-modal .wt-quick-progress .wt-quick-editor {background:transparent;border:0;box-shadow:none;border-radius:0;}
+.capture-modal .wt-quick-progress .wt-quick-toolbar input {background:var(--capture-field);border-radius:10px;}
+.capture-modal .wt-quick-progress button.wt-quick-task {border-radius:10px;}
+.capture-modal .wt-quick-progress .wt-card-composer textarea {background:var(--capture-field);border-radius:10px;}
+.capture-modal #task-details {background:var(--capture-field);border-radius:10px;}
+.capture-modal .wt-quick-progress {display:flex;flex-direction:column;flex:1;min-height:0;padding:0;}
+.capture-modal.is-progress-mode .wt-quick-body,.capture-modal.is-progress-mode .wt-quick-editor {flex:1;}

@@ -39,6 +39,7 @@ internal static class SmokeTest {
                     Check(await Js("window.capture.getDraft().groupId === 'smoke-group' && Array.from(document.querySelectorAll('option')).some(o=>o.textContent.includes('产品'))"), "group dropdown loads strict vault archive");
                     Check(await Js("window.capture.getDraft().todos[0] === '核对验收清单' && window.capture.getDraft().initialProgress === '已完成资料收集'"), "complete structured draft restored");
                     Check(await Js("getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === (document.body.classList.contains('theme-dark') ? 'rgb(34, 34, 34)' : 'rgb(255, 255, 255)')"), "surface uses shared monochrome plugin stylesheet");
+                    Check(await Js("!!document.querySelector('.capture-wallpaper') && getComputedStyle(document.querySelector('.wt-new-task-body')).backdropFilter.includes('blur')"), "native surface renders the workbench glass material");
                     await app.Window.Surface.EvaluateAsync("document.querySelector('#close').click()");
                     await WaitFor(() => Task.FromResult(!app.Window.Visible), "cancel did not dismiss");
                     Check(CaptureSettings.Load(path).RestoredDraft().GetProperty("dueDate").GetString() == "2026-10-01", "cancel persists all form fields");

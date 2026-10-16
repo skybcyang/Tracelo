@@ -91,6 +91,7 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
             await new Promise(resolve => requestAnimationFrame(resolve));
           }
           check(getComputedStyle(document.querySelector('.wt-modal')).backgroundColor === 'rgb(252, 253, 252)', 'light modal does not use plugin styles');
+          check(document.querySelector('.capture-wallpaper') && getComputedStyle(body).backdropFilter.includes('blur'), 'workbench glass is missing from native surface');
           check(getComputedStyle(button).backgroundColor === 'rgb(53, 109, 84)', 'primary action does not use plugin accent: '+getComputedStyle(button).backgroundColor);
           check(input.value === '整理本周工作进展' && details.value === '补充目标、要求或参考资料，支持 Markdown。', 'title and details must be independent fields');
           check(document.activeElement === input, 'title did not receive focus');
@@ -104,6 +105,7 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
           radios[0].closest('label').click();
           check(window.capture.getDraft().title === input.value && window.capture.getDraft().notes === details.value, 'changing quadrant altered independent title or details');
           check(group.options.length >= 1 && !group.disabled, 'task group control is unavailable');
+          check(body.scrollHeight <= body.clientHeight + 1, 'default form is clipped after native autosize: '+body.scrollHeight+'/'+body.clientHeight);
           check(group.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1 && quadrant.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1, 'group and quadrant selectors are clipped before resize completes: ' + JSON.stringify({group:group.getBoundingClientRect().bottom,quadrant:quadrant.getBoundingClientRect().bottom,body:body.getBoundingClientRect().bottom,bodyScrollHeight:body.scrollHeight,bodyHeight:body.clientHeight,window:innerHeight}));
           check(footer.getBoundingClientRect().bottom <= innerHeight + 1 && button.getBoundingClientRect().bottom <= innerHeight + 1 && !button.disabled, 'form footer is clipped or disabled');
           return true;
@@ -113,11 +115,15 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
                 self.update(["dark": true])
                 self.view.callAsyncJavaScript("""
                   const deadline = performance.now() + 2000;
-                  while ((getComputedStyle(document.querySelector('.wt-modal')).backgroundColor !== 'rgb(32, 45, 37)' || getComputedStyle(document.querySelector('#task-details')).backgroundColor !== 'rgb(41, 57, 46)') && performance.now() < deadline) {
+                  while ((getComputedStyle(document.querySelector('.wt-modal')).backgroundColor !== 'rgb(32, 45, 37)') && performance.now() < deadline) {
                     await new Promise(resolve => requestAnimationFrame(resolve));
                   }
+                  const pixel = () => { const c=document.createElement('canvas').getContext('2d'); c.fillStyle=getComputedStyle(document.querySelector('#task-details')).backgroundColor; c.fillRect(0,0,1,1); return c.getImageData(0,0,1,1).data; };
+                  const settled = () => { const p=pixel(); return Math.abs(p[0]-41)<=1 && Math.abs(p[1]-57)<=1 && Math.abs(p[2]-46)<=1 && Math.abs(p[3]-184)<=1; };
+                  while (!settled() && performance.now() < deadline) await new Promise(resolve => requestAnimationFrame(resolve));
                   const style = { modal:getComputedStyle(document.querySelector('.wt-modal')).backgroundColor, details:getComputedStyle(document.querySelector('#task-details')).backgroundColor, title:getComputedStyle(document.querySelector('#task-title')).backgroundColor, footer:document.querySelector('.wt-new-task-footer').getBoundingClientRect().bottom, height:innerHeight };
-                  if (style.modal !== 'rgb(32, 45, 37)' || style.details !== 'rgb(41, 57, 46)' || style.title !== 'rgba(0, 0, 0, 0)' || style.footer > style.height + 1) throw new Error(JSON.stringify(style));
+                  const sample = document.createElement('canvas').getContext('2d'); sample.fillStyle = style.details; sample.fillRect(0,0,1,1);
+                  if (!settled() || sample.getImageData(0,0,1,1).data[3] >= 255 || style.modal !== 'rgb(32, 45, 37)' || style.title !== 'rgba(0, 0, 0, 0)' || style.footer > style.height + 1) throw new Error(JSON.stringify(style));
                   return true;
                   """, arguments: [:], in: nil, in: .page) { result in
                     guard case .success(let value) = result, (value as? Bool) == true else { fputs("Shared form dark smoke failed: \(result)\n", stderr); completion(false); return }

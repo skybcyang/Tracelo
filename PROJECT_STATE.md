@@ -2,9 +2,9 @@
 herein: project-state/v1
 project_id: workassistant-tracelo-15d7d4ce
 title: Tracelo · WorkAssistant
-updated_at: 2026-10-16T04:47:32.698Z
+updated_at: 2026-10-16T05:04:17.732579+00:00
 status: 进行中
-summary: 1.0.0最终完整本地回归通过，补修比例保存失败后的画面恢复；玻璃材质、模块布局、背景和同期修改已整合。正在冻结候选并启动远端三平台预检，尚未打标签或发布。
+summary: 根据用户追加要求，将macOS／Windows快捷工具同步新版玻璃UI并纳入1.0.0；窗口材质、圆角标签、图文表单已接入，正在核对原生自动高度与发布候选。尚未打标签或发布。
 goal: 维护 Tracelo Obsidian 插件与 macOS／Windows 独立桌面快捷工具。
 done_when: 本轮1.0.0按确认设计完成实现、适当验证与本地安装；恢复发布后依发布手册冻结候选、完成三平台预检、合并上传并核验Release及七个附件。未测人工设备矩阵与七天使用观察另行保留。
 sources:
@@ -31,7 +31,7 @@ sources:
   - docs/validation/2026-10-08-release-097.md
 actions:
   - id: modular-stage-design-20261016
-    text: 完成最终本地回归，冻结1.0.0候选，按发布手册完成三平台预检、合并上传和Release核验
+    text: 完成快捷工具新版UI同步与原生验证，冻结1.0.0候选，继续三平台预检、合并上传和Release核验
     status: doing
     source: docs/validation/2026-10-16-release-100.md
   - id: glass-workbench-production
@@ -171,7 +171,7 @@ checks:
       - .local/workbench-20261016/install-unlocked-verify.log
 decisions:
   - id: decision-stage-background-20261016
-    text: 支持背景切换与用户自定义图片；目前在自由排布设计原型中实现与验证，未纳入生产安装。
+    text: 支持背景切换与用户自定义图片；已在生产工作台接入并通过本地检查，作为1.0.0发布范围。
     source: docs/design/task-stage.md
     basis: 2026-10-16用户明确“支持背景切换，支持用户自定义”。
   - id: decision-module-preview-20261016
