@@ -1,0 +1,29 @@
+{
+  "at": "2026-10-16T16:30:24+08:00",
+  "version": "1.0.1",
+  "result": "passed",
+  "pluginTarget": ".obsidian/plugins/work-timeline/",
+  "nativeTarget": "/Applications/Tracelo Capture.app",
+  "checks": [
+    "three installed plugin files match downloaded Release",
+    "installed app bundle matches extracted official ZIP",
+    "formal task and attachment bytes preserved",
+    "plugin config and drafts preserved",
+    "native preferences and drafts preserved",
+    "native process running",
+    "installed official binary WebKit smoke passed",
+    "actual project Obsidian reloaded using command palette"
+  ],
+  "note": "One stageLayouts preference appeared at 16:07:53, before official installation at 16:21:56. Original backup retained; a fresh immediately preceding snapshot and repeated installation verified the current layout unchanged.",
+  "notRun": [
+    "Physical global hotkeys and full focus matrix: CUA native capture AX timeout -10005",
+    "real Chinese IME candidates",
+    "microphone dictation",
+    "full Windows manual device matrix"
+  ],
+  "logHashes": {
+    "official-install-verify-final.log": "98fe5d0d27701a0bb3f107e57bc59ad29b3fbe89cc86a72a2b82b416c1e42c8b",
+    "official-after-host-verify.log": "98fe5d0d27701a0bb3f107e57bc59ad29b3fbe89cc86a72a2b82b416c1e42c8b",
+    "official-native.log": "f26a21b746038d4947c669f6774765da5407d4f6248167526fec520df940f09c"
+  }
+}

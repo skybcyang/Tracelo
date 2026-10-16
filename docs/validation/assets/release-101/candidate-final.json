@@ -1,0 +1,32 @@
+{
+  "headSha": "34932521f83d0ee55e2e8d0d53c3e6b052b3f8c3",
+  "status": "completed",
+  "conclusion": "success",
+  "runId": 38871194843,
+  "jobs": [
+    {
+      "name": "macos",
+      "conclusion": "success",
+      "startedAt": "2026-10-16T08:04:02Z",
+      "completedAt": "2026-10-16T08:06:22Z"
+    },
+    {
+      "name": "windows",
+      "conclusion": "success",
+      "startedAt": "2026-10-16T08:03:55Z",
+      "completedAt": "2026-10-16T08:05:37Z"
+    },
+    {
+      "name": "plugin",
+      "conclusion": "success",
+      "startedAt": "2026-10-16T08:03:55Z",
+      "completedAt": "2026-10-16T08:10:18Z"
+    },
+    {
+      "name": "publish",
+      "conclusion": "skipped",
+      "startedAt": "2026-10-16T08:10:19Z",
+      "completedAt": "2026-10-16T08:10:19Z"
+    }
+  ]
+}
