@@ -1,6 +1,6 @@
 # 一句话录入 · 电脑端（0.9.5 起）
 
-更新于 2026-10-07。0.9.5 支持桌面 Obsidian、独立 macOS 菜单栏和 Windows 托盘的一句话录入，以及直接输入 API Key、连接测试、草稿替换保护与恢复、原生模型请求和离线进展回执。快捷工具沿用新建／进展的内容区与按钮样式，不叠出另一层创建表单。历史安装和验收见[首次验收](validation/2026-10-04-smart-capture.md)、[改进验收](validation/2026-10-06-smart-capture-improvements.md)和[一致性修复](validation/2026-10-06-agents-consistency.md)。手机及人生工作台已拆至同级 Herein。
+更新于 2026-10-15。0.9.5 支持桌面 Obsidian、独立 macOS 菜单栏和 Windows 托盘的一句话录入，以及直接输入 API Key、连接测试、草稿替换保护与恢复、原生模型请求和离线进展回执。快捷工具沿用新建／进展的内容区与按钮样式，不叠出另一层创建表单。历史安装和验收见[首次验收](validation/2026-10-04-smart-capture.md)、[改进验收](validation/2026-10-06-smart-capture-improvements.md)和[一致性修复](validation/2026-10-06-agents-consistency.md)。手机及人生工作台已拆至同级 Herein。
 
 ## 使用
 
@@ -14,7 +14,7 @@
 
 顶栏仅保留“新建任务／记录进展”；新建内部的“手动填写／一句话整理”在当前内容区切换，各自草稿互不覆盖。一句话切出前等待草稿写盘；失败时停留并保留输入，中文组合输入与正式保存期间不切走。模型设置仍单独弹出，关闭后回到当前输入页面。
 
-服务地址可以填写 API 根地址，也可填写完整 `/chat/completions` 路径。仅支持 HTTPS Chat Completions 兼容服务；凭证格式支持不等于所有模型厂商都已实测，当前真实服务验证为 Kimi Code。
+服务地址可以填写 API 根地址，也可填写完整 `/chat/completions` 路径。支持 HTTP／HTTPS Chat Completions 兼容服务（包括使用自定义端口的自建服务器）；凭证格式支持不等于所有模型厂商都已实测，当前真实服务验证为 Kimi Code。
 
 新建示例：
 
@@ -24,7 +24,7 @@
 
 > 日志已经抓完，发现初始化耗时比较高，接下来分析原因。
 
-模型设置支持 HTTPS Chat Completions 兼容接口。服务地址与密钥必须配套。Kimi Code 和 Kimi 开放平台的账号、额度和服务地址不是同一套；当前已用真实 Tracelo User-Agent 验证 Kimi Code 调用成功，正式产品接入应按供应商的适用服务配置。参见 [Kimi 官方说明](https://www.kimi.com/code/docs/)。
+模型设置支持 HTTP／HTTPS Chat Completions 兼容接口。服务地址与密钥必须配套。Kimi Code 和 Kimi 开放平台的账号、额度和服务地址不是同一套；当前已用真实 Tracelo User-Agent 验证 Kimi Code 调用成功，正式产品接入应按供应商的适用服务配置。参见 [Kimi 官方说明](https://www.kimi.com/code/docs/)。
 
 ## 保存与边界
 

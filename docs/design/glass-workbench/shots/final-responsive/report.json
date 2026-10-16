@@ -1,0 +1,30 @@
+[
+  {
+    "file": "idle-390x844.png",
+    "state": "idle",
+    "size": "390x844",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "editing-390x844.png",
+    "state": "editing",
+    "size": "390x844",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "idle-1024x768.png",
+    "state": "idle",
+    "size": "1024x768",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "editing-1024x768.png",
+    "state": "editing",
+    "size": "1024x768",
+    "zoom": 1,
+    "issues": []
+  }
+]

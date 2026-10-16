@@ -1,6 +1,5 @@
 import esbuild from "esbuild";
 import process from "node:process";
-import { readFileSync } from 'node:fs';
 
 const production = process.argv[2] === "production";
 const context = await esbuild.context({
@@ -13,7 +12,6 @@ const context = await esbuild.context({
   sourcemap: production ? false : "inline",
   treeShaking: true,
   minify: production,
-  banner: { js: `/*!\n${readFileSync(new URL('./licenses/noto-emoji.txt', import.meta.url), 'utf8')}\n*/` },
   outfile: "main.js"
 });
 

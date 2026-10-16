@@ -16,12 +16,16 @@ import { DEFAULT_THEME, normalizeTheme, type Theme } from './appearance';
 import { normalizeCaptureConfig, type CaptureConfig } from './smart-capture';
 import { parseEditableTask, serializeEditableTask } from './editable-markdown';
 
+import { normalizeStageLayouts, normalizeBackground, type StageLayout, type WorkbenchBackground } from './stage-layout';
+
 export const DEFAULT_TASK_DIRECTORY = "工作记录/任务";
 export const AGENT_FILE = "agent.md";
 export const GROUPS_FILE = "_groups.md";
 
 export interface PluginState {
   version: 1;
+  stageLayouts: Record<string, StageLayout>;
+  background: WorkbenchBackground;
   initialized: boolean;
   taskDirectory: string;
   drafts: Record<string, string>;
@@ -48,6 +52,8 @@ export interface BackupCandidate {
 export function createDefaultState(): PluginState {
   return {
     version: 1,
+    stageLayouts: {},
+    background: normalizeBackground(null),
     initialized: false,
     taskDirectory: DEFAULT_TASK_DIRECTORY,
     drafts: {},
@@ -92,6 +98,8 @@ export function normalizePluginState(value: unknown): PluginState {
     : "";
   return {
     version: 1,
+    stageLayouts: normalizeStageLayouts(value.stageLayouts),
+    background: normalizeBackground(value.background),
     initialized: value.initialized === true,
     taskDirectory: taskDirectory || defaults.taskDirectory,
     drafts: stringRecord(value.drafts),

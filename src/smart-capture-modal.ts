@@ -317,7 +317,7 @@ return class SmartCaptureModal extends Modal {
     const reveal = keyRow.createEl('button', { cls: 'wt-secondary-action', attr: { type: 'button', 'aria-label': '显示密钥', 'aria-pressed': 'false' } });
     const showKey = () => { const visible = key.type === 'text'; reveal.setAttribute('aria-label', visible ? '隐藏密钥' : '显示密钥'); reveal.setAttribute('aria-pressed', String(visible)); reveal.replaceChildren(); setIcon(reveal, visible ? 'eye-off' : 'eye'); };
     showKey(); reveal.onclick = () => { key.type = key.type === 'password' ? 'text' : 'password'; showKey(); };
-    settingsBody.createEl('p', { cls: 'wt-smart-help', text: 'API Key 保存在本机配置中，不写入任务。支持 HTTPS Chat Completions 接口；测试连接只发送固定测试句，可能产生少量调用费用。' });
+    settingsBody.createEl('p', { cls: 'wt-smart-help', text: 'API Key 保存在本机配置中，不写入任务。支持 HTTP／HTTPS Chat Completions 接口；测试连接只发送固定测试句，可能产生少量调用费用。' });
     const error = settingsBody.createEl('p', { cls: 'wt-form-error', attr: { role: 'alert' } });
     const status = settingsBody.createEl('p', { cls: 'wt-smart-help', attr: { role: 'status', 'aria-live': 'polite' } });
     const actions = form.createDiv({ cls: 'wt-modal-actions' });

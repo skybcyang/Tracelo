@@ -21,7 +21,7 @@ void Reject(Action action) { try { action(); } catch (Exception e) when (e is Ar
 var root = Path.Combine(Path.GetTempPath(), "tracelo-tests-" + Guid.NewGuid());
 Directory.CreateDirectory(Path.Combine(root, "工作记录", "任务"));
 try {
-    Test("smart capture accepts opaque credentials and validates HTTPS endpoints", () => {
+    Test("smart capture accepts opaque credentials and validates HTTP and HTTPS endpoints", () => {
         using var direct = JsonDocument.Parse("""{"baseUrl":"https://example.com/v1","model":"test","apiKey":"  test-direct-token-1234567890  ","keyFile":"/missing/legacy"}""");
         var config = SmartCaptureTransport.Configuration(direct.RootElement);
         Equal(config["apiKey"], "test-direct-token-1234567890");
@@ -32,7 +32,13 @@ try {
         Equal(SmartCaptureTransport.ReadKey("# Key\nAPI_KEY=opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890");
         Reject(() => SmartCaptureTransport.ReadKey("first-token-12345678\nsecond-token-12345678"));
         Equal(SmartCaptureTransport.Endpoint("https://example.com/v1/chat/completions/").AbsoluteUri, "https://example.com/v1/chat/completions");
-        Reject(() => SmartCaptureTransport.Endpoint("http://example.com/v1"));
+        foreach (var baseUrl in new[] { "http://localhost:11434/v1", "http://192.168.1.10:8080/api/v1", "http://models.example.com/v1", "http://[::1]:11434/v1" }) {
+            Equal(SmartCaptureTransport.Endpoint(baseUrl).AbsoluteUri, baseUrl + "/chat/completions");
+            Equal(SmartCaptureTransport.Endpoint(baseUrl + "/chat/completions/").AbsoluteUri, baseUrl + "/chat/completions");
+            using var httpConfig = JsonDocument.Parse(JsonSerializer.Serialize(new { baseUrl, model = "test", apiKey = "test-direct-token-1234567890" }));
+            Equal(SmartCaptureTransport.Configuration(httpConfig.RootElement)["baseUrl"], baseUrl);
+        }
+        foreach (var baseUrl in new[] { "ftp://example.com/v1", "http://key@example.com/v1", "http://example.com/v1?key=secret", "http://example.com/v1#fragment" }) Reject(() => SmartCaptureTransport.Endpoint(baseUrl));
         Reject(() => SmartCaptureTransport.Endpoint("https://key@example.com/v1"));
     });
     Test("first line is title, CRLF normalizes, notes preserve blank lines", () => {

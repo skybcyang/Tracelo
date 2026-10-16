@@ -17,8 +17,8 @@ public final class SmartCaptureTransport: NSObject, URLSessionTaskDelegate, @unc
         return key
     }
     public static func endpoint(_ base: String) throws -> URL {
-        guard let parts = URLComponents(string: base), parts.scheme == "https", parts.host != nil,
-              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil else { throw CaptureError.invalid("请填写不含账号或参数的 HTTPS 服务地址") }
+        guard let parts = URLComponents(string: base), (parts.scheme == "https" || parts.scheme == "http"), parts.host != nil,
+              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil else { throw CaptureError.invalid("请填写不含账号或参数的 HTTP 或 HTTPS 服务地址") }
         var normalized = base
         while normalized.hasSuffix("/") { normalized.removeLast() }
         if !normalized.hasSuffix("/chat/completions") { normalized += "/chat/completions" }

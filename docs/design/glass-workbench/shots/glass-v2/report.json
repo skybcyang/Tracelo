@@ -1,0 +1,16 @@
+[
+  {
+    "file": "idle.png",
+    "state": "idle",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "dark.png",
+    "state": "dark",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  }
+]

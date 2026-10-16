@@ -18,7 +18,7 @@ try {
     window.capture.update({ configured: true, directory: '工作记录/任务', groupsSource: '', tasks: [task, second, ...more].map(item => ({ markdown: TraceloCreateTask.serializeTaskMarkdown(item) })), progressDrafts: {}, receipts: [] });
   });
   await page.getByRole('button', { name: '记录进展', exact: true }).click();
-  assert.equal(await page.locator('.wt-quick-target .wt-color-icon').count(), 1, 'quick target uses the same bundled color icons as the board');
+  assert.equal(await page.locator('.wt-quick-target .wt-color-icon').count(), 0, 'quick target omits decorative emoji');
   assert.equal(await page.getByRole('textbox', { name: '这次推进了什么？', exact: true }).isVisible(), true, 'open directly in the compact editor, as in the approved mockup');
   assert.equal(await page.getByRole('button', { name: '一句话记录进展', exact: true }).count(), 0, 'quick progress records directly without a separate AI entry');
   assert.equal(await page.getByRole('button', { name: '切换任务', exact: true }).count(), 0, 'the record target is the sole switcher');
@@ -37,7 +37,7 @@ try {
   assert.equal(await targetButton.getAttribute('aria-expanded'), 'true', 'keyboard activation can reopen search');
   assert.equal(await page.getByRole('searchbox', { name: '搜索已有任务' }).inputValue(), '');
   const selected = picker.getByRole('button', { name: '选择任务：快捷进展测试', exact: true });
-  assert.equal(await selected.locator('.wt-color-icon').count(), 1, 'task chooser uses bundled color icons');
+  assert.equal(await selected.locator('.wt-color-icon').count(), 0, 'task chooser omits decorative emoji');
   assert.equal(await selected.getAttribute('aria-current'), 'true', 'the picker identifies the current task beyond color alone');
   await page.getByRole('searchbox', { name: '搜索已有任务' }).pressSequentially('原始');
   assert.equal(await page.getByRole('searchbox', { name: '搜索已有任务' }).inputValue(), '原始', 'typing multiple characters must retain search focus');

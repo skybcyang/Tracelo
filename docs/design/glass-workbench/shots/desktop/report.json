@@ -1,0 +1,65 @@
+[
+  {
+    "file": "idle.png",
+    "state": "idle",
+    "size": "1440x900",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "dark.png",
+    "state": "dark",
+    "size": "1440x900",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "overview.png",
+    "state": "overview",
+    "size": "1440x900",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "quadrants.png",
+    "state": "quadrants",
+    "size": "1440x900",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "editing.png",
+    "state": "editing",
+    "size": "1440x900",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "no-results.png",
+    "state": "no-results",
+    "size": "1440x900",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "long.png",
+    "state": "long",
+    "size": "1440x900",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "collapsed.png",
+    "state": "collapsed",
+    "size": "1440x900",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "calendar.png",
+    "state": "calendar",
+    "size": "1440x900",
+    "zoom": 1,
+    "issues": []
+  }
+]

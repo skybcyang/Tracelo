@@ -1,0 +1,44 @@
+[
+  {
+    "file": "idle-1728x1080.png",
+    "state": "idle",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "no-results-1728x1080.png",
+    "state": "no-results",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "quadrants-1728x1080.png",
+    "state": "quadrants",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "idle-800x1000.png",
+    "state": "idle",
+    "size": "800x1000",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "no-results-800x1000.png",
+    "state": "no-results",
+    "size": "800x1000",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "quadrants-800x1000.png",
+    "state": "quadrants",
+    "size": "800x1000",
+    "zoom": 1,
+    "issues": []
+  }
+]

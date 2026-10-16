@@ -154,8 +154,8 @@ try {
   await page.waitForFunction(() => window.cardFixture);
   Object.assign(ids, await page.evaluate(() => window.cardFixture.ids));
   payment = card(ids.payment);
-  await check('task icon and a single overflow action keep the title uncluttered', async () => {
-    assert.equal(await payment.locator('.wt-task-icon').count(), 1);
+  await check('title and a single overflow action keep the header uncluttered', async () => {
+    assert.equal(await payment.locator('.wt-task-icon').count(), 0);
     assert.equal(await payment.getByRole('button', { name: '编辑标题：完成支付模块', exact: true }).count(), 0);
     assert.equal(await payment.locator('.wt-card-heading-actions button').count(), 1);
   });
@@ -658,6 +658,8 @@ try {
     await payment.click({ button: 'right' });
     assert.equal(await page.getByRole('menuitem', { name: '创建文件夹', exact: true }).count(), 1);
     const rightItems = await page.getByRole('menuitem').allTextContents();
+    // Compare distinct menu openings; dismiss the first overlay before clicking its trigger.
+    await page.evaluate(() => document.querySelectorAll('[role=menu]').forEach(menu => menu.remove()));
     await payment.locator('.wt-card-menu').click();
     assert.deepEqual(await page.getByRole('menuitem').allTextContents(), rightItems);
     assert.equal(await payment.locator('.wt-card-open').getAttribute('aria-expanded'), 'false');

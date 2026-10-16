@@ -2,15 +2,16 @@ import { QUADRANTS, quadrantId, type WorkTask, type WorkGroup } from './domain';
 import { captureId } from './capture-id';
 import { mountNewTaskForm, type NewTaskDraft } from './new-task-form';
 import { type ConversationMessage, type ConversationProposal, type ConversationReply } from './work-conversation';
+import type { ConversationHistoryQuery } from './conversation-history';
 
-interface Session { id:string; messages:ConversationMessage[]; refs:string[]; draft:string; pending:ConversationProposal|null; formDraft?:NewTaskDraft }
+interface Session { id:string; messages:ConversationMessage[]; refs:string[]; draft:string; pending:ConversationProposal|null; formDraft?:NewTaskDraft; historyQuery?:ConversationHistoryQuery }
 interface Book { version:1; active:string; sessions:Session[] }
 export interface ConversationHost {
   tasks:WorkTask[]; groups:WorkGroup[]; directory:string;
   read:()=>string; write:(value:string)=>Promise<void>;
-  ask:(messages:ConversationMessage[],refs:string[])=>Promise<ConversationReply>;
+  ask:(messages:ConversationMessage[],refs:string[],historyQuery?:ConversationHistoryQuery)=>Promise<ConversationReply>;
   apply:(proposal:ConversationProposal)=>Promise<string>;
-  settings:()=>void; history:(id:string|null)=>void; focus:(id:string)=>void;
+  settings:()=>void; history:(id:string|null,eventId?:string)=>void; focus:(id:string)=>void;
   setIcon:(el:HTMLElement,name:string)=>void;
 }
 const newSession=():Session=>({id:captureId(),messages:[],refs:[],draft:'',pending:null});
@@ -25,6 +26,9 @@ export class ConversationPanel {
   private input:HTMLTextAreaElement;
   private refsEl:HTMLElement;
   private picker:HTMLElement;
+  private historyKeyword:HTMLInputElement;
+  private historyFrom:HTMLInputElement;
+  private historyTo:HTMLInputElement;
   private status:HTMLElement;
   private sessions:HTMLSelectElement;
   private sendButton:HTMLButtonElement;
@@ -43,6 +47,13 @@ export class ConversationPanel {
     try {
       const raw=host.read();if(raw){const b=JSON.parse(raw) as Book;
         if(b.version!==1||!Array.isArray(b.sessions)||!b.sessions.length||!b.sessions.some(s=>s.id===b.active)||b.sessions.some(s=>typeof s.draft!=='string'||!Array.isArray(s.refs)||s.refs.some(r=>typeof r!=='string')||!Array.isArray(s.messages)||s.messages.some(m=>!['user','assistant'].includes(m.role)||typeof m.text!=='string'||!Array.isArray(m.refs))))throw Error();
+        for(const session of b.sessions) {
+          if(session.historyQuery&&['query','from','to'].some(k=>{const v=session.historyQuery![k as keyof ConversationHistoryQuery];return v!==undefined&&typeof v!=='string';}))throw Error();
+          for(const m of session.messages) {
+            if(m.sources!==undefined&&(!Array.isArray(m.sources)||m.sources.length>8||m.sources.some(s=>!s||['taskId','eventId','title','day','text'].some(k=>typeof s[k as keyof typeof s]!=='string'))))throw Error();
+            if(m.historyScope!==undefined&&(!Array.isArray(m.historyScope)||m.historyScope.some(s=>!s||['taskId','title','query','from','to'].some(k=>typeof s[k as keyof typeof s]!=='string')||['total','matched','returned','recent','older'].some(k=>typeof s[k as keyof typeof s]!=='number'))))throw Error();
+          }
+        }
         this.book=b;
       }
     }catch{this.invalid=true;}
@@ -57,6 +68,15 @@ export class ConversationPanel {
     this.stream=this.el(this.element,'div','wt-chat-stream');this.stream.setAttribute('role','log');this.stream.setAttribute('aria-label','对话记录');
     const composer=this.el(this.element,'div','wt-chat-composer');
     this.refsEl=this.el(composer,'div','wt-chat-refs');
+    const lookup=this.el(composer,'details','wt-chat-history-query');this.el(lookup,'summary','','查找历史');
+    const fields=this.el(lookup,'div','wt-chat-history-fields');
+    const keyword=this.el(fields,'label','','关键词');this.historyKeyword=this.el(keyword,'input');this.historyKeyword.type='text';this.historyKeyword.maxLength=300;this.historyKeyword.placeholder='留空时按当前问题查找';this.historyKeyword.setAttribute('aria-label','历史关键词');
+    const dates=this.el(fields,'div','wt-chat-history-dates');
+    const from=this.el(dates,'label','','开始日期');this.historyFrom=this.el(from,'input');this.historyFrom.type='date';this.historyFrom.setAttribute('aria-label','历史开始日期');
+    const to=this.el(dates,'label','','结束日期');this.historyTo=this.el(to,'input');this.historyTo.type='date';this.historyTo.setAttribute('aria-label','历史结束日期');
+    for(const field of [this.historyKeyword,this.historyFrom,this.historyTo])field.oninput=()=>{this.session.historyQuery={query:this.historyKeyword.value,from:this.historyFrom.value,to:this.historyTo.value};this.remember();};
+    this.el(fields,'p','','发送时只查找已引用任务；多个关键词用空格分隔。');
+    this.button(fields,'清除查找条件',()=>{if(this.composing)return;this.session.historyQuery=undefined;this.historyKeyword.value='';this.historyFrom.value='';this.historyTo.value='';this.remember();});
     const box=this.el(composer,'div','wt-chat-inputbox');
     this.picker=this.el(box,'div','wt-chat-picker');this.picker.hidden=true;
     this.input=this.el(box,'textarea');this.input.setAttribute('aria-label','对话内容');this.input.placeholder='整理想法，或 @卡片继续推进';this.input.maxLength=6000;this.input.rows=3;
@@ -66,7 +86,7 @@ export class ConversationPanel {
     const row=this.el(box,'div','wt-chat-sendrow');this.button(row,'@ 卡片',()=>this.showPicker());
     this.stopButton=this.button(row,'停止',()=>this.stop());this.stopButton.hidden=true;
     this.sendButton=this.button(row,'发送',()=>void this.send(),'wt-primary-action');
-    const scope=this.el(composer,'details','wt-chat-scope');this.el(scope,'summary','','发送范围');this.el(scope,'p','','发送当前会话、分组名称及已引用卡片的属性、详情和最近 30 条历史；不读取整个仓库或上传附件。Enter 换行，⌘ / Ctrl Enter 发送。');
+    const scope=this.el(composer,'details','wt-chat-scope');this.el(scope,'summary','','发送范围');this.el(scope,'p','','发送当前会话、分组名称及已引用卡片的属性、详情和最近 30 条历史，按问题或查找条件补充至多 12 条较早记录。回答下方显示实际查找范围及来源；不读取其他任务或上传附件。Enter 换行，⌘ / Ctrl Enter 发送。');
     this.status=this.el(composer,'div','wt-chat-status');this.status.setAttribute('role','alert');
     this.refresh();if(this.invalid){this.status.textContent='会话存档无法读取，已保留原数据。请先检查配置备份。';this.sendButton.disabled=true;}
   }
@@ -79,6 +99,7 @@ export class ConversationPanel {
     this.createEditor?.destroy();this.createEditor=undefined;
     this.sessions.replaceChildren();for(const s of this.book.sessions){const o=this.el(this.sessions,'option','',s.messages.find(m=>m.role==='user')?.text.slice(0,32)||'未命名会话');o.value=s.id;}this.sessions.value=this.book.active;
     this.input.value=this.session.draft;this.renderRefs();this.renderMessages();this.picker.hidden=true;this.status.textContent='';
+    this.historyKeyword.value=this.session.historyQuery?.query??'';this.historyFrom.value=this.session.historyQuery?.from??'';this.historyTo.value=this.session.historyQuery?.to??'';
   }
   private renderRefs(){this.refsEl.replaceChildren();for(const id of this.session.refs){const t=this.host.tasks.find(t=>t.id===id);const chip=this.el(this.refsEl,'span','wt-chat-ref');this.button(chip,'@'+(t?.title??'任务已移除'),()=>this.host.history(id));const remove=this.button(chip,'×',()=>{this.session.refs=this.session.refs.filter(r=>r!==id);this.renderRefs();this.remember();});remove.setAttribute('aria-label','移除引用');}}
   addReference(id:string){if(!this.host.tasks.some(t=>t.id===id))return;if(!this.session.refs.includes(id)){this.session.refs.push(id);this.renderRefs();this.remember();}this.input.focus();}
@@ -91,7 +112,20 @@ export class ConversationPanel {
   private renderMessages(){
     const top=this.stream.scrollTop;this.stream.replaceChildren();
     if(!this.session.messages.length)this.el(this.stream,'p','wt-chat-empty','暂无消息');
-    for(const m of this.session.messages){const message=this.el(this.stream,'div',`wt-chat-message is-${m.role}`);this.el(message,'div','wt-chat-byline',m.role==='user'?'你':'Tracelo');this.el(message,'div','wt-chat-text',m.text);if(m.refs.length){const refs=this.el(message,'div','wt-chat-sources');for(const id of m.refs){const t=this.host.tasks.find(t=>t.id===id);this.button(refs,t?.title??'任务已移除',()=>this.host.history(id));}}}
+    for(const m of this.session.messages){
+      const message=this.el(this.stream,'div',`wt-chat-message is-${m.role}`);this.el(message,'div','wt-chat-byline',m.role==='user'?'你':'Tracelo');this.el(message,'div','wt-chat-text',m.text);
+      if(m.sources?.length){
+        const refs=this.el(message,'div','wt-chat-sources');
+        for(const source of m.sources){
+          const exists=this.host.tasks.some(t=>t.id===source.taskId&&t.events.some(e=>e.id===source.eventId));
+          const b=this.button(refs,`${source.day} · ${source.title} · ${exists?'查看原记录':'原记录已移除'}`,()=>this.host.history(source.taskId,source.eventId));b.disabled=!exists;b.title=source.text;
+        }
+      }else if(m.refs.length){const refs=this.el(message,'div','wt-chat-sources');for(const id of m.refs){const t=this.host.tasks.find(t=>t.id===id);const b=this.button(refs,t?.title??'任务已移除',()=>this.host.history(id));b.disabled=!t;}}
+      if(m.historyScope?.length){
+        const scope=this.el(message,'details','wt-chat-scope');this.el(scope,'summary','','本次查找范围');
+        for(const s of m.historyScope)this.el(scope,'p','',`${s.title}：${s.query?'关键词「'+s.query+'」；':''}${s.from||s.to?'日期 '+(s.from||'不限')+' 至 '+(s.to||'不限')+'；':''}共 ${s.total} 条历史，匹配 ${s.matched} 条，提供其中 ${s.returned} 条；另含最近 ${s.recent} 条作为现状上下文${s.matched>s.returned?'。匹配结果未全部提供，可缩小关键词或日期范围':'。'}${!s.matched?'没有匹配记录，可调整关键词或日期。':''}`);
+      }
+    }
     if(this.session.pending)this.renderProposal(this.session.pending);
     this.stream.scrollTop=top;
   }
@@ -151,12 +185,13 @@ export class ConversationPanel {
     if(this.session.pending){this.status.textContent='请先确认当前提议，或点“不采用”后继续讨论。';return;}
     if(/@[^@\n]*$/.test(this.input.value)){this.status.textContent='请先从候选中选择卡片，或移除未完成的 @引用。';this.showPicker();return;}
     const session=this.session,text=this.input.value.trim();const msg:ConversationMessage={role:'user',text,refs:[...session.refs]};
+    const historyQuery={...session.historyQuery};
     const messages=[...session.messages,msg],ids=[...new Set(messages.flatMap(m=>m.refs))];
     this.busy=true;const token=++this.epoch;this.stopButton.hidden=false;this.sendButton.disabled=true;this.status.textContent='正在整理…';
     try{
       await this.persist();if(token!==this.epoch)return;
-      const response=await this.host.ask(messages,ids);if(this.closed||token!==this.epoch)return;
-      session.messages.push(msg,{role:'assistant',text:response.reply,refs:ids});session.pending=response.proposal;
+      const response=await this.host.ask(messages,ids,historyQuery);if(this.closed||token!==this.epoch)return;
+      session.messages.push(msg,{role:'assistant',text:response.reply,refs:ids,sources:response.sources,historyScope:response.historyScope});session.pending=response.proposal;
       const option=Array.from(this.sessions.options).find(o=>o.value===session.id);if(option)option.textContent=session.messages.find(m=>m.role==='user')!.text.slice(0,32);
       if(session.draft===text||this.input.value===text){session.draft='';this.input.value='';}
       this.renderMessages();this.status.textContent='';await this.persist();this.stream.scrollTop=this.stream.scrollHeight;

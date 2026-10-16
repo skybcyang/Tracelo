@@ -1,7 +1,7 @@
-import { dayKey, isTaskEnded, taskIcon, type WorkTask } from './domain';
-import { setContentIcon } from './content-icons';
+import { dayKey, isTaskEnded, type WorkTask } from './domain';
 import type WorkTimelinePlugin from './main';
 export interface CardHost {
+  stageMode?: boolean;
   plugin: Pick<WorkTimelinePlugin, 'groups' | 'state' | 'dropTask' | 'toggleTaskTodo' | 'editTaskTodo' | 'removeTaskTodo' | 'restoreTaskTodo' | 'addTaskTodo' | 'updateDraft' | 'recordProgress'>;
   selectedTaskId: string | null; expandedTaskId: string | null; addingTodoTaskId: string | null; recordedTaskId: string | null;
   editingNotes: Set<string>; openCompletedTodos: Set<string>; contentEl: HTMLElement;
@@ -57,15 +57,13 @@ export function cardDueLabel(task: WorkTask): string {
 export function renderTaskCard(host: CardHost, container: HTMLElement, task: WorkTask, area: string): void {
     const selected = host.selectedTaskId === task.id;
     const editing = host.expandedTaskId === task.id;
-    const expanded = host.plugin.state.presentationMode || editing;
+    const expanded = host.stageMode || host.plugin.state.presentationMode || editing;
     const card = container.createEl("article", {
       cls: `wt-card${selected ? " is-selected" : ""}${isTaskEnded(task) ? " is-ended" : ""}${expanded ? " is-expanded" : ""}${editing ? " is-editing" : ""}`,
       attr: { "data-task-id": task.id, draggable: String(task.status === "active") },
     });
     const body = card.createDiv({ cls: "wt-card-body" });
     const heading = body.createDiv({ cls: "wt-card-heading" });
-    const icon = taskIcon(task, host.plugin.groups);
-    if (icon) setContentIcon(heading.createSpan({ cls: 'wt-task-icon', attr: { 'aria-hidden': 'true' } }), icon);
     const open = heading.createEl("button", {
       cls: "wt-card-open",
       attr: { type: "button", "aria-expanded": String(expanded), "aria-label": `${task.status === "active" ? "查看并记录" : "查看任务"}：${task.title}` },
@@ -97,7 +95,6 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
       body.createSpan({ cls: 'wt-latest-label is-placeholder', attr: { 'aria-hidden': 'true' } });
       body.createEl('p', { cls: 'wt-card-latest is-placeholder', attr: { 'aria-hidden': 'true' } });
     }
-    if (host.recordedTaskId === task.id) body.createSpan({ text: "✓ 进展已记录", cls: "wt-recorded-feedback", attr: { role: "status" } });
     if (expanded && (task.notes || Object.prototype.hasOwnProperty.call(host.plugin.state.noteDrafts, task.id) || host.editingNotes.has(task.id))) {
       host.renderNotes(body, task);
       const notes = body.querySelector('.wt-task-notes');
@@ -105,6 +102,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     }
     const footer = body.createEl("footer", { cls: "wt-card-footer" });
     const statusRow = footer.createDiv({ cls: 'wt-card-status-row' });
+    if (host.recordedTaskId === task.id) statusRow.createSpan({ text: "✓ 进展已记录", cls: "wt-recorded-feedback", attr: { role: "status" } });
     if (task.todos?.length) {
       const summary = statusRow.createDiv({ cls: "wt-card-summary" });
       const count = task.todos.filter(({ done }) => done).length;
@@ -131,8 +129,8 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     const meta = footer.createDiv({ cls: "wt-card-meta" });
     const context = meta.createDiv({ cls: "wt-card-context" });
     const properties = context.createDiv({ cls: "wt-card-properties" });
-    if (host.plugin.state.viewMode === "quadrant" || isTaskEnded(task)) properties.createSpan({ text: task.groupName, cls: 'wt-card-group', attr: { title: task.groupName } });
-    if (host.plugin.state.viewMode === "group" || isTaskEnded(task)) {
+    if (host.stageMode || host.plugin.state.viewMode === "quadrant" || isTaskEnded(task)) properties.createSpan({ text: task.groupName, cls: 'wt-card-group', attr: { title: task.groupName } });
+    if (host.stageMode || host.plugin.state.viewMode === "group" || isTaskEnded(task)) {
       const priority = task.important && task.urgent ? "重要且紧急" : task.important ? "重要不紧急" : task.urgent ? "紧急不重要" : "不急不重要";
       properties.createSpan({ text: priority, cls: `wt-tag is-${task.important && task.urgent ? "important-urgent" : task.important ? "important" : task.urgent ? "urgent" : "neutral"}` });
     }
@@ -158,17 +156,21 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     };
     open.addEventListener("click", toggleCard);
     {
-      const label = editing ? host.plugin.state.presentationMode ? '结束编辑' : '收起' : task.status === 'active' ? '记录进展' : '查看任务';
+      const label = editing ? host.stageMode || host.plugin.state.presentationMode ? '结束编辑' : '收起' : task.status === 'active' ? '记录进展' : '查看任务';
       const iconOnly = editing && host.plugin.state.presentationMode;
       const more = footer.createEl('button', { text: iconOnly ? '' : label, cls: `wt-read-more${editing ? ' wt-card-collapse' : ''}${iconOnly ? ' wt-card-edit-close' : ''}`, attr: { type: 'button', 'aria-label': label, title: label } });
       if (iconOnly) { host.setIcon(more, 'x'); more.querySelector('svg')?.setAttribute('aria-hidden', 'true'); }
+      else {
+        const mark = more.createSpan({ cls: 'wt-card-action-icon', attr: { 'aria-hidden': 'true' } });
+        host.setIcon(mark, editing ? 'chevron-up' : task.status === 'active' ? 'arrow-up-right' : 'arrow-right');
+      }
       more.onclick = () => open.click();
     }
     let pointerStart: { x: number; y: number } | null = null;
     let dragged = false;
     let singleClick: ReturnType<typeof setTimeout> | undefined;
     const clearClick = () => { clearTimeout(singleClick); singleClick = undefined; };
-    const interactive = 'button, a, img, input, textarea, select, label, [contenteditable], .wt-card-todos, .wt-card-composer, .wt-optional-actions';
+    const interactive = 'button, a, img, input, textarea, select, label, [contenteditable], .wt-card-todos, .wt-card-composer, .wt-optional-actions, .wt-stage-layout-bar, .wt-module-shelf, .wt-stage-resizer, .wt-stage-insert';
     card.addEventListener("pointerdown", (event) => { pointerStart = { x: event.clientX, y: event.clientY }; dragged = false; });
     card.addEventListener("click", (event) => {
       if (event.button !== 0 || event.defaultPrevented || dragged || (editing && host.editingNotes.has(task.id))) return;
@@ -201,7 +203,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
       host.showTaskMenu(new MouseEvent("contextmenu", { clientX: bounds.left, clientY: bounds.bottom }), task);
     });
 
-    if (task.status === "active") {
+    if (task.status === "active" && !host.stageMode) {
       card.addEventListener("dragstart", (event) => {
         if ((event.target as HTMLElement).closest("input, textarea, button, label")) { event.preventDefault(); return; }
         dragged = true;

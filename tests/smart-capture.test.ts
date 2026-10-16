@@ -85,11 +85,22 @@ describe('模型访问与密钥边界', () => {
   it('accepts a full chat completions endpoint without duplicating its suffix', () => {
     expect(validateEndpoint('https://example.com/v1/chat/completions/')).toBe('https://example.com/v1/chat/completions');
   });
-  it('allows HTTPS and rejects insecure endpoints or URL credentials', () => {
+  it('allows HTTPS and rejects unsupported protocols or URL credentials', () => {
     expect(validateEndpoint(config.baseUrl)).toBe(config.baseUrl + '/chat/completions');
-    for (const url of ['http://example.com/v1', 'https://key@example.com/v1', 'file:///tmp', 'https://example.com/v1?key=secret']) {
+    for (const url of ['ftp://example.com/v1', 'https://key@example.com/v1', 'http://key@example.com/v1', 'file:///tmp', 'https://example.com/v1?key=secret', 'http://example.com/v1#fragment']) {
       expect(() => validateEndpoint(url)).toThrow();
     }
+  });
+  it.each(['http://localhost:11434/v1', 'http://192.168.1.10:8080/api/v1', 'http://models.example.com/v1', 'http://[::1]:11434/v1'])('sends an HTTP model request with the configured host, port and path: %s', async baseUrl => {
+    const endpoint = baseUrl + '/chat/completions';
+    expect(validateEndpoint(baseUrl)).toBe(endpoint);
+    expect(validateEndpoint(endpoint + '/')).toBe(endpoint);
+    const plan = await extractCapture('测试自建服务', createContext, { ...config, baseUrl }, 'fixture-token', async request => {
+      expect(request.url).toBe(endpoint);
+      expect(request.headers.Authorization).toBe('Bearer fixture-token');
+      return { status: 200, text: JSON.stringify({ choices: [{ message: { content: JSON.stringify(proposed) } }] }) };
+    });
+    expect(plan.mode).toBe('create');
   });
   it('validates a real-format API response and never exposes provider error bodies', async () => {
     const result = await extractCapture('明天排查相机启动慢', createContext, config, 'secret', async request => {

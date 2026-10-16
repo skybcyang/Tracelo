@@ -1,0 +1,93 @@
+{
+  "recorded_at": "2026-10-15T22:56:40+08:00",
+  "scope": "Standalone desktop mockup; final CSS material revision",
+  "checks": [
+    {
+      "name": "JavaScript syntax",
+      "result": "passed",
+      "at": "2026-10-15T23:01:43.513464+08:00",
+      "command": "node --check docs/design/glass-workbench/workbench.js"
+    },
+    {
+      "name": "Desktop screenshots",
+      "result": "passed",
+      "at": "2026-10-15T22:30:25.565878+08:00",
+      "viewport": "1728x1080",
+      "report": "shots/glass-final/report.json",
+      "states": 8,
+      "issues": []
+    },
+    {
+      "name": "Motion frame capture",
+      "result": "passed",
+      "at": "2026-10-15T22:30:22.735706+08:00",
+      "report": "shots/glass-motion/report.json",
+      "note": "368 frames, no ffmpeg/video; not an FPS benchmark"
+    },
+    {
+      "name": "Material computed styles",
+      "result": "passed",
+      "at": "2026-10-15T14:24:58.166Z",
+      "reading_filter": "blur(24px) saturate(1.55)",
+      "cover_filter": "blur(16px) saturate(1.75)",
+      "flow_mask": "none",
+      "page_width": 1728,
+      "footer_bottom": 1047.421875
+    },
+    {
+      "name": "Pause/restart",
+      "result": "passed",
+      "paused_at": [
+        "2026-10-15T14:28:26.914Z",
+        "2026-10-15T14:32:14.036Z"
+      ],
+      "paused_matrix": "matrix(1.09999, 0.074552, -0.074552, 1.09999, 56.5807, 50.5082)",
+      "resumed_at": "2026-10-15T14:48:24.017Z",
+      "resumed_state": "running"
+    },
+    {
+      "name": "Filter and fullscreen",
+      "result": "passed",
+      "at": "2026-10-15T14:32:14.036Z",
+      "group": "工作",
+      "quadrant": "重要不紧急",
+      "count": 2,
+      "layout": "overview-board quadrants"
+    },
+    {
+      "name": "Selection preserves drafts and reference",
+      "result": "passed",
+      "at": "2026-10-15T14:40:10.138Z",
+      "progress": "新版玻璃材质的切卡草稿",
+      "chat": "侧栏输入保持",
+      "reference": "让工作台更有呼吸感"
+    },
+    {
+      "name": "Wheel browsing",
+      "result": "passed",
+      "at": "2026-10-15T14:52:32.736Z",
+      "position_before": "03 / 12",
+      "position_after": "08 / 12",
+      "title_unchanged": "让工作台更有呼吸感"
+    },
+    {
+      "name": "Production build / install / actual host / 100 cards / OS accessibility settings",
+      "result": "not_run",
+      "note": "Design-only scope; no production implementation, real data or installation touched."
+    },
+    {
+      "name": "Final syntax, scoped diff, links and preview availability",
+      "result": "passed",
+      "at": "2026-10-15T23:01:43.513464+08:00",
+      "http_status": 200,
+      "note": "Checked prototype markdown links, project-state YAML and both final screenshot reports."
+    }
+  ],
+  "sha256": {
+    "index.html": "f9162ffc9e689ece14738222cfa77f43f4da827e452f5c399f72534ac74cc4aa",
+    "workbench.css": "4386edd97a367c24659a61eabb275bf4d8d1971c8bab2e681a26e973921e3981",
+    "materials.css": "c743187778858a5568c1a3f3e075733a7d72954d26ef40a4d724793664a6b833",
+    "workbench.js": "d1a264da8ad95ef30a613063e50cab0e64f6b353fbaa3dad0e1e0668c8b1fdf9",
+    "assets/apple-tokens.css": "8b0126da4550875f67704334b489c69b15f35718b2f698fe1e7fc6ce27a09299"
+  }
+}

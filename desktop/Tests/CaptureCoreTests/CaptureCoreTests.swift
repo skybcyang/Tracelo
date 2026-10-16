@@ -128,7 +128,12 @@ XCTAssertEqual(try SmartCaptureTransport.readKey("opaque.Provider_token-12345678
 XCTAssertEqual(try SmartCaptureTransport.readKey("# Key\nAPI_KEY=opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890")
 XCTAssertThrowsError(try SmartCaptureTransport.readKey("first-token-12345678\nsecond-token-12345678"))
 XCTAssertEqual(try SmartCaptureTransport.endpoint("https://example.com/v1/chat/completions/").absoluteString, "https://example.com/v1/chat/completions")
-XCTAssertThrowsError(try SmartCaptureTransport.endpoint("http://example.com/v1"))
+for base in ["http://localhost:11434/v1", "http://192.168.1.10:8080/api/v1", "http://models.example.com/v1", "http://[::1]:11434/v1"] {
+    XCTAssertEqual(try SmartCaptureTransport.endpoint(base).absoluteString, base + "/chat/completions")
+    XCTAssertEqual(try SmartCaptureTransport.endpoint(base + "/chat/completions/").absoluteString, base + "/chat/completions")
+    XCTAssertEqual(try SmartCaptureTransport.configuration(["baseUrl": base, "model": "test", "apiKey": "test-direct-token-1234567890"])["baseUrl"], base)
+}
+for base in ["ftp://example.com/v1", "http://key@example.com/v1", "http://example.com/v1?key=secret", "http://example.com/v1#fragment"] { XCTAssertThrowsError(try SmartCaptureTransport.endpoint(base)) }
 XCTAssertThrowsError(try SmartCaptureTransport.endpoint("https://key@example.com/v1"))
 try tests.testFirstLineIsTitleAndNotesKeepOrder()
 try tests.testAtomicPublishDoesNotOverwriteAndRetryIsIdempotent()

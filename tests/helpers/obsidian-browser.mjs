@@ -55,7 +55,9 @@ export class Plugin {
 export class ItemView {
   constructor(leaf) {
     this.app = leaf.app;
-    this.contentEl = document.body.createDiv({ cls: "view-content" });
+    const workbench = new URLSearchParams(location.search).has('workbench');
+    const parent = workbench ? document.body.createDiv({cls:'workspace-leaf-content',attr:{'data-type':'work-timeline-view',style:'height:100vh'}}) : document.body;
+    this.contentEl = parent.createDiv({ cls: "view-content" });
   }
   registerInterval() {}
 }
@@ -151,11 +153,17 @@ export class Menu {
   addSeparator() { this.el.createDiv({ cls: 'menu-separator' }); return this; }
   showAtMouseEvent(event) {
     document.querySelector('[role=menu]')?.remove(); document.body.append(this.el);
-    this.position(event?.clientX ?? 0, event?.clientY ?? 0);
+    this.position(event?.clientX ?? 0, event?.clientY ?? 0); this.bindDismiss();
   }
   showAtPosition({ x, y }) {
     document.querySelector('[role=menu]')?.remove(); document.body.append(this.el);
-    this.position(x, y);
+    this.position(x, y); this.bindDismiss();
+  }
+  bindDismiss() {
+    const controller = new AbortController();
+    const dismiss = () => { this.el.remove(); controller.abort(); };
+    document.addEventListener('keydown', event => { if (!this.el.isConnected) { controller.abort(); return; } if (event.key === 'Escape' && !event.isComposing) dismiss(); }, { signal: controller.signal });
+    document.addEventListener('pointerdown', event => { if (!this.el.isConnected) { controller.abort(); return; } if (!this.el.contains(event.target)) dismiss(); }, { signal: controller.signal });
   }
   position(x, y) {
     Object.assign(this.el.style, { position: 'fixed', zIndex: '100', display: 'flex', flexDirection: 'column', maxHeight: `${innerHeight - 16}px`, overflowY: 'auto' });
@@ -205,6 +213,7 @@ export function createApp() {
       },
     },
     workspace: {
+      async openLinkText(path) { (app.openedFiles ??= []).push(path); },
       getLeavesOfType(type) { return leaves.filter((leaf) => leaf.type === type); },
       getLeaf() {
         const leaf = {

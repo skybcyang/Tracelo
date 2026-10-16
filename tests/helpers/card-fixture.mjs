@@ -21,6 +21,14 @@ const plain = await plugin.addTask({ ...common, title: "整理客户反馈", ini
 const long = await plugin.addTask({ ...common, title: "检查长内容", initialProgress: "长进展要完整换行，不能被按钮高度裁切。".repeat(12), todos: ["长待办也应完整换行并保持与编辑按钮对齐。".repeat(5)] });
 const dateOnly = await plugin.addTask({ ...common, title: "提交本周项目周报", dueDate: "2026-09-26", initialProgress: "已汇总本周交付与风险，今天发送最终版。只设置截止日期，不拆分待办。" });
 await plugin.activateView();
+// Card-grid suites exercise the retained overview through its real UI entry.
+// The dedicated workbench suite leaves the new default surface open.
+if (!new URLSearchParams(location.search).has('workbench')) {
+  document.querySelector('.wt-overview-toggle').click();
+  [...document.querySelectorAll('.wt-overview-context button')].find(b=>b.textContent==='展开看板').click();
+  document.querySelector('[aria-label="打开工作助手"]').click();
+}
+
 window.cardFixture = { plugin, app, platform: Platform, ids: { payment, plain, long, dateOnly } };
 window.cardFixture.externalArchive = () => {
   const now = new Date();

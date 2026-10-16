@@ -105,6 +105,7 @@ try {
     await modal.getByRole('textbox',{name:'说说要做的事',exact:true,includeHidden:true}).fill('帮我创建一个任务');
     await modal.getByRole('button',{name:'模型设置',exact:true}).click();
     const settings=page.locator('.wt-smart-settings');
+    await settings.getByRole('textbox',{name:'服务地址',exact:true}).fill('http://192.168.1.10:8080/v1');
     const key = settings.getByLabel('API Key', {exact:true});
     await key.fill('test-direct-token-1234567890');
     assert.equal(await key.getAttribute('type'),'password');
@@ -125,6 +126,8 @@ try {
     await settings.waitFor({state:'detached'});
     assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='configure').params.config.apiKey),'test-direct-token-1234567890');
     assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='configure').params.config.keyFile),'');
+    assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='configure').params.config.baseUrl),'http://192.168.1.10:8080/v1');
+    assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='request').params.config.baseUrl),'http://192.168.1.10:8080/v1');
     assert.ok(await modal.evaluate(el=>el.getBoundingClientRect().left)<=1,'smart capture uses the native content surface');
     assert.equal(await modal.getByRole('button',{name:'关闭',exact:true}).evaluate(el=>getComputedStyle(el).borderTopStyle),'solid','shared buttons never use browser bevels');
     await page.evaluate(()=>window.failDraft=true);

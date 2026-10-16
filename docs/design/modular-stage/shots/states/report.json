@@ -1,0 +1,37 @@
+[
+  {
+    "file": "arranging.png",
+    "state": "arranging",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "three-columns.png",
+    "state": "three-columns",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "empty-task.png",
+    "state": "empty-task",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "long.png",
+    "state": "long",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "quadrants.png",
+    "state": "quadrants",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  }
+]

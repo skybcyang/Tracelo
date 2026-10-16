@@ -1,6 +1,5 @@
 import { parseTaskMarkdown, normalizePluginState } from './archive';
-import { QUADRANTS, dayKey, taskIcon, type WorkTask, type WorkGroup } from './domain';
-import { setContentIcon } from './content-icons';
+import { QUADRANTS, dayKey, type WorkTask, type WorkGroup } from './domain';
 import { renderCardTodos, renderCardComposer, cardDueLabel, formatDateTime, formatTime, type CardHost } from './task-card';
 import type { QuickOperation } from './quick-operations';
 import MarkdownIt from 'markdown-it';
@@ -111,7 +110,6 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
     ask('设置截止日期', task.dueDate ?? '', 'due');
     for (const group of [...groups, { id: '', name: '未分组' }]) add(`移到分组：${group.name}`, () => { void perform(task.id, 'group', { text: group.id }).catch(error => notice(String(error))); });
     for (const quadrant of QUADRANTS) add(quadrant.name, () => { void perform(task.id, 'quadrant', { text: quadrant.id }).catch(error => notice(String(error))); });
-    ask('更换图标（Lucide 名称）', task.icon ?? '', 'icon');
     if (task.status === 'active') { add('完成任务', () => { void perform(task.id, 'complete').catch(error => notice(String(error))); }); ask('异常关闭', '', 'close', true); }
     else add('重新打开', () => { void perform(task.id, 'reopen').catch(error => notice(String(error))); });
     add('取消', () => {});
@@ -216,8 +214,6 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       const cardBody = card.createDiv({ cls: 'wt-card-body' });
       const target = cardBody.createDiv({ cls: 'wt-record-target' });
       const title = target.createEl('button', { cls: 'wt-quick-target', attr: { type: 'button', 'aria-label': `切换任务：${task.title}`, 'aria-expanded': String(choosing) } });
-      const selectedIcon = taskIcon(task, groups);
-      if (selectedIcon) setContentIcon(title.createSpan({ cls: 'wt-task-icon', attr: { 'aria-hidden': 'true' } }), selectedIcon);
       const targetCopy = title.createSpan({ cls: 'wt-quick-target-copy' });
       targetCopy.createEl('strong', { text: task.title });
       targetCopy.createEl('small', { text: [task.groupName, task.dueDate ? cardDueLabel(task) : ''].filter(Boolean).join(' · ') });
@@ -291,9 +287,6 @@ export function mountQuickProgress(container: HTMLElement, options: Options) {
       if (!candidates.length) list.createEl('p', { text: tasks.length ? '没有匹配的任务' : '当前目录还没有任务', cls: 'wt-empty', attr: { role: 'status' } });
       for (const item of candidates) {
         const b = list.createEl('button', { cls: 'wt-quick-task', attr: { type: 'button', 'aria-label': `选择任务：${item.title}` } });
-        const iconSlot = b.createSpan({ cls: 'wt-quick-task-icon', attr: { 'aria-hidden': 'true' } });
-        const itemIcon = taskIcon(item, groups);
-        if (itemIcon) setContentIcon(iconSlot, itemIcon);
         const copy = b.createSpan({ cls: 'wt-quick-task-copy' });
         copy.createSpan({ cls: 'wt-quick-task-title', text: item.title });
         copy.createEl('small', { text: `${item.groupName} · ${item.status === 'active' ? '进行中' : item.status === 'completed' ? '已完成' : '已关闭'}` });

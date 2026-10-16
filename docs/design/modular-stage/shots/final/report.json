@@ -1,0 +1,30 @@
+[
+  {
+    "file": "idle-1728x1080.png",
+    "state": "idle",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "dark-1728x1080.png",
+    "state": "dark",
+    "size": "1728x1080",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "idle-1280x900.png",
+    "state": "idle",
+    "size": "1280x900",
+    "zoom": 1,
+    "issues": []
+  },
+  {
+    "file": "dark-1280x900.png",
+    "state": "dark",
+    "size": "1280x900",
+    "zoom": 1,
+    "issues": []
+  }
+]

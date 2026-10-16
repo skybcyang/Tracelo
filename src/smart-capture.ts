@@ -38,8 +38,8 @@ export function readApiKey(source: string): string {
 }
 export function validateEndpoint(baseUrl: string): string {
   let url: URL;
-  try { url = new URL(baseUrl); } catch { throw Error('请填写有效的 HTTPS 服务地址。'); }
-  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw Error('服务地址须使用 HTTPS，且不能包含账号、密钥或查询参数。');
+  try { url = new URL(baseUrl); } catch { throw Error('请填写有效的 HTTP 或 HTTPS 服务地址。'); }
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password || url.search || url.hash) throw Error('服务地址须使用 HTTP 或 HTTPS，且不能包含账号、密钥或查询参数。');
   const endpoint = url.href.replace(/\/+$/, '');
   return endpoint.endsWith('/chat/completions') ? endpoint : endpoint + '/chat/completions';
 }

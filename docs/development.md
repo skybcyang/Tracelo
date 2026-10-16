@@ -10,9 +10,10 @@ npm test              # 单元与契约测试
 npm run build         # 类型检查与插件构建
 npm run test:layout   # 布局、滚动与卡片交互
 npm run test:capture  # 共享桌面表单、日历、图片及快捷命令
-npm run test:icons    # 离线图标与四主题深浅色
+npm run test:icons    # Emoji 移除、旧图标字段兼容与深浅色
 npm run test:presentation # 等高卡片、展示模式、动效与异步边界
-npm run check         # 依次执行以上全部
+npm run test:conversation # 对话、历史检索、来源与草稿
+npm run check         # 完整自动检查
 ```
 
 完整浏览器套件需要 Playwright Chromium，先运行 `npx playwright install chromium`（Linux CI 使用 `--with-deps`）。部分脚本支持 `PLAYWRIGHT_CHANNEL=chrome`，但顶栏与展示模式等脚本仍直接启动 Chromium，因此该变量不能替代完整套件的浏览器安装。完整跨语言检查还需 macOS Swift 和 .NET 8 SDK；`dotnet` 不在 PATH 时，可通过 `DOTNET_PATH` 指定可执行文件。缺少原生工具导致的跳过不算通过。
@@ -53,6 +54,8 @@ npm run check         # 依次执行以上全部
 - [已完成任务与实施记录](completed-tasks.md)
 - [历次卡片规则](design/content-adaptive-cards.md)与[紧凑设计规范](design/compact-ui.md)：保留用于理解演变，旧尺寸不代表当前设计。
 
-正式任务和历史默认保存在 `工作记录/任务/`；草稿、排序和界面偏好保存在插件数据中。请通过插件修改正式任务。升级与回退应阅读对应发布说明，保留升级前完整备份。
+正式任务和历史默认保存在 `工作记录/任务/`；草稿、排序和界面偏好保存在插件数据中。普通操作可通过插件完成，也支持按[可编辑协议](editable-tasks.md)直接编辑任务文件；外部 Agent 仍遵守任务目录的只读规则。升级与回退应阅读对应发布说明，保留升级前完整备份。
 
 文档口径：`requirements.md` 描述当前业务行为，`design/task-context-protocol.md` 描述协议；`releases/<版本>.md` 和 `validation/` 是对应时点的记录，不回写为新版本的验收。早期设计稿保留历史规则时，以页首声明和当前需求为准。
+
+本机日常流程集成可执行 `node tests/daily-workflow.native.mjs`：Swift 原子发布／离线队列接入隔离真实 Obsidian，检查回执、重试、草稿重启和历史来源跳转；模型回复使用确定性夹具，不代表真实模型语义或人工输入法通过。

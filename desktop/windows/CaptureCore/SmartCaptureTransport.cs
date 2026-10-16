@@ -16,7 +16,7 @@ public static class SmartCaptureTransport {
         return keys.Single();
     }
     public static Uri Endpoint(string value) {
-        if (!Uri.TryCreate(value, UriKind.Absolute, out var url) || url.Scheme != "https" || url.UserInfo.Length > 0 || url.Query.Length > 0 || url.Fragment.Length > 0) throw new ArgumentException("请填写不含账号或参数的 HTTPS 服务地址");
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var url) || (url.Scheme != "https" && url.Scheme != "http") || url.UserInfo.Length > 0 || url.Query.Length > 0 || url.Fragment.Length > 0) throw new ArgumentException("请填写不含账号或参数的 HTTP 或 HTTPS 服务地址");
         var normalized = url.AbsoluteUri.TrimEnd('/');
         return new Uri(normalized.EndsWith("/chat/completions", StringComparison.Ordinal) ? normalized : normalized + "/chat/completions");
     }

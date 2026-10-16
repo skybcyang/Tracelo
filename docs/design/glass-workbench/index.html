@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tracelo · 玻璃工作台</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='%23333'/%3E%3Cpath d='M11 12h10M16 12v10' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/apple-tokens.css">
+  <link rel="stylesheet" href="workbench.css">
+  <link rel="stylesheet" href="materials.css">
+  <script type="module" src="workbench.js"></script>
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true">
+    <div class="light ambient-source"></div>
+    <div class="light ambient-bounce"></div>
+    <div class="light ambient-sheen"></div>
+    <div class="grain"></div>
+  </div>
+  <div class="app" id="app">
+    <header class="app-header">
+      <a class="brand" href="./" aria-label="Tracelo 工作台"><span class="brand-mark">t<span></span></span><span>tracelo<span class="brand-dot">.</span></span></a>
+
+      <div class="header-actions">
+        <button class="icon-button" id="motion-toggle" aria-label="暂停背景动效" aria-pressed="true" data-icon="sparkles"></button>
+        <button class="icon-button" id="theme-toggle" aria-label="切换深色外观" data-icon="moon"></button>
+        <button class="icon-button" id="side-toggle" aria-label="收起工作助手" aria-expanded="true" data-icon="panel"></button>
+        <span class="header-divider"></span>
+        <button class="button primary small" id="new-task"><span data-icon="plus"></span>新建任务</button>
+      </div>
+    </header>
+    <div class="workspace">
+      <main class="main-column" id="main-column">
+        <section class="task-stage" id="task-stage" aria-label="当前任务展示台">
+          <div class="stage-heading">
+            <div class="stage-heading-main"><div class="eyebrow"><span class="live-dot"></span> 正在推进 <span id="outside-filter" hidden>· 不在当前筛选中</span></div><h1 id="task-title"></h1><div class="task-meta" id="task-meta"></div></div>
+            <button class="button subtle" id="open-history"><span data-icon="history"></span>任务历史</button>
+          </div>
+          <div class="bento" id="bento"></div>
+        </section>
+        <section class="task-library" id="task-library" aria-label="任务卡片">
+          <div class="library-title-row"><div class="library-heading"><h2 id="library-title">任务牌组</h2><span class="count" id="task-count"></span></div><div class="library-tools"><div class="flow-footer" id="flow-footer"><div class="flow-navigation"><button class="icon-button" id="flow-prev" aria-label="上一张任务卡" data-icon="left"></button><span id="flow-position" aria-live="polite"></span><button class="icon-button" id="flow-next" aria-label="下一张任务卡" data-icon="right"></button></div></div><div id="overview-modes" class="segmented" hidden><button data-layout="group" aria-pressed="true">分组</button><button data-layout="quadrant" aria-pressed="false">四象限</button></div><label class="search-field"><span data-icon="search"></span><input type="search" id="task-search" placeholder="查找任务" aria-label="查找任务"></label><button class="button subtle" id="overview-toggle" aria-expanded="false"><span data-icon="expand"></span><span id="overview-label">全屏总览</span></button></div></div>
+          <div class="filters"><div class="filter-row"><span class="filter-label">分组</span><div id="group-filters" class="filter-options"></div></div><div class="filter-row"><span class="filter-label">象限</span><div id="quadrant-filters" class="filter-options"></div><button class="clear-filters" id="clear-filters" hidden>清除筛选</button></div></div>
+          <div class="cover-shell" id="cover-shell"><div class="cover-flow" id="cover-flow" tabindex="0" role="region" aria-label="任务封面流，左右方向键浏览，回车选择"></div><div class="flow-empty" id="flow-empty" hidden><span data-icon="search"></span><h3>没有匹配的任务</h3><p>换个分组或象限，再看看。</p><button class="button" id="reset-empty">显示全部任务</button></div></div>
+
+          <div class="overview-board" id="overview-board" hidden></div>
+        </section>
+      </main>
+      <aside class="sidebar glass" id="sidebar" aria-label="工作助手">
+        <section class="calendar-section"><div class="sidebar-top"><span class="eyebrow">工作日历</span><button class="icon-button" id="open-calendar" aria-label="打开截止日历" data-icon="calendar"></button></div><div class="date-heading"><h2 id="date-title"></h2><div><button class="icon-button" id="day-prev" aria-label="前一天" data-icon="left"></button><button class="text-button" id="today">今天</button><button class="icon-button" id="day-next" aria-label="后一天" data-icon="right"></button></div></div><div class="week" id="week"></div><div id="due-list" class="due-list"></div></section>
+        <div class="assistant-tabs" role="tablist" aria-label="侧栏内容"><button role="tab" aria-selected="true" id="chat-tab" data-panel="chat">工作对话</button><button role="tab" aria-selected="false" id="activity-tab" data-panel="activity">活动记录</button><button class="icon-button" id="clear-chat" aria-label="开始新对话" data-icon="message"></button></div>
+        <section class="chat-pane" id="chat-pane" aria-labelledby="chat-tab"><div class="chat-stream" id="chat-stream"><div class="assistant-intro"><div class="assistant-orb" aria-hidden="true"><span data-icon="sparkles"></span></div><h3>接着上次的思路。</h3><p>一起想清楚下一步。</p></div><div id="messages"></div><div class="suggestions"><button data-prompt="这件事上次做到哪里了？">回顾上次进展 <span>↗</span></button><button data-prompt="接下来可以先做什么？">想一想下一步 <span>↗</span></button></div></div><form class="chat-composer" id="chat-form"><div class="reference-row"><button type="button" id="reference-current"><span data-icon="plus"></span>引用当前任务</button></div><div id="chat-refs" class="chat-refs"></div><textarea id="chat-input" rows="2" placeholder="聊聊思路，或整理一段进展…" aria-label="工作对话输入"></textarea><div class="composer-bottom"><span>⌘ / Ctrl + Enter 发送</span><button type="submit" class="send-button" aria-label="发送消息" data-icon="arrow-up"></button></div></form></section>
+        <section class="activity-pane" id="activity-pane" aria-labelledby="activity-tab" hidden></section>
+        <section class="history-pane" id="history-pane" hidden><button class="text-button" id="back-chat">← 返回对话</button><h3 id="history-title"></h3><div id="history-events"></div></section>
+      </aside>
+      <nav class="side-rail glass" id="side-rail" aria-label="打开工作助手" hidden><button class="icon-button" data-open-panel="chat" aria-label="打开工作对话" data-icon="message"></button><button class="icon-button" data-open-panel="activity" aria-label="打开活动记录" data-icon="history"></button><button class="icon-button" id="rail-calendar" aria-label="打开截止日历" data-icon="calendar"></button></nav>
+    </div>
+  </div>
+  <dialog id="new-dialog" class="modal glass"><form id="new-form"><div class="modal-header"><h2>新建任务</h2><button type="button" class="icon-button close-dialog" aria-label="关闭新建任务" data-icon="close"></button></div><label class="field">任务名称<input id="new-title" name="title" required maxlength="160" placeholder="想推进什么事情？"></label><label class="field">分组<select name="group"><option>未分组</option><option>工作</option><option>学习</option><option>生活</option></select></label><fieldset><legend>重要与紧急</legend><div class="new-quadrants" id="new-quadrants"></div></fieldset><div class="modal-footer"><button type="button" class="button close-dialog">取消</button><button type="submit" class="button primary">创建任务</button></div></form></dialog>
+  <dialog id="calendar-dialog" class="modal glass calendar-modal"><div class="modal-header"><h2>截止日历</h2><button class="icon-button close-dialog" aria-label="关闭截止日历" data-icon="close"></button></div><div class="month-navigation"><button class="icon-button" id="month-prev" aria-label="上个月" data-icon="left"></button><h3 id="month-title"></h3><button class="icon-button" id="month-next" aria-label="下个月" data-icon="right"></button></div><div class="month-layout"><div><div class="month-weekdays"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div><div id="month-grid" class="month-grid"></div></div><div id="month-tasks" class="month-tasks"></div></div></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>

@@ -24,6 +24,14 @@ for (const [title,index,icon,important,urgent,dueDate,notes,initialProgress,todo
 }
 plugin.state.orders.group=Object.fromEntries(plugin.groups.map(g=>[g.id,ids.filter(id=>plugin.tasks.find(t=>t.id===id).groupId===g.id)]));
 await plugin.activateView();
+// Card-grid suites exercise the retained overview through its real UI entry.
+// The dedicated workbench suite leaves the new default surface open.
+if (!new URLSearchParams(location.search).has('workbench')) {
+  document.querySelector('.wt-overview-toggle').click();
+  [...document.querySelectorAll('.wt-overview-context button')].find(b=>b.textContent==='展开看板').click();
+  document.querySelector('[aria-label="打开工作助手"]').click();
+}
+
 window.cardFixture={app,plugin,ids:{payment:ids[0]}};
 const query=new URLSearchParams(location.search);
 await plugin.setAppearance(['monochrome','evergreen','graphite','glacier','vermilion'].includes(query.get('theme'))?query.get('theme'):'monochrome',query.get('mode')==='dark'?'dark':'light');

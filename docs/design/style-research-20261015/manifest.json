@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "project": "Tracelo · 整体风格探索",
+  "brief": "3 个候选使用同一批虚构任务。点击记录进展可原位展开；其他入口是视觉占位，不接业务、不保存。色彩属于待选方案，未改变素白默认主题。",
+  "round": "01",
+  "candidates": [
+    {
+      "id": "baseline",
+      "name": "今日安装版留档",
+      "concept": "2026-10-15 安装截图，仅作视觉基线；本轮没有复验生产插件。",
+      "typography": "现有无衬线卡片标题与灰色进展块",
+      "palette": [
+        "#ffffff",
+        "#f3f3f3",
+        "#262626"
+      ],
+      "traits": [
+        "历史实机截图",
+        "不同视口，不用于尺寸对照"
+      ],
+      "kind": "image",
+      "source": "baseline.png",
+      "baseline": true
+    },
+    {
+      "id": "tactile",
+      "name": "触感工作卡",
+      "concept": "像拿起一张工作卡，清楚地接着往下做。",
+      "typography": "PingFang SC；16px 标题／14px 进展／11px 属性",
+      "palette": [
+        "#e1ebdf",
+        "#f1e4d2",
+        "#294e33"
+      ],
+      "traits": [
+        "整张卡按分组着色",
+        "实体按键式记录入口",
+        "纸卡厚度与细分隔线"
+      ],
+      "kind": "html",
+      "source": "tactile.html",
+      "interactive": true
+    },
+    {
+      "id": "editorial",
+      "name": "编辑式纸卡",
+      "concept": "让最新进展成为一张卡最值得读的那句话。",
+      "typography": "PingFang SC；Songti SC 19px 进展，24px 分组标题",
+      "palette": [
+        "#f3f2ee",
+        "#282722",
+        "#fffefa"
+      ],
+      "traits": [
+        "进展使用宋体与更大字号",
+        "细框与轻偏移纸边",
+        "分组标题采用出版物层级"
+      ],
+      "kind": "html",
+      "source": "editorial.html",
+      "interactive": true
+    },
+    {
+      "id": "pearl",
+      "name": "轻悬浮面板",
+      "concept": "卡片与工作对话像同一套轻盈的桌面控件。",
+      "typography": "PingFang SC；16px 标题／14px 进展／11px 属性",
+      "palette": [
+        "#e9edf1",
+        "#38566e",
+        "#fdfefe"
+      ],
+      "traits": [
+        "右侧独立浮层",
+        "卡片内凹进展阅读区",
+        "圆形胶囊操作"
+      ],
+      "kind": "html",
+      "source": "pearl.html",
+      "interactive": true
+    }
+  ]
+}

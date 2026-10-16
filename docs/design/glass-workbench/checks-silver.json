@@ -1,0 +1,127 @@
+{
+  "recorded_at": "2026-10-16T02:59:02+08:00",
+  "scope": "2026-10-16 silver refinement; isolated mockup only",
+  "checks": [
+    {
+      "name": "JavaScript syntax, scoped whitespace diff, preview HTTP",
+      "result": "passed",
+      "at": "2026-10-16T02:59:02+08:00",
+      "commands": [
+        "node --check docs/design/glass-workbench/workbench.js",
+        "git diff --check -- PROJECT_STATE.md docs/design/task-stage.md docs/design/glass-workbench"
+      ],
+      "http_status": 200
+    },
+    {
+      "name": "Desktop screenshots",
+      "result": "passed",
+      "at": "2026-10-16T02:59:02+08:00",
+      "viewport": "1728x1080",
+      "report": "shots/silver-final/report.json",
+      "states": 8,
+      "issues": []
+    },
+    {
+      "name": "2x rendering and cover detail",
+      "result": "passed",
+      "at": "2026-10-16T02:59:02+08:00",
+      "report": "shots/silver-zoom/report.json",
+      "note": "2x image sampling, not a full browser zoom matrix"
+    },
+    {
+      "name": "Computed desktop styles",
+      "result": "passed",
+      "at": "2026-10-16T02:59:02+08:00",
+      "reading_filter": "blur(24px) saturate(1.2)",
+      "cover_filter": "blur(18px) saturate(1.2)",
+      "icon_width": "30px",
+      "cover_title": "18px",
+      "cover_metadata": "12px",
+      "bento_columns": "718.078px 531.922px",
+      "page_width": 1728,
+      "viewport_width": 1728
+    },
+    {
+      "name": "Browser interaction walkthrough",
+      "result": "passed",
+      "at": "2026-10-16T02:59:02+08:00",
+      "evidence": {
+        "browse_title_unchanged": "让工作台更有呼吸感",
+        "navigation_position": "04 / 12",
+        "wheel_position": "12 / 12",
+        "progress_preserved": "恢复后的新版草稿\n",
+        "chat_preserved": "保留工作对话",
+        "reference_preserved": "让工作台更有呼吸感",
+        "group": "工作",
+        "quadrant": "重要不紧急",
+        "filtered_count": 2,
+        "overview_card_count": 2,
+        "overview_layout": "quadrants",
+        "editing_navigation_top": 649.7734375,
+        "editing_navigation_bottom": 684.7734375,
+        "viewport_height": 1080,
+        "enter": "newline"
+      }
+    },
+    {
+      "name": "Pause and resume all ambient layers",
+      "result": "passed",
+      "at": "2026-10-16T02:59:02+08:00",
+      "before_fix": [
+        "paused",
+        "paused",
+        "running"
+      ],
+      "after_fix": [
+        "paused",
+        "paused",
+        "paused"
+      ],
+      "paused_transforms_stable_across_two_reads": true,
+      "resumed_states": [
+        "running",
+        "running",
+        "running"
+      ],
+      "resumed_transforms_changed": true,
+      "dark_paused_states": [
+        "paused",
+        "paused",
+        "paused"
+      ]
+    },
+    {
+      "name": "Motion sampling",
+      "result": "passed",
+      "at": "2026-10-16T02:59:02+08:00",
+      "report": "shots/silver-motion/report.json",
+      "note": "108 frame images, start/mid/end inspected; no ffmpeg/video or FPS benchmark"
+    },
+    {
+      "name": "Repository TypeScript",
+      "result": "failed",
+      "at": "2026-10-16T02:59:02+08:00",
+      "command": "npx tsc --noEmit",
+      "exit_code": 1,
+      "errors": [
+        "node_modules/obsidian/obsidian.d.ts(4245,14): TS2420 Menu: missing onHistoryBack required by HistoryHandler",
+        "node_modules/obsidian/obsidian.d.ts(4477,14): TS2420 Modal: missing onHistoryBack required by HistoryHandler",
+        "node_modules/obsidian/obsidian.d.ts(5201,23): TS2420 PopoverSuggest<T>: missing onHistoryBack required by HistoryHandler"
+      ],
+      "note": "Outside mockup scope; did not change dependency or production configuration"
+    },
+    {
+      "name": "Production build, full regression, actual Obsidian/native installation",
+      "result": "not_run",
+      "at": null,
+      "note": "Mockup-only authorization; no production implementation or installation"
+    }
+  ],
+  "sha256": {
+    "index.html": "6ef9c0ad1a39beeffea8b1f3d19501a2ddd5093b8e63109f4d5eb8d0f1440afb",
+    "workbench.css": "4386edd97a367c24659a61eabb275bf4d8d1971c8bab2e681a26e973921e3981",
+    "materials.css": "762586083516cd147dd71aec10edaee6dfea05be75545ad4195f07fd3c770483",
+    "workbench.js": "fcc60cc1289894ef16d434852f4ad7e0e14cc83041a3afbd306a64b282820f92",
+    "assets/apple-tokens.css": "8b0126da4550875f67704334b489c69b15f35718b2f698fe1e7fc6ce27a09299"
+  }
+}
