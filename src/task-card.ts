@@ -64,9 +64,9 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
     });
     const body = card.createDiv({ cls: "wt-card-body" });
     const heading = body.createDiv({ cls: "wt-card-heading" });
-    const open = heading.createEl("button", {
+    const open = heading.createEl(host.stageMode ? "span" : "button", {
       cls: "wt-card-open",
-      attr: { type: "button", "aria-expanded": String(expanded), "aria-label": `${task.status === "active" ? "查看并记录" : "查看任务"}：${task.title}` },
+      attr: host.stageMode ? {} : { type: "button", "aria-expanded": String(expanded), "aria-label": `${task.status === "active" ? "查看并记录" : "查看任务"}：${task.title}` },
     });
     open.createSpan({ text: task.title, cls: "wt-card-title" });
     const actions = heading.createDiv({ cls: 'wt-card-heading-actions' });
@@ -121,7 +121,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
       todo.createSpan({ text: `${count}/${task.todos.length} 项完成` });
       todo.addEventListener("click", () => {
         host.selectedTaskId = task.id;
-        host.expandedTaskId = task.id;
+        if (!host.stageMode) host.expandedTaskId = task.id;
         host.render();
         requestAnimationFrame(() => host.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${task.id}"] ${task.status === "active" ? ".wt-todo-check" : ".wt-card-open"}`)?.focus());
       });
@@ -154,8 +154,8 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
       host.render();
       host.focusCard(task.id);
     };
-    open.addEventListener("click", toggleCard);
-    {
+    if (!host.stageMode) open.addEventListener("click", toggleCard);
+    if (!host.stageMode || !editing) {
       const label = editing ? host.stageMode || host.plugin.state.presentationMode ? '结束编辑' : '收起' : task.status === 'active' ? '记录进展' : '查看任务';
       const iconOnly = editing && host.plugin.state.presentationMode;
       const more = footer.createEl('button', { text: iconOnly ? '' : label, cls: `wt-read-more${editing ? ' wt-card-collapse' : ''}${iconOnly ? ' wt-card-edit-close' : ''}`, attr: { type: 'button', 'aria-label': label, title: label } });
@@ -164,18 +164,19 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
         const mark = more.createSpan({ cls: 'wt-card-action-icon', attr: { 'aria-hidden': 'true' } });
         host.setIcon(mark, editing ? 'chevron-up' : task.status === 'active' ? 'arrow-up-right' : 'arrow-right');
       }
-      more.onclick = () => open.click();
+      more.onclick = () => toggleCard();
     }
     let pointerStart: { x: number; y: number } | null = null;
     let dragged = false;
     let singleClick: ReturnType<typeof setTimeout> | undefined;
     const clearClick = () => { clearTimeout(singleClick); singleClick = undefined; };
-    const interactive = 'button, a, img, input, textarea, select, label, [contenteditable], .wt-card-todos, .wt-card-composer, .wt-optional-actions, .wt-stage-layout-bar, .wt-module-shelf, .wt-stage-resizer, .wt-stage-insert';
+    const interactive = 'button, a, img, input, textarea, select, label, [contenteditable], .wt-card-todos, .wt-card-composer, .wt-optional-actions, .wt-stage-layout-bar, .wt-module-shelf, .wt-stage-resizer, .wt-stage-insert, .wt-module-drag';
     card.addEventListener("pointerdown", (event) => { pointerStart = { x: event.clientX, y: event.clientY }; dragged = false; });
     card.addEventListener("click", (event) => {
+      if (host.stageMode) return;
       if (event.button !== 0 || event.defaultPrevented || dragged || (editing && host.editingNotes.has(task.id))) return;
       if (editing && host.plugin.state.drafts[task.id]?.trim()) return;
-      if ((event.target as Element).closest(interactive)) return;
+      if ((event.target as Element).closest(interactive) || (host.stageMode && (event.target as Element).closest('.wt-stage-area'))) return;
       if (pointerStart && Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 5) return;
       const selection = card.ownerDocument.getSelection();
       if (selection && !selection.isCollapsed && card.contains(selection.anchorNode)) return;
@@ -222,7 +223,7 @@ export function renderTaskCard(host: CardHost, container: HTMLElement, task: Wor
         if (moving && moving !== task.id) void host.plugin.dropTask(moving, host.plugin.state.viewMode, area, task.id).catch(reason => { host.notice(String(reason)); });
       });
     }
-    if (expanded) renderCardTodos(host, body, task, editing, true);
+    if (expanded) renderCardTodos(host, body, task, Boolean(host.stageMode) || editing, true);
     const checklist = body.querySelector('.wt-card-todos');
     if (checklist) body.insertBefore(checklist, footer);
     if (task.status === "active" && editing) renderCardComposer(host, body, task);
@@ -366,7 +367,7 @@ export function renderCardComposer(host: CardHost, card: HTMLElement, task: Work
     input.addEventListener('compositionend', () => { composing = false; });
     input.addEventListener("input", () => host.plugin.updateDraft(task.id, input.value));
     const footer = form.createDiv({ cls: "wt-composer-footer" });
-    const close = footer.createEl('button', { text: host.plugin.state.presentationMode ? '结束编辑' : '收起', cls: 'wt-composer-close', attr: { type: 'button', 'aria-label': '关闭进展输入' } });
+    const close = footer.createEl('button', { text: host.stageMode || host.plugin.state.presentationMode ? '结束编辑' : '收起', cls: 'wt-composer-close', attr: { type: 'button', 'aria-label': host.stageMode ? '结束编辑' : '关闭进展输入' } });
     close.onclick = () => host.collapseCard(task.id);
     input.addEventListener("keydown", event => {
       if (event.isComposing || composing || event.keyCode === 229) return;

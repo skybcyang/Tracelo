@@ -28,6 +28,7 @@
       if (delivered) return;
       delivered = true; clearTimeout(timer); resizeScheduled = false;
       const modal = document.querySelector('.capture-modal');
+      if (nativeSettingsDialog) { send({action:'resize',height:620}); return; }
       const smartSurface = [...document.querySelectorAll('dialog.wt-smart-modal[open],dialog.wt-smart-settings[open]')].at(-1);
       if (smartSurface) {
         const body = smartSurface.querySelector('.wt-smart-body,.wt-smart-settings-body');
@@ -142,14 +143,85 @@
     button.onclick=()=>setMode(value); methods.append(button);
   }
   document.addEventListener('keydown', event => {
+    if (nativeSettingsDialog) return;
     if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229 && !controller.isComposing()) { event.preventDefault(); dismiss(); }
   });
   document.querySelector('#close').onclick = dismiss;
   document.querySelector('#location').onclick = () => send({ action: 'settings', draft: controller.read() });
+  let nativeSettingsDialog;
+  function openNativeSettings(value) {
+    if (nativeSettingsDialog) return;
+    const previousFocus = document.activeElement;
+    let settingsComposing = false;
+    const dialog = document.createElement('dialog');
+    nativeSettingsDialog = dialog;
+    dialog.className = 'wt-modal wt-workbench-dialog wt-settings-modal wt-native-settings';
+    dialog.setAttribute('aria-label', '快捷工具设置');
+    dialog.innerHTML = `<h2 class="modal-title">快捷工具设置</h2><form class="modal-content">
+      <div class="wt-settings-body"><section class="wt-settings-section"><h3>保存位置</h3>
+      <label class="wt-native-field">Obsidian vault<div class="wt-native-vault"><input aria-label="Obsidian vault" autocomplete="off"><button type="button" data-browse>选择文件夹</button></div></label>
+      <label class="wt-native-field">任务目录<input aria-label="任务目录" autocomplete="off"></label>
+      <p class="wt-settings-help">填写相对于 vault 的已有目录，与插件保持一致。</p></section>
+      <section class="wt-settings-section"><h3>全局快捷键</h3><div class="wt-settings-shortcut"><span>新建任务</span><button type="button" aria-label="新建任务快捷键" data-shortcut="shortcut"></button></div>
+      <div class="wt-settings-shortcut"><span>记录进展</span><button type="button" aria-label="记录进展快捷键" data-shortcut="progressShortcut"></button></div>
+      <p class="wt-settings-help">点击按键后，按下新的组合键。</p></section><p class="wt-form-error" role="alert"></p></div>
+      <div class="wt-settings-footer"><button type="button" data-cancel>取消</button><button type="submit" class="wt-primary-action">保存设置</button></div></form>`;
+    const vault = dialog.querySelector('[aria-label="Obsidian vault"]'), directory = dialog.querySelector('[aria-label="任务目录"]');
+    vault.value = value.vault; directory.value = value.directory;
+    const error = dialog.querySelector('[role=alert]');
+    const isWin = !!window.chrome?.webview;
+    const shortcuts = {shortcut:{...value.shortcut},progressShortcut:{...value.progressShortcut}};
+    const macKeys = {KeyA:0,KeyS:1,KeyD:2,KeyF:3,KeyH:4,KeyG:5,KeyZ:6,KeyX:7,KeyC:8,KeyV:9,KeyB:11,KeyQ:12,KeyW:13,KeyE:14,KeyR:15,KeyY:16,KeyT:17,Digit1:18,Digit2:19,Digit3:20,Digit4:21,Digit6:22,Digit5:23,Equal:24,Digit9:25,Digit7:26,Minus:27,Digit8:28,Digit0:29,BracketRight:30,KeyO:31,KeyU:32,BracketLeft:33,KeyI:34,KeyP:35,Enter:36,KeyL:37,KeyJ:38,Quote:39,KeyK:40,Semicolon:41,Backslash:42,Comma:43,Slash:44,KeyN:45,KeyM:46,Period:47,Tab:48,Space:49,Backquote:50,Backspace:51,Escape:53,ArrowLeft:123,ArrowRight:124,ArrowDown:125,ArrowUp:126};
+    const drawKeys = button => {
+      const shortcut = shortcuts[button.dataset.shortcut]; button.replaceChildren(); button.classList.add('wt-settings-keys');
+      const parts = shortcut.label.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘+]+/g) || [shortcut.label];
+      for (const part of parts) { const kbd = document.createElement('kbd'); kbd.textContent = part.trim(); button.append(kbd); }
+    };
+    for (const button of dialog.querySelectorAll('[data-shortcut]')) {
+      drawKeys(button);
+      button.onclick = () => { button.dataset.recording = 'true'; button.textContent = '请按组合键…'; };
+      button.onblur = () => { delete button.dataset.recording; drawKeys(button); };
+      button.onkeydown = event => {
+        if (event.isComposing || button.dataset.recording !== 'true') return;
+        event.preventDefault(); event.stopPropagation();
+        if (['Control','Alt','Shift','Meta'].includes(event.key)) return;
+        if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.metaKey) { delete button.dataset.recording; drawKeys(button); return; }
+        if (!(event.ctrlKey || event.altKey || (!isWin && event.metaKey))) { error.textContent = isWin ? '请包含 Ctrl 或 Alt。' : '请包含 ⌃、⌥ 或 ⌘。'; return; }
+        if (isWin && event.metaKey) { error.textContent = '请使用 Ctrl、Alt 或 Shift 组合。'; return; }
+        const key = isWin ? event.keyCode : macKeys[event.code];
+        if (key === undefined || !Number.isInteger(key) || (isWin && key === 0)) { error.textContent = '暂不支持此按键，请选择字母、数字或空格。'; return; }
+        const modifiers = isWin ? (event.altKey?1:0)|(event.ctrlKey?2:0)|(event.shiftKey?4:0) : (event.metaKey?256:0)|(event.shiftKey?512:0)|(event.altKey?2048:0)|(event.ctrlKey?4096:0);
+        const name = event.code === 'Space' ? 'Space' : event.code.replace(/^(Key|Digit)/,'');
+        const label = isWin ? [event.ctrlKey&&'Ctrl',event.altKey&&'Alt',event.shiftKey&&'Shift',name].filter(Boolean).join(' + ') : (event.ctrlKey?'⌃':'')+(event.altKey?'⌥':'')+(event.shiftKey?'⇧':'')+(event.metaKey?'⌘':'')+name;
+        shortcuts[button.dataset.shortcut] = {key,modifiers,label}; error.textContent = ''; delete button.dataset.recording; drawKeys(button);
+      };
+    }
+    dialog.querySelector('[data-browse]').onclick = () => post({action:'browseSettingsVault',vault:vault.value});
+    dialog.querySelector('[data-cancel]').onclick = () => dialog.close();
+    dialog.addEventListener('compositionstart', () => { settingsComposing = true; });
+    dialog.addEventListener('compositionend', () => { settingsComposing = false; });
+    dialog.oncancel = event => { if (settingsComposing || dialog.querySelector('[type=submit]').disabled) event.preventDefault(); };
+    dialog.onclose = () => { dialog.remove(); nativeSettingsDialog = undefined; previousFocus?.focus(); resize(); };
+    dialog.querySelector('form').onsubmit = event => {
+      event.preventDefault(); if (settingsComposing) return; error.textContent = '';
+      dialog.querySelectorAll('button,input').forEach(el => el.disabled = true);
+      post({action:'saveSettings',vault:vault.value.trim(),directory:directory.value.trim(),...shortcuts});
+    };
+    document.body.append(dialog); dialog.showModal();
+    post({action:'resize',height:620});
+    dialog.updateSettings = state => {
+      if ('settingsVault' in state) vault.value = state.settingsVault;
+      if (state.nativeSettingsError) { error.textContent = state.nativeSettingsError; dialog.querySelectorAll('button,input').forEach(el => el.disabled = false); }
+      if (state.nativeSettingsSaved) dialog.close();
+    };
+  }
+
   window.capture = {
     getDraft: controller.read, dismiss,
     update(state) {
       smart.update(state);
+      nativeSettingsDialog?.updateSettings(state);
+      if (state.nativeSettings) openNativeSettings(state.nativeSettings);
       if (state.focus || state.mode || state.error || state.progressError || state.quickError) {
         visibility++; closing = false; shell.inert = false;
         if (state.focus || state.mode) completing = false;
@@ -205,7 +277,7 @@
         controller.setSaving(state.saving);
         document.querySelector('#close').disabled = document.querySelector('#location').disabled = state.saving;
       }
-      if (state.focus && mode === 'create') controller.focus();
+      if (state.focus && mode === 'create' && !nativeSettingsDialog) controller.focus();
     },
   };
   window.addEventListener('resize', resize);

@@ -48,7 +48,7 @@ try {
     await page.waitForFunction(dark => {
       const card = getComputedStyle(document.querySelector('.wt-card')).backgroundColor;
       const selected = getComputedStyle(document.querySelector('.wt-quick-task[aria-current]')).backgroundColor;
-      return getComputedStyle(document.querySelector('.capture-modal')).backgroundColor === (dark ? 'rgb(34, 34, 34)' : 'rgb(255, 255, 255)') && card === 'rgba(0, 0, 0, 0)' && selected === (dark ? 'rgb(56, 56, 56)' : 'rgb(229, 229, 229)');
+      return getComputedStyle(document.querySelector('.capture-modal')).backgroundColor === (dark ? 'rgb(54, 67, 80)' : 'rgb(249, 251, 253)') && card === 'rgba(0, 0, 0, 0)' && selected === (dark ? 'rgb(56, 56, 56)' : 'rgb(229, 229, 229)');
     }, dark);
     const colors = await picker.evaluate(el => {
       const row = el.querySelector('.wt-quick-task:not([aria-current])');

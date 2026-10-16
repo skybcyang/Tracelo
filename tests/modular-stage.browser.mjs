@@ -16,7 +16,7 @@ try{
  assert.equal(carrierPaint,'rgba(0, 0, 0, 0)','workbench scroll pane must expose the wallpaper to stage and deck glass');
  const ids=await page.evaluate(()=>window.cardFixture.ids);await choose(ids.payment);
  assert.deepEqual(await snapshot(),[['progress'],['todos','details']]);
- const shelf=page.locator('[data-module="files"]');await shelf.hover();assert.equal(await page.locator('.wt-module-preview').isVisible(),true);
+ const shelf=page.locator('[data-module="files"]');await shelf.hover();await page.locator('.wt-module-preview').waitFor({state:'visible'});assert.equal(await page.locator('.wt-module-preview').isVisible(),true);
  await shelf.click();assert.deepEqual(await snapshot(),[['progress'],['todos','details']],'click only previews');
  await page.getByRole('button',{name:'调整布局',exact:true}).click();
  await page.locator('.wt-task-stage .wt-read-more').click();const input=page.getByRole('textbox',{name:'记录当前进展',exact:true});await input.fill('布局调整期间保护草稿');const editor=await input.elementHandle();
@@ -36,15 +36,15 @@ try{
  const saved=await page.evaluate(async()=>{const p=window.cardFixture.plugin;return (await p.loadData()).stageLayouts;});assert.equal(Object.keys(saved).length,1);
  await choose(ids.plain);assert.deepEqual(await snapshot(),[['progress'],['todos','details']]);await choose(ids.payment);assert.deepEqual(await snapshot(),[['progress'],['todos','details'],['files']]);assert.equal(await input.inputValue(),'布局调整期间保护草稿');
  await page.getByRole('button',{name:'调整布局',exact:true}).click();
- await page.getByRole('button',{name:'收回详情模块',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('.wt-stage-canvas [data-stage-module=details]'));
+ await page.getByRole('button',{name:'删除详情视图',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('.wt-stage-canvas [data-stage-module=details]'));
  await page.getByRole('button',{name:'撤销布局',exact:true}).click();await page.waitForFunction(()=>!!document.querySelector('.wt-stage-canvas [data-stage-module=details]'));
- const row=page.locator('.wt-stage-column').first().locator('.wt-stage-insert.is-row').last();await row.locator(':scope > button').click();await row.getByRole('button',{name:'详情',exact:true}).click();
+ const row=page.locator('.wt-stage-column').first().locator('.wt-stage-insert.is-row').last();await row.locator(':scope > button').click();await row.getByRole('button',{name:'详情 移动已有卡片',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('.wt-stage-column').querySelectorAll('[data-stage-module]').length===2);
  assert.deepEqual((await snapshot())[0],['progress','details']);
  await page.getByRole('button',{name:'恢复默认布局',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.wt-stage-column').length===2);assert.deepEqual(await snapshot(),[['progress'],['todos','details']]);
  // Failed preference write must retain the last committed arrangement and the live draft.
  await page.evaluate(()=>{const p=window.cardFixture.plugin;p.originalSave=p.saveData;p.saveData=async()=>{throw Error('disk full');};});
- await page.getByRole('button',{name:'收回详情模块',exact:true}).click();await page.getByRole('status').filter({hasText:'布局未保存'}).waitFor();assert.deepEqual(await snapshot(),[['progress'],['todos','details']]);assert.equal(await input.inputValue(),'布局调整期间保护草稿');
+ await page.getByRole('button',{name:'删除详情视图',exact:true}).click();await page.getByRole('status').filter({hasText:'布局未保存'}).waitFor();assert.deepEqual(await snapshot(),[['progress'],['todos','details']]);assert.equal(await input.inputValue(),'布局调整期间保护草稿');
  const failedWidths=await page.locator('.wt-stage-column').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().width));
  const failedHandle=await page.getByRole('separator',{name:'调整列宽',exact:true}).first().boundingBox();
  await page.mouse.move(failedHandle.x+failedHandle.width/2,failedHandle.y+failedHandle.height/2);await page.mouse.down();await page.mouse.move(failedHandle.x+50,failedHandle.y+failedHandle.height/2,{steps:4});await page.mouse.up();
@@ -52,7 +52,7 @@ try{
  const restoredWidths=await page.locator('.wt-stage-column').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().width));
  assert.ok(restoredWidths.every((width,i)=>Math.abs(width-failedWidths[i])<1),'failed resize save must restore the rendered column widths');
  await page.evaluate(()=>window.cardFixture.plugin.saveData=window.cardFixture.plugin.originalSave);
- await page.getByRole('button',{name:'背景设置',exact:true}).click();
+ await page.locator('.wt-board-options > summary').click();await page.getByRole('button',{name:'背景设置',exact:true}).click();
  const file=page.getByLabel('选择自定义背景图片', {exact:true});
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9XcAAAAASUVORK5CYII=','base64');
  await file.setInputFiles({name:'background.png',mimeType:'image/png',buffer:png});await page.getByRole('status').filter({hasText:'背景已保存'}).waitFor();
@@ -62,9 +62,9 @@ try{
  await page.evaluate(()=>window.cardFixture.plugin.saveData=window.cardFixture.plugin.originalSave);
  await file.setInputFiles({name:'broken.png',mimeType:'image/png',buffer:Buffer.from('broken')});await page.getByRole('status').filter({hasText:'无法读取图片'}).waitFor();assert.deepEqual(await page.evaluate(()=>window.cardFixture.plugin.state.background),persisted);
  await page.getByRole('slider',{name:'背景柔焦'}).fill('12');await page.getByRole('slider',{name:'背景柔焦'}).dispatchEvent('change');await page.getByRole('status').filter({hasText:'背景已保存'}).waitFor();assert.equal(await page.evaluate(()=>window.cardFixture.plugin.state.background.blur),12);
- await page.getByRole('button',{name:'完成',exact:true}).click();assert.equal(await input.inputValue(),'布局调整期间保护草稿');assert.equal(await page.locator('.view-content').getAttribute('data-background'),'custom');
+ await page.locator('.wt-background-modal').getByRole('button',{name:'完成',exact:true}).click();await page.locator('.wt-settings-modal').getByRole('button',{name:'完成',exact:true}).click();assert.equal(await input.inputValue(),'布局调整期间保护草稿');assert.equal(await page.locator('.view-content').getAttribute('data-background'),'custom');
  await page.evaluate(async()=>{const {plugin:p}=window.cardFixture;p.state.background={preset:'abstract',image:'',brightness:100,blur:4};p.state.background=(await p.loadData()).background;p.renderViews();});assert.equal(await page.locator('.view-content').getAttribute('data-background'),'custom','restored preferences are applied');
- await page.getByRole('button',{name:'背景设置',exact:true}).click();await page.getByRole('button',{name:'恢复银灰背景',exact:true}).click();await page.getByRole('status').filter({hasText:'背景已保存'}).waitFor();await page.getByRole('button',{name:'完成',exact:true}).click();
+ await page.locator('.wt-board-options > summary').click();await page.getByRole('button',{name:'背景设置',exact:true}).click();await page.getByRole('button',{name:'恢复银灰背景',exact:true}).click();await page.getByRole('status').filter({hasText:'背景已保存'}).waitFor();await page.locator('.wt-background-modal').getByRole('button',{name:'完成',exact:true}).click();await page.locator('.wt-settings-modal').getByRole('button',{name:'完成',exact:true}).click();
  assert.ok(await page.locator('.wt-workbench-background').evaluate(e=>getComputedStyle(e).backgroundImage.includes('linear-gradient')),'restoring silver background must reveal its gradient instead of retaining the photograph inline style');
  assert.equal(await page.locator('.wt-cover-flow .wt-task-cover').count(),4);
  const shape=await page.locator('.wt-cover-flow .wt-task-cover').evaluateAll(es=>es.map(e=>[e.offsetWidth,e.offsetHeight]));assert.ok(shape.every(v=>v.join()==shape[0].join()),'covers keep equal dimensions');

@@ -160,9 +160,10 @@ try {
     assert.equal(await payment.locator('.wt-card-heading-actions button').count(), 1);
   });
   await check('board controls retain zoom independently of presentation mode', async () => {
-    await page.locator('.wt-board-options').evaluate(el => { el.open = true; });
+    await page.locator('.wt-board-options > summary').click();
     assert.equal(await page.getByRole('button', { name: '缩小看板', exact: true }).count(), 1);
     assert.equal(await page.getByRole('button', { name: '展示模式', exact: true }).count(), 1);
+    await page.locator('.wt-settings-modal').getByRole('button',{name:'完成',exact:true}).click();
   });
   await check('view settings fit the top bar across narrow and dark layouts', async () => {
     try {
@@ -194,6 +195,7 @@ try {
     }
   });
   await check('keyboard zoom retains focus for repeated steps and moves to reset at the limit', async () => {
+    await page.locator('.wt-board-options > summary').click();
     const smaller = page.getByRole('button', { name: '缩小看板', exact: true });
     const reset = page.getByRole('button', { name: '恢复看板缩放为100%', exact: true });
     try {
@@ -213,7 +215,7 @@ try {
       await page.keyboard.press('Enter');
       await settle();
       assert.equal(await reset.textContent(), '100%');
-    } finally { await page.evaluate(() => window.cardFixture.plugin.setBoardZoom(100)); }
+    } finally { await page.locator('.wt-settings-modal').getByRole('button',{name:'完成',exact:true}).click(); await page.evaluate(() => window.cardFixture.plugin.setBoardZoom(100)); }
   });
   await check('only the clicked card expands and zoom preserves its draft', async () => {
     assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
@@ -224,13 +226,17 @@ try {
     assert.equal(await page.locator('.wt-card-composer').count(), 1);
     assert.equal(await page.locator('.wt-card.is-expanded').count(), 1);
     await payment.locator('.wt-card-composer textarea').fill('保留进展草稿');
+    await page.locator('.wt-board-options > summary').click();
     await page.getByRole('button', { name: '缩小看板', exact: true }).click();
+    await page.locator('.wt-settings-modal').getByRole('button',{name:'完成',exact:true}).click();
     assert.equal(await page.evaluate(() => window.cardFixture.plugin.state.boardZoom), 95);
     assert.equal(await payment.locator('.wt-card-composer textarea').inputValue(), '保留进展草稿');
     await payment.getByRole('button', { name: '收起', exact: true }).click();
     assert.equal(await page.locator('.wt-card-composer').count(), 0);
     assert.equal(await page.locator('.wt-card.is-expanded').count(), 0);
+    await page.locator('.wt-board-options > summary').click();
     await page.getByRole('button', { name: '恢复看板缩放为100%', exact: true }).click();
+    await page.locator('.wt-settings-modal').getByRole('button',{name:'完成',exact:true}).click();
   });
   await check('notes save separately and unsaved text survives switching cards', async () => {
     await payment.locator('.wt-card-menu').click();
@@ -282,10 +288,16 @@ try {
     assert.ok(after.columns > before.columns, 'zooming out adds columns within the full-width group grid');
     assert.equal(after.toolbar, before.toolbar);
     assert.equal(after.timeline, before.timeline);
+    await page.locator('.wt-board-options > summary').click();
     assert.equal(await page.getByRole('button', { name: '缩小看板', exact: true }).isDisabled(), true);
+    await page.locator('.wt-settings-modal').getByRole('button',{name:'完成',exact:true}).click();
     await page.evaluate(() => window.cardFixture.plugin.setBoardZoom(120));
+    await page.locator('.wt-board-options > summary').click();
     assert.equal(await page.getByRole('button', { name: '放大看板', exact: true }).isDisabled(), true);
+    await page.locator('.wt-settings-modal').getByRole('button',{name:'完成',exact:true}).click();
+    await page.locator('.wt-board-options > summary').click();
     await page.getByRole('button', { name: '恢复看板缩放为100%', exact: true }).click();
+    await page.locator('.wt-settings-modal').getByRole('button',{name:'完成',exact:true}).click();
     await page.setViewportSize({ width: 1440, height: 1000 });
   });
   await check('committed progress and notes are not retried when preference persistence fails', async () => {
@@ -556,7 +568,7 @@ try {
   Object.assign(ids, await page.evaluate(() => window.cardFixture.ids));
   payment = card(ids.payment);
   await check('transfer entry shows import preview without writing and permits cancellation', async () => {
-    if (!(await page.locator('.wt-board-options').evaluate(el => el.open))) await page.locator('.wt-board-options').evaluate(el => { el.open = true; });
+    await page.locator('.wt-board-options > summary').click();
     await page.getByRole('button', { name: '导入与导出', exact: true }).click();
     await page.getByRole('button', { name: '导出全部数据', exact: true }).waitFor();
     const downloadEvent = page.waitForEvent('download');
@@ -590,7 +602,7 @@ try {
       bundle.tasks = [bundle.tasks[0]]; bundle.tasks[0].id = 'import-ui-example';
       bundle.materials = []; return bundle;
     });
-    if (!(await page.locator('.wt-board-options').evaluate(el => el.open))) await page.locator('.wt-board-options').evaluate(el => { el.open = true; });
+    await page.locator('.wt-board-options > summary').click();
     await page.getByRole('button', { name: '导入与导出', exact: true }).click();
     await page.locator('.wt-transfer-file').setInputFiles({ name: '同名任务.tracelo.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) });
     await page.getByText('将新增 1 张卡片，跳过 0 张已有卡片。', { exact: true }).waitFor();

@@ -29,6 +29,23 @@ try {
     const material = await page.locator('.wt-new-task-body').evaluate(el => ({ fill:getComputedStyle(el).backgroundColor, blur:getComputedStyle(el).backdropFilter || getComputedStyle(el).webkitBackdropFilter }));
     assert.match(material.fill, /(?:rgba|color\()/, 'reading surface transmits the background');
     assert.match(material.blur, /blur/, 'reading surface uses a frosted material');
+    await page.evaluate(()=>window.capture.update({nativeSettings:{vault:'/isolated/vault',directory:'tasks',shortcut:{key:49,modifiers:6144,label:'⌃⌥Space'},progressShortcut:{key:35,modifiers:6144,label:'⌃⌥P'}}}));
+    const settings=page.locator('.wt-native-settings');
+    await settings.waitFor();
+    await settings.getByRole('textbox',{name:'任务目录',exact:true}).fill('tasks/changed');
+    await settings.getByRole('button',{name:'新建任务快捷键',exact:true}).click();
+    await page.keyboard.press('Control+Alt+K');
+    await settings.getByRole('button',{name:'保存设置',exact:true}).click();
+    const settingsMessage=await page.evaluate(()=>window.messages.find(m=>m.action==='saveSettings'));
+    assert.equal(settingsMessage.directory,'tasks/changed');
+    assert.equal(settingsMessage.shortcut.key,platform==='mac'?40:75);
+    assert.equal(settingsMessage.shortcut.modifiers,platform==='mac'?6144:3);
+    await page.evaluate(()=>window.capture.update({nativeSettingsError:'目录不存在'}));
+    assert.equal(await settings.getByRole('textbox',{name:'任务目录',exact:true}).inputValue(),'tasks/changed','settings failure keeps input');
+    await settings.getByText('目录不存在',{exact:true}).waitFor();
+    await page.keyboard.press('Escape');
+    await settings.waitFor({state:'detached'});
+    assert.equal(await page.evaluate(()=>window.messages.filter(m=>m.action==='dismiss').length),0,'Escape closes only settings');
     const brand = await page.locator('.capture-brand-icon').innerHTML();
     assert.equal(await page.locator('.capture-brand-icon .wt-brand-icon').count(), 1);
     for (const theme of ['monochrome', 'evergreen', 'graphite', 'glacier', 'vermilion', 'unknown']) {
@@ -126,7 +143,7 @@ try {
     assert.equal(await page.evaluate(() => window.messages.at(-1).action), 'settings');
     for (const dark of [false, true]) {
       await page.evaluate(dark => window.capture.update({ dark, configured: true, draft: { title: '示例任务', notes: '完整详情', todos: Array(10).fill('待办'), expanded: { todos: true, due: true, progress: true } }, focus: true }), dark);
-      await page.waitForFunction(dark => getComputedStyle(document.querySelector('.capture-modal')).backgroundColor === (dark ? 'rgb(34, 34, 34)' : 'rgb(255, 255, 255)'), dark);
+      await page.waitForFunction(dark => getComputedStyle(document.querySelector('.capture-modal')).backgroundColor === (dark ? 'rgb(54, 67, 80)' : 'rgb(249, 251, 253)'), dark);
       for (const [width, height] of [[560, 650], [360, 320]]) {
         await page.setViewportSize({ width, height });
         const bounds = await submit.boundingBox();

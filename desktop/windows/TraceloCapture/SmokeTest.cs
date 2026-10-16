@@ -89,14 +89,15 @@ internal static class SmokeTest {
                     await app.Window.Surface.EvaluateAsync("document.querySelector('form').requestSubmit()");
                     await WaitFor(() => Js("document.querySelector('.wt-form-error').textContent.length > 0"), "save failure not reported");
                     Check(app.Window.Visible && app.State.RestoredDraft().GetProperty("title").GetString() == "整理本周工作进展", "save failure retains complete draft");
-                    using var settings = new SettingsWindow(app.State, _ => { }); settings.Show();
+                    app.ShowSettings();
+                    await WaitFor(() => Js("!!document.querySelector('.wt-native-settings[open]')"), "shared native settings did not open");
                     foreach (var dark in new[] { false, true }) {
-                        Theme.Refresh(settings, dark); settings.Refresh();
-                        using var image = new Bitmap(settings.Width, settings.Height);
-                        settings.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size));
-                        image.Save(Path.Combine(outputDirectory, dark ? "settings-dark-smoke.png" : "settings-smoke.png"));
+                        app.Window.Surface.Update(new() { ["dark"] = dark });
+                        await Task.Delay(250);
+                        await app.Window.Surface.SnapshotAsync(Path.Combine(outputDirectory, dark ? "settings-dark-smoke.png" : "settings-smoke.png"));
                     }
-                    settings.Close(); app.Dismiss();
+                    await app.Window.Surface.EvaluateAsync("document.querySelector('.wt-native-settings [data-cancel]').click()");
+                    app.Dismiss();
                     await WaitFor(() => Task.FromResult(!app.Window.Visible), "native dismiss did not snapshot the final draft");
                     exitCode = 0;
                 } catch (Exception error) {

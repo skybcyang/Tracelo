@@ -301,7 +301,7 @@ return class SmartCaptureModal extends Modal {
   }
 
   openSettings(onSaved: () => void): void {
-    const modal = new Modal(this.app); modal.setTitle('模型设置'); modal.modalEl.addClass('wt-modal', 'wt-smart-settings');
+    const modal = new Modal(this.app); modal.setTitle('模型设置'); modal.modalEl.addClass('wt-modal', 'wt-smart-settings', 'wt-workbench-dialog');
     const form = modal.contentEl.createEl('form', { cls: 'wt-modal-form' });
     const settingsBody = form.createDiv({ cls: 'wt-smart-settings-body' });
     const input = (label: string, value: string, placeholder: string) => {

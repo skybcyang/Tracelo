@@ -759,17 +759,17 @@ class WorkTimelineView extends ItemView {
   }
 
   private addWorkbenchTools(actions: HTMLElement): void {
-    const background = iconButton(actions, 'image', '背景设置');
-    background.onclick = () => new WorkbenchBackgroundModal(this.app, this.plugin.state.background, value => this.plugin.setWorkbenchBackground(value)).open();
-    const motion = iconButton(actions, 'sparkles', this.motionPaused ? '开启背景动效' : '暂停背景动效');
-    motion.setAttribute('aria-pressed', String(!this.motionPaused));
-    motion.onclick = () => { this.motionPaused = !this.motionPaused; this.contentEl.classList.toggle('is-motion-paused', this.motionPaused); motion.setAttribute('aria-label', this.motionPaused ? '开启背景动效' : '暂停背景动效'); motion.setAttribute('aria-pressed', String(!this.motionPaused)); };
-    const appearance = iconButton(actions, 'sun-moon', '切换深浅外观');
-    appearance.onclick = () => void runWithNotice(() => this.plugin.setAppearance(this.plugin.state.theme,
-      getComputedStyle(this.contentEl).colorScheme.includes('dark') || this.plugin.state.appearance === 'dark' ? 'light' : 'dark'));
     const side = iconButton(actions, 'panel-right', this.sidebarCollapsed ? '打开工作助手' : '收起工作助手');
+    side.addClass('wt-header-action');
+    const label = side.createSpan({ text: '工作助手' });
     side.setAttribute('aria-expanded', String(!this.sidebarCollapsed));
-    side.onclick = () => { this.sidebarCollapsed = !this.sidebarCollapsed; this.contentEl.classList.toggle('is-sidebar-collapsed', this.sidebarCollapsed); side.setAttribute('aria-expanded', String(!this.sidebarCollapsed)); side.setAttribute('aria-label', this.sidebarCollapsed ? '打开工作助手' : '收起工作助手'); };
+    side.onclick = () => {
+      this.sidebarCollapsed = !this.sidebarCollapsed;
+      this.contentEl.classList.toggle('is-sidebar-collapsed', this.sidebarCollapsed);
+      side.setAttribute('aria-expanded', String(!this.sidebarCollapsed));
+      side.setAttribute('aria-label', this.sidebarCollapsed ? '打开工作助手' : '收起工作助手');
+      label.textContent = '工作助手';
+    };
   }
 
   private renderWorkbench(): void {
@@ -793,7 +793,8 @@ class WorkTimelineView extends ItemView {
     if (!layout) layout = shell.createDiv({ cls: 'wt-layout' });
     if (!this.workbenchMain) {
       this.workbenchMain = document.createElement('main'); this.workbenchMain.className = 'wt-task-column wt-workbench-main';
-      this.workbenchMain.createEl('section', { cls: 'wt-task-stage', attr: { 'aria-label': '当前任务展示台' } });
+      const stageScroll = this.workbenchMain.createDiv({ cls: 'wt-task-stage-scroll', attr: { 'aria-label': '当前任务阅读区' } });
+      stageScroll.createEl('section', { cls: 'wt-task-stage', attr: { 'aria-label': '当前任务展示台' } });
       const library = this.workbenchMain.createEl('section', { cls: 'wt-task-library', attr: { 'aria-label': '任务牌组' } });
       library.createDiv({ cls: 'wt-workbench-controls' }); library.createDiv({ cls: 'wt-cover-mount' });
     }
@@ -847,7 +848,7 @@ class WorkTimelineView extends ItemView {
       const same = stage.dataset.taskId === chosen?.id;
       const progress = same ? stage.querySelector('.wt-card-composer') : null;
       const notes = same ? stage.querySelector('.wt-notes-editor') : null;
-      const todosKey = JSON.stringify(chosen?.todos);
+      const todosKey = JSON.stringify(chosen?.todos ?? []);
       const todoForm = same && stage.dataset.todos === todosKey ? stage.querySelector('.wt-add-todo') : null;
       stage.empty(); stage.dataset.taskId = chosen?.id ?? ''; stage.dataset.todos = todosKey;
       if (chosen) {
@@ -1105,13 +1106,9 @@ class WorkTimelineView extends ItemView {
     const more = actions.createEl('details', { cls: 'wt-board-options' });
     const summary = more.createEl('summary', { cls: 'wt-header-action', attr: { 'aria-label': '界面与工具设置', title: '界面与工具设置' } });
     setIcon(summary.createSpan({ attr: { 'aria-hidden': 'true' } }), 'settings-2'); summary.createSpan({ text: '设置' });
-    const tools = more.createDiv({ cls: 'wt-board-options-body' });
-    this.plugin.renderAppearanceControls(tools);
-    this.renderBoardControls(tools);
-    tools.createEl('button', { text: '导入与导出', attr: { type: 'button' } }).onclick = () => { more.open = false; this.plugin.openTransfer(); };
     summary.onclick = event => {
       event.preventDefault();
-      const modal = new Modal(this.app); modal.setTitle('界面与快捷工具'); modal.modalEl.addClass('wt-modal','wt-settings-modal');
+      const modal = new Modal(this.app); modal.setTitle('界面与快捷工具'); modal.modalEl.addClass('wt-modal','wt-settings-modal','wt-workbench-dialog');
       const body = modal.contentEl.createDiv({cls:'wt-settings-body'});
       const display = body.createEl('section', {cls:'wt-settings-section',attr:{'aria-label':'界面显示'}});
       display.createEl('h3',{text:'界面显示'});
@@ -1121,7 +1118,18 @@ class WorkTimelineView extends ItemView {
         select.before(control); control.append(select);
         setIcon(control.createSpan({attr:{'aria-hidden':'true'}}),'chevron-down');
       });
+      const background = display.createEl('button', { cls:'wt-settings-row-action', attr:{type:'button','aria-label':'背景设置'} });
+      setIcon(background.createSpan(), 'image'); background.createSpan({text:'背景设置'}); setIcon(background.createSpan(), 'chevron-right');
+      background.onclick = () => new WorkbenchBackgroundModal(this.app, this.plugin.state.background, value => this.plugin.setWorkbenchBackground(value)).open();
+      const motion = display.createEl('button', { cls:'wt-settings-row-action', attr:{type:'button','aria-label':this.motionPaused ? '开启背景动效' : '暂停背景动效','aria-pressed':String(!this.motionPaused)} });
+      setIcon(motion.createSpan(), 'sparkles'); const motionLabel = motion.createSpan({text:this.motionPaused ? '开启背景动效' : '暂停背景动效'});
+      motion.onclick = () => {
+        this.motionPaused = !this.motionPaused; this.contentEl.classList.toggle('is-motion-paused', this.motionPaused);
+        motionLabel.textContent = this.motionPaused ? '开启背景动效' : '暂停背景动效';
+        motion.setAttribute('aria-label', motionLabel.textContent); motion.setAttribute('aria-pressed', String(!this.motionPaused));
+      };
       const board = body.createEl('section', {cls:'wt-settings-section',attr:{'aria-label':'任务看板'}});
+      board.createEl('h3',{text:'任务看板'});
       this.renderBoardControls(board);
       const shortcuts = body.createEl('section', {cls:'wt-settings-section wt-settings-shortcuts',attr:{'aria-label':'桌面快捷键'}});
       shortcuts.createEl('h3',{text:'桌面快捷键'});
@@ -1475,7 +1483,7 @@ class WorkTimelineView extends ItemView {
     this.expandedTaskId = null;
     if (this.workbenchOverview && !this.plugin.state.presentationMode) this.selectedTaskId = null;
     this.editingNotes.delete(taskId);
-    this.addingTodoTaskId = null;
+    if (this.workbenchOverview) this.addingTodoTaskId = null;
     this.render();
     this.focusCard(taskId);
   }
@@ -1486,7 +1494,7 @@ class WorkTimelineView extends ItemView {
       // A user can choose another field before this deferred initial focus runs.
       if (doc.activeElement !== initialFocus && doc.activeElement !== doc.body) return;
       const card = this.contentEl.querySelector<HTMLElement>(`.wt-card[data-task-id="${taskId}"]`);
-      card?.querySelector<HTMLElement>(composer ? '.wt-card-composer textarea' : '.wt-card-open')?.focus({ preventScroll: true });
+      card?.querySelector<HTMLElement>(composer ? '.wt-card-composer textarea' : this.workbenchOverview ? '.wt-card-open' : '.wt-read-more')?.focus({ preventScroll: true });
       const title = card?.querySelector('.wt-card-heading')?.getBoundingClientRect();
       const pane = this.contentEl.querySelector('.wt-task-column')?.getBoundingClientRect();
       if (title && pane && title.top < pane.top) card?.scrollIntoView({ block: 'start' });
@@ -1621,7 +1629,9 @@ class WorkTimelineView extends ItemView {
       }));
       menu.addItem(item => item.setTitle('添加待办').setIcon('list-plus').onClick(() => {
         if (this.workbenchOverview && this.coverOverview) this.workbenchOverview = false;
-        this.workbenchSelectedId = this.selectedTaskId = task.id; this.expandedTaskId = task.id; this.addingTodoTaskId = task.id; this.render();
+        this.workbenchSelectedId = this.selectedTaskId = task.id;
+        if (this.workbenchOverview) this.expandedTaskId = task.id;
+        this.addingTodoTaskId = task.id; this.render();
         this.contentEl.querySelector<HTMLInputElement>(`.wt-card[data-task-id="${task.id}"] .wt-add-todo input`)?.focus();
       }));
     }

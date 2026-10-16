@@ -90,6 +90,22 @@ internal sealed partial class CaptureApplication : ApplicationContext {
                 case "change": break;
                 case "dismiss": HideWindow(); break;
                 case "settings": ShowSettings(); break;
+                case "browseSettingsVault":
+                    using (var picker = new FolderBrowserDialog { Description = "选择 Obsidian vault", UseDescriptionForTitle = true, SelectedPath = message.GetProperty("vault").GetString() ?? "" }) {
+                        if (picker.ShowDialog(Window) == DialogResult.OK) Window.Surface.Update(new() { ["settingsVault"] = picker.SelectedPath });
+                    }
+                    break;
+                case "saveSettings":
+                    try {
+                        var shortcut = message.GetProperty("shortcut"); var progressShortcut = message.GetProperty("progressShortcut");
+                        var key = shortcut.GetProperty("key").GetUInt32(); var modifiers = shortcut.GetProperty("modifiers").GetUInt32();
+                        var progressKey = progressShortcut.GetProperty("key").GetUInt32(); var progressModifiers = progressShortcut.GetProperty("modifiers").GetUInt32();
+                        if (key is 0 or > 254 || progressKey is 0 or > 254 || (modifiers & 3) == 0 || (progressModifiers & 3) == 0 || (modifiers & ~7u) != 0 || (progressModifiers & ~7u) != 0) throw new IOException("快捷键无效，请重新录入");
+                        if (key == progressKey && modifiers == progressModifiers) throw new IOException("两个入口请使用不同的快捷键");
+                        ApplySettings(new CaptureSettings { Vault = message.GetProperty("vault").GetString()!, TaskDirectory = message.GetProperty("directory").GetString()!, HotkeyKey = key, HotkeyModifiers = modifiers, ProgressHotkeyKey = progressKey, ProgressHotkeyModifiers = progressModifiers });
+                        Window.Surface.Update(new() { ["nativeSettingsSaved"] = true });
+                    } catch (Exception failure) { Window.Surface.Update(new() { ["nativeSettingsError"] = failure.Message }); }
+                    break;
                 case "submit": Submit(message.GetProperty("request")); break;
             }
         } catch (Exception error) { Window.Surface.Update(new() { ["saving"] = false, ["error"] = error.Message }); }
@@ -195,11 +211,16 @@ internal sealed partial class CaptureApplication : ApplicationContext {
         });
         RefreshQuick();
     }
-    private async void ShowSettings() {
+    internal async void ShowSettings() {
         try { await SnapshotDraftAsync(); }
         catch (Exception error) { Window.Surface.Update(new() { ["error"] = "草稿未能保存：" + error.Message }); return; }
-        using var dialog = new SettingsWindow(State, ApplySettings); dialog.ShowDialog(Window.Visible ? Window : null);
-        if (Window.Visible) Window.Surface.Update(new() { ["focus"] = true });
+        if (!Window.Visible) Show();
+        string Label(uint key, uint modifiers) => ((modifiers & 2) != 0 ? "Ctrl + " : "") + ((modifiers & 1) != 0 ? "Alt + " : "") + ((modifiers & 4) != 0 ? "Shift + " : "") + (key == 32 ? "Space" : ((Keys)key).ToString());
+        Window.Surface.Update(new() { ["nativeSettings"] = new {
+            vault = State.Vault, directory = State.TaskDirectory,
+            shortcut = new { key = State.HotkeyKey, modifiers = State.HotkeyModifiers, label = Label(State.HotkeyKey, State.HotkeyModifiers) },
+            progressShortcut = new { key = State.ProgressHotkeyKey, modifiers = State.ProgressHotkeyModifiers, label = Label(State.ProgressHotkeyKey, State.ProgressHotkeyModifiers) }
+        }});
     }
     private async void Quit() {
         if (saving) return;

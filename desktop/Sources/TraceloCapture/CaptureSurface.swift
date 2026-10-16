@@ -134,7 +134,7 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
                   return true;
                   """, arguments: [:], in: nil, in: .page) { result in
                     guard case .success(let value) = result, (value as? Bool) == true else { fputs("Shared form dark smoke failed: \(result)\n", stderr); completion(false); return }
-                    self.snapshot(screenshots?.appendingPathComponent("shared-form-dark.png")) { self.verifySmokeSubmission(completion: completion) }
+                    self.snapshot(screenshots?.appendingPathComponent("shared-form-dark.png")) { self.verifySmokeSettings(screenshots: screenshots, completion: completion) }
                 }
             }
         }
@@ -226,6 +226,38 @@ final class CaptureSurface: NSObject, WKScriptMessageHandler, WKNavigationDelega
             self.snapshot(screenshots?.appendingPathComponent("smart-light.png")) {
                 self.update(["uiSettings": ["theme": "monochrome", "appearance": "dark"]])
                 self.snapshot(screenshots?.appendingPathComponent("smart-dark.png")) { completion(true) }
+            }
+        }
+    }
+
+    private func verifySmokeSettings(screenshots: URL?, completion: @escaping (Bool) -> Void) {
+        view.callAsyncJavaScript("""
+          const before = JSON.stringify(window.capture.getDraft());
+          window.capture.update({nativeSettings:{vault:'/isolated/vault',directory:'tasks',shortcut:{key:49,modifiers:6144,label:'⌃⌥Space'},progressShortcut:{key:35,modifiers:6144,label:'⌃⌥P'}}});
+          const dialog = document.querySelector('.wt-native-settings[open]');
+          if (!dialog || Math.abs(dialog.getBoundingClientRect().width-innerWidth)>2) throw new Error('shared settings must cover native content');
+          const input = dialog.querySelector('[aria-label="任务目录"]'); input.value='retained-directory';
+          const recorder = dialog.querySelector('[data-shortcut="shortcut"]'); recorder.click();
+          recorder.dispatchEvent(new KeyboardEvent('keydown',{key:'k',code:'KeyK',ctrlKey:true,altKey:true,bubbles:true}));
+          if (!recorder.textContent.includes('K')) throw new Error('shortcut recording failed');
+          window.capture.update({nativeSettingsError:'隔离失败验证'});
+          if(input.value!=='retained-directory' || dialog.querySelector('[type=submit]').disabled) throw new Error('failure lost settings or retry');
+          const footer=dialog.querySelector('.wt-settings-footer').getBoundingClientRect();
+          if(footer.bottom>innerHeight+1) throw new Error('settings footer clipped');
+          window.settingsSmokeDraft=before;
+          return true;
+          """, arguments: [:], in: nil, in: .page) { [weak self] result in
+            guard let self, case .success(let value) = result, (value as? Bool) == true else { fputs("Shared native settings smoke failed: \(result)\n", stderr); completion(false); return }
+            self.snapshot(screenshots?.appendingPathComponent("shared-settings-dark.png")) {
+                self.view.callAsyncJavaScript("""
+                  document.querySelector('.wt-native-settings [data-cancel]').click();
+                  await new Promise(resolve=>setTimeout(resolve,30));
+                  if(document.querySelector('.wt-native-settings') || JSON.stringify(window.capture.getDraft())!==window.settingsSmokeDraft) throw new Error('settings cancel changed creation draft');
+                  return true;
+                  """, arguments: [:], in: nil, in: .page) { result in
+                    guard case .success(let value) = result, (value as? Bool) == true else { completion(false); return }
+                    self.verifySmokeSubmission(completion: completion)
+                }
             }
         }
     }

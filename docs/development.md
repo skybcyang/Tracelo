@@ -9,6 +9,7 @@ npm ci
 npm test              # 单元与契约测试
 npm run build         # 类型检查与插件构建
 npm run test:layout   # 布局、滚动与卡片交互
+npm run test:workbench # 展示台、模块布局及独立编辑
 npm run test:capture  # 共享桌面表单、日历、图片及快捷命令
 npm run test:icons    # Emoji 移除、旧图标字段兼容与深浅色
 npm run test:presentation # 等高卡片、展示模式、动效与异步边界
@@ -18,6 +19,8 @@ npm run check         # 完整自动检查
 
 完整浏览器套件需要 Playwright Chromium，先运行 `npx playwright install chromium`（Linux CI 使用 `--with-deps`）。部分脚本支持 `PLAYWRIGHT_CHANNEL=chrome`，但顶栏与展示模式等脚本仍直接启动 Chromium，因此该变量不能替代完整套件的浏览器安装。完整跨语言检查还需 macOS Swift 和 .NET 8 SDK；`dotnet` 不在 PATH 时，可通过 `DOTNET_PATH` 指定可执行文件。缺少原生工具导致的跳过不算通过。
 
+单元测试由 `vitest.config.ts` 限定在 `tests/` 与 `desktop/windows/`，本地 `.local` 交付快照不参与本工程测试。
+
 桌面应用构建见[桌面工具文档](../desktop/README.md)。`tests/notion-interface.browser.mjs` 是旧设计实验，当前主题由 `collection-interface` 和 `header-navigation` 测试覆盖。
 
 ## 发布
@@ -26,8 +29,8 @@ npm run check         # 完整自动检查
 
 ## 当前基线
 
-- [0.9.7 发布说明](releases/0.9.7.md)：当前功能、下载与升级说明。
-- [0.9.7 发布验收](validation/2026-10-08-release-097.md)：本地检查、候选构建与远端发布结果。
+- [1.0.1 发布说明](releases/1.0.1.md)：当前功能、下载与升级说明。
+- [1.0.1 发布验收](validation/2026-10-16-release-101.md)：本地检查、候选构建与远端发布结果。
 - [展示模式与动效验证](validation/2026-09-30-presentation.md)和[导航与菜单验证](validation/2026-09-30-navigation.md)：本轮实现与实机边界。
 
 ## 0.9.1 整合历史

@@ -16,6 +16,16 @@ try {
   await page.waitForFunction(()=>window.cardFixture);
   assert.equal(await page.locator('.wt-task-stage').count(),1,'default view must show the selected-task stage');
   assert.equal(await page.locator('.view-content').evaluate(el=>getComputedStyle(el).paddingLeft),'36px','actual Obsidian leaf styles must retain workbench gutters');
+  for (const [width,height] of [[1728,1080],[1280,900]]) {
+    await page.setViewportSize({width,height});
+    await page.evaluate(async()=>{await document.fonts.ready;await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);});
+    const boxes=await page.evaluate(()=>{const box=s=>document.querySelector(s).getBoundingClientRect();return {library:box('.wt-task-library').bottom,side:box('.wt-timeline-column').bottom,window:innerHeight};});
+    assert.ok(Math.abs(boxes.library-boxes.side)<2,`deck and sidebar bottoms align: ${JSON.stringify(boxes)}`);
+    assert.ok(boxes.window-boxes.library<=25,'deck stays near window bottom');
+  }
+  await page.setViewportSize({width:1728,height:1080});
+  assert.equal(await page.locator('.wt-header-actions > button').evaluateAll(buttons=>buttons.every(b=>b.textContent.trim())),true,'every top-level icon has visible text');
+  assert.equal(await page.locator('.wt-header-actions [aria-label="背景设置"]').count(),0,'background belongs in settings');
   const ids=await page.evaluate(()=>window.cardFixture.ids);
   const choose=async id=>page.locator(`.wt-cover-flow [data-cover-task="${id}"]`).first().click();
   await choose(ids.payment);
@@ -97,7 +107,7 @@ try {
     mkdirSync('test-results/workbench',{recursive:true});
     await page.screenshot({path:`test-results/workbench/${mode}.png`});
   }
-  await page.locator('.wt-task-stage .wt-read-more').click();
+  await page.getByRole('button',{name:'结束编辑',exact:true}).click();
   await page.getByRole('searchbox',{name:'搜索任务和进展',exact:true}).fill('不存在的名字');
   assert.equal(await page.locator('.wt-flow-empty').count(),1);
   assert.equal(await page.locator('.wt-task-stage').getAttribute('data-task-id'),ids.payment);
@@ -118,7 +128,7 @@ try {
     const target = action==='添加详情' ? '.wt-notes-editor textarea' : action==='添加待办' ? '.wt-add-todo input' : '.wt-card-composer textarea';
     assert.equal(await page.locator('.wt-task-stage '+target).isVisible(),true,`${action} reveals its input`);
   }
-  await page.locator('.wt-task-stage .wt-card-collapse').click();
+  await page.getByRole('button',{name:'结束编辑',exact:true}).click();
   await page.getByRole('button',{name:'打开工作助手',exact:true}).click();
   assert.equal(await page.locator('aside.wt-timeline-column').isVisible(),true);
   // Directory failures are explicit, recoverable, and late reads cannot restore an old task.
@@ -143,9 +153,11 @@ try {
   await page.locator('.wt-task-stage .wt-card-composer').getByRole('button',{name:'记录进展',exact:true}).click();
   await page.waitForFunction(()=>window.cardFixture.plugin.tasks.find(t=>t.id===window.cardFixture.ids.payment).events.some(e=>e.text==='失败后重试，只记录一次'));
   assert.equal(await page.evaluate(()=>window.cardFixture.plugin.tasks.find(t=>t.id===window.cardFixture.ids.payment).events.filter(e=>e.text==='失败后重试，只记录一次').length),1);
+  await page.locator('.wt-board-options > summary').click();
   await page.getByRole('button',{name:'暂停背景动效',exact:true}).click();
   assert.equal(await page.locator('.work-timeline-view').evaluate(el=>getComputedStyle(el,'::before').animationPlayState),'paused');
   await page.getByRole('button',{name:'开启背景动效',exact:true}).click();
+  await page.getByRole('button',{name:'完成',exact:true}).click();
   await page.emulateMedia({reducedMotion:'reduce'});
   assert.equal(await page.locator('.work-timeline-view').evaluate(el=>getComputedStyle(el,'::before').animationName),'none');
   const flow=page.locator('.wt-cover-flow');await flow.scrollIntoViewIfNeeded();await flow.hover();

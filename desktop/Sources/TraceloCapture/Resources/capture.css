@@ -153,3 +153,23 @@ body > dialog.wt-smart-settings input {border-radius:10px;}
 .capture-modal #task-details {background:var(--capture-field);border-radius:10px;}
 .capture-modal .wt-quick-progress {display:flex;flex-direction:column;flex:1;min-height:0;padding:0;}
 .capture-modal.is-progress-mode .wt-quick-body,.capture-modal.is-progress-mode .wt-quick-editor {flex:1;}
+/* Native hosts share this settings surface; only picking folders and registration stay native. */
+dialog.wt-native-settings {position:fixed;inset:0;width:100%;max-width:none;height:100%;max-height:none;margin:0;padding:0;display:flex;flex-direction:column;border-radius:22px;}
+dialog.wt-native-settings::backdrop {background:transparent;}
+.wt-native-settings .modal-content {flex:1;}
+.wt-native-settings .wt-settings-body {flex:1;padding-top:4px;}
+.wt-native-field {display:flex;flex-direction:column;gap:8px;font-size:12px;margin-bottom:14px;}
+.wt-native-field input {width:100%;min-width:0;min-height:34px;border:1px solid var(--wt-line);border-radius:10px;background:color-mix(in srgb,var(--wt-card) 76%,transparent);color:var(--wt-text);padding:7px 10px;font:inherit;}
+.wt-native-vault {display:flex;gap:8px;}.wt-native-vault input {flex:1;}
+.wt-native-settings button:not(.wt-primary-action) {box-shadow:none;background:transparent;border:0;color:var(--wt-text);border-radius:9px;font-size:12px;}
+.wt-native-settings .wt-settings-keys {padding:0;min-height:32px;gap:4px;}
+.wt-native-settings .wt-settings-help {color:var(--wt-muted);font-size:11px;line-height:1.65;margin:12px 0 0;}
+.wt-native-settings .wt-form-error:empty {display:none;}
+.wt-native-settings :is(button,input):focus-visible {outline:2px solid var(--wt-accent);outline-offset:2px;}
+.wt-modal.wt-settings-modal.wt-native-settings {width:100%;max-width:none;height:100%;max-height:none;}
+.wt-native-settings > .modal-title {font-size:17px;font-weight:550;padding:22px 24px 16px;border:0;}
+
+/* The same light wordmark and type hierarchy as the plugin header. */
+.capture-modal #heading {font-family:var(--wt-font-brand);font-size:16px;font-weight:var(--wt-weight-title);letter-spacing:-.2px;gap:9px;}
+.capture-modal .capture-brand-icon,.capture-modal .capture-brand-icon svg {width:25px;height:25px;}
+.capture-modal .wt-capture-tabs button,.capture-modal .wt-smart-chrome {font-weight:var(--wt-weight-label);}

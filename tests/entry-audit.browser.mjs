@@ -144,7 +144,7 @@ try {
   for (const label of ['四象限', '缩小看板']) {
     await check(`${label} reports a failed setting write`, async () => {
       await page.evaluate(() => { window.cardFixture.plugin.saveData = async () => { throw new Error('显示设置失败'); }; });
-      if (label === '缩小看板') await page.locator('.wt-board-options').evaluate(el => { el.open = true; });
+      if (label === '缩小看板') await page.locator('.wt-board-options > summary').click();
       await page.getByRole('button', { name: label, exact: true }).click();
       await page.locator('.notice').filter({ hasText: '显示设置失败' }).waitFor();
     });

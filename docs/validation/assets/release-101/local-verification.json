@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-16T15:40:29+08:00",
+  "result": "passed",
+  "version": "1.0.1",
+  "base": "5c5a6ec",
+  "checks": [
+    {
+      "command": "npx vitest run tests/version-metadata.test.ts tests/plugin-contract.test.ts",
+      "result": "passed",
+      "tests": 6
+    },
+    {
+      "command": "npm run check",
+      "result": "passed",
+      "unitPassed": 152,
+      "unitSkipped": 2,
+      "note": "Two .NET compatibility checks skipped because SDK unavailable; all configured browser suites passed."
+    },
+    {
+      "command": "swift run --package-path desktop CaptureCoreTests",
+      "result": "passed",
+      "tests": 10
+    },
+    {
+      "command": "bash desktop/package-macos.sh",
+      "result": "passed",
+      "scope": "arm64/x86_64 Universal, signature, real WebKit form/settings, atomic submit and idempotent retry"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "evidenceHashes": {
+    "version-check-final.log": "7c60ad0edc9472f0ce39617d78b795b7c5e5f3c49ed17711a29dc209e9dd16ec",
+    "check.log": "232bfd9d1b92642ea65c1f07a2bfc7086385cda7071cd6836a383548c3910bdc",
+    "swift-core.log": "c8abf14abd793f8f2447cf62bdfb5844b85fdfb7d8e63763067d5f0da37fce43",
+    "macos.log": "1698e965411b309e69849df9f59dc33c8b690aa247affc5bc5b9a2166a46d920",
+    "inspection.json": "281f93f92d422b3de283dca4278da936c588b5c93076bb4bdb46a0b130134902"
+  },
+  "notRun": [
+    "Windows GUI locally",
+    "real Chinese IME candidate window",
+    "microphone dictation",
+    "full multi-display/fullscreen matrix"
+  ]
+}

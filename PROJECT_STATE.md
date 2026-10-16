@@ -2,12 +2,19 @@
 herein: project-state/v1
 project_id: workassistant-tracelo-15d7d4ce
 title: Tracelo · WorkAssistant
-updated_at: 2026-10-16T13:55:01.007837+08:00
+updated_at: 2026-10-16T07:40:29.713Z
 status: 进行中
-summary: 1.0.0已正式发布，插件玻璃工作台与新UI快捷工具完成主线整合、三平台候选和正式检查、七附件下载核验及本机正式包安装。Mac锁定使最终宿主重载／实体快捷键复核未执行，人工矩阵与七天观察继续保留。
+summary: 1.0.1整合展示台独立编辑、模块交互、设置与品牌适配；完整本地检查、macOS Universal及WebKit冒烟通过，当前例图和文档已更新。三平台候选与正式发布、正式包本地安装复核进行中。
 goal: 维护 Tracelo Obsidian 插件与 macOS／Windows 独立桌面快捷工具。
-done_when: 本轮1.0.0按确认设计完成实现、适当验证与本地安装；恢复发布后依发布手册冻结候选、完成三平台预检、合并上传并核验Release及七个附件。未测人工设备矩阵与七天使用观察另行保留。
+done_when: 本批修改按依赖整合main，验证一致性并更新文档和例图；冻结候选三平台通过后发布1.0.1、校验七附件，安装本项目插件和本机快捷程序并确认实际生效。保留人工设备矩阵与七天观察边界。
 sources:
+  - docs/validation/2026-10-16-release-101.md
+  - docs/releases/1.0.1.md
+  - docs/validation/2026-10-16-brand-type.md
+  - docs/design/brand-type.md
+  - docs/validation/2026-10-16-stage-interactions.md
+  - docs/validation/2026-10-16-workbench-settings.md
+  - docs/validation/2026-10-16-workbench-edit-review.md
   - docs/validation/2026-10-16-release-100.md
   - docs/validation/2026-10-16-bounded-covers.md
   - docs/design/modular-stage/validation.md
@@ -30,12 +37,16 @@ sources:
   - docs/task-history.md
   - docs/validation/2026-10-08-release-097.md
 actions:
+  - id: release101-integration
+    text: 完成1.0.1三平台候选、远端发布及正式包本地安装复核
+    status: doing
+    source: docs/validation/2026-10-16-release-101.md
   - id: modular-stage-design-20261016
     text: 1.0.0工作台与快捷工具新UI已合并、推送、发布，七附件及正式包安装核对完成
     status: done
     source: docs/validation/2026-10-16-release-100.md
   - id: glass-workbench-production
-    text: 解锁Mac后重载实际Obsidian并用实体按键复核新版快捷工具；当前锁屏阻碍UI操作，原生冒烟及安装哈希另有证据
+    text: 实际Obsidian已在展示台修复后重载复核；新版快捷工具已安装运行，实体快捷键及实际窗口仍待复核，CUA读取超时
     status: todo
     source: task.md
   - id: continuation1011-observation
@@ -43,12 +54,6 @@ actions:
     status: doing
     source: docs/validation/2026-10-11-usage-observation.md
 blockers:
-  - id: locked-mac-20261016
-    kind: blocker
-    text: Mac锁定，发布后无法操作实际Obsidian或实体快捷键入口。
-    impact: 正式包已安装运行并通过隔离原生检查；宿主重载及实体快捷键须解锁后复核。
-    evidence:
-      - docs/validation/2026-10-16-release-100.md
   - id: risk-installed-desktop-v2
     kind: risk
     text: 10月11日及15日曾有真实宿主与快捷键证据；本轮不继承为复验。真实中文候选、听写、多屏／全屏、系统快捷键冲突与Windows人工GUI仍未完整验收。
@@ -67,11 +72,73 @@ questions:
   - id: action-reminder-design-20261016
     text: 待办负责人具体语法、计划日与提醒时间、通知闭环及智能建议范围待确认；本轮仅设计。
     source: docs/design/action-reminders.md
+  - id: question-stage-menu-cleanup-20261016
+    text: 展示台右上菜单的重复编辑入口精简及一句话进展二级归属仍为建议，等待确认。
+    source: docs/validation/2026-10-16-workbench-edit-review.md
 checks:
+  - id: check-release101-local
+    title: 1.0.1整合本地完整检查
+    result: passed
+    at: 2026-10-16T07:40:29.713Z
+    scope: 152单元与全部浏览器套件通过，2项.NET跳过；构建、Swift10项、macOS Universal／签名及真实WebKit表单和设置冒烟通过。未含Windows本机和人工系统矩阵。
+    evidence:
+      - docs/validation/2026-10-16-release-101.md
+      - docs/validation/assets/release-101/local-verification.json
+  - id: check-brand-type-20261016
+    title: 品牌字体图标适配、回归及本地安装
+    result: passed
+    at: 2026-10-16T15:28:30+08:00
+    scope: 完整npm run check通过（303单元、4项.NET跳过），五主题浅深色与宽窄截图、高对比／宿主字体检查、macOS Universal与安装版WebKit冒烟、三件套及应用哈希和任务／配置／草稿保留核对通过；实际Obsidian已重载可见。正式快捷窗口CUA超时及Windows人工矩阵不在通过范围。
+    evidence:
+      - docs/validation/2026-10-16-brand-type.md
+      - .local/brand-adaptation-20261016/check.log
+      - .local/brand-adaptation-20261016/accessibility.json
+      - .local/brand-adaptation-20261016/install-verify-final.log
+  - id: check-stage-interactions-20261016
+    title: 展示台Mockup操作对齐与本地交付
+    result: passed
+    at: 2026-10-16T07:24:29.518Z
+    scope: 新增28项生产交互、152单元通过及2项.NET跳过；构建、工作台、完整布局、展示及共享表单、macOS Universal与原生冒烟通过。最终安装哈希、正式任务／配置／草稿保留及实际Obsidian布局控制入口确认；不含逐项实机拖动、实体快捷键与Windows原生人工矩阵。
+    evidence:
+      - docs/validation/2026-10-16-stage-interactions.md
+      - .local/stage-interaction-parity/green-final.log
+      - .local/stage-interaction-parity/unit-final.log
+      - .local/stage-interaction-parity/install-verify-final.log
+  - id: check-settings-real-shortcut-20261016
+    title: 统一风格后实际全局快捷窗口
+    result: not_run
+    at: null
+    scope: 全局快捷键唤起、正式快捷窗口与Esc焦点返回
+    evidence:
+      - docs/validation/2026-10-16-workbench-settings.md
+    note: 安装进程运行中，CUA读取快捷程序超时timeoutReached (-10005)，不在应用清单。隔离原生检查通过不替代此项。
+  - id: check-workbench-settings-20261016
+    title: 牌组对齐与设置统一验证及本地安装
+    result: passed
+    at: 2026-10-16T07:21:18.839Z
+    scope: 303单元通过、4项.NET相关跳过；构建、完整布局、工作台（拖拽初次失败后独立复跑28项通过）、共享表单、展示、智能录入、对话和可靠性通过；macOS Universal／原生WebKit、安装版隔离冒烟、安装哈希及数据保留通过。实际Obsidian重载确认，真实快捷窗口与Windows原生不在通过范围。
+    evidence:
+      - docs/validation/2026-10-16-workbench-settings.md
+      - .local/ui-polish-check.log
+      - .local/ui-polish-stage-final.log
+      - .local/ui-polish-installed-native.log
+      - .local/ui-polish-install-verify-final.log
+      - .local/ui-polish-workbench-final.log
+      - .local/ui-polish-capture-shell-final.log
+  - id: check-workbench-editing-20261016
+    title: 展示台交互修复与隔离本地交付
+    result: passed
+    at: 2026-10-16T06:54:03.462Z
+    scope: 仅已发布1.0.0加本次修复的独立快照：构建、151单元、工作台及编辑回归、87项旧卡片检查、展示及快捷表单、macOS Universal与WebKit、安装哈希与数据保留、真实Obsidian只读／空编辑复核。其他并行功能、实体快捷键及Windows原生不在通过范围。
+    evidence:
+      - docs/validation/2026-10-16-workbench-edit-review.md
+      - .local/workbench-editing-delivery-check.log
+      - .local/workbench-editing-delivery-compat.log
+      - .local/workbench-editing-install-verify.log
   - id: check-release100-published
     title: 1.0.0正式发布与安装
     result: passed
-    at: '2026-10-16T13:55:01.007837+08:00'
+    at: 2026-10-16T13:55:01.007837+08:00
     scope: 冻结SHA三平台候选及正式四任务成功；七附件下载、上传摘要／校验和、版本及UI资源一致；正式安装哈希、数据与草稿保留，macOS原生WebKit冒烟通过。实际宿主与实体快捷键另列未运行。
     evidence:
       - docs/validation/2026-10-16-release-100.md
@@ -107,74 +174,23 @@ checks:
       - .local/glass-material-build.log
       - .local/glass-material-macos.log
       - .local/release-100/material-install-verify.log
-  - id: check-bounded-covers-20261016
-    title: 取消卡片循环：回归、构建、真实宿主与本地安装
-    result: passed
-    at: 2026-10-16T03:21:52.813Z
-    scope: 工作台唯一封面／边界／草稿引用／空单双100卡及宽窄检查、生产构建、原型30项与macOS Universal签名和WebKit冒烟；真实Obsidian16项16封面，01/16与16/16方向禁用；安装哈希与数据保留通过。实际快捷窗口读取超时，未冒充通过。
-    evidence:
-      - docs/validation/2026-10-16-bounded-covers.md
-      - .local/no-cover-loop-20261016/workbench-final.log
-      - .local/no-cover-loop-20261016/build.log
-      - .local/no-cover-loop-20261016/macos-package.log
-      - .local/no-cover-loop-20261016/native-result.json
-      - .local/no-cover-loop-20261016/install-verify.log
-  - id: check-stage-background-20261016
-    title: 预设与自定义背景原型
-    result: passed
-    at: 2026-10-16T03:20:52.034Z
-    scope: 隔离浏览器16项背景检查：自定义图片真实IndexedDB保存读回、刷新恢复、替换、损坏失败保留、明暗柔焦、预设恢复与草稿布局保留；复跑30项原型交互通过。1280×900设置截图实际查看。未生产接入。
-    evidence:
-      - docs/design/modular-stage/README.md
-      - docs/design/modular-stage/validation.md
-      - docs/design/modular-stage/background-checks.json
-      - docs/design/modular-stage/checks.json
-      - docs/design/modular-stage/shots/background-settings/report.json
-  - id: check-modular-stage-prototype-20261016
-    title: 自由排布展示台设计原型
-    result: passed
-    at: 2026-10-16T02:49:01.588Z
-    scope: 隔离合成任务：30项拖拽／缩放／切卡恢复／刷新记住布局／筛选检查；1728×1080与1280×900浅深色、三种材质、状态截图及2倍像素预览。仅原型，不代表生产验收。
-    evidence:
-      - docs/design/modular-stage/validation.md
-      - docs/design/modular-stage/checks.json
-      - docs/design/modular-stage/shots/final/report.json
-  - id: check-emoji-removal-20261016
-    title: Emoji移除专项及相关回归
-    result: passed
-    at: 2026-10-16T01:44:28.850Z
-    scope: 147单元、类型／构建、图标移除、完整布局、共享表单、工作台；最终快捷进展及macOS Universal签名和WebKit浅深色冒烟通过。2项.NET跳过，Windows GUI未运行。
-    evidence:
-      - docs/validation/2026-10-16-remove-emoji.md
-      - .local/no-emoji-20261016/unit.log
-      - .local/no-emoji-20261016/build.log
-      - .local/no-emoji-20261016/icons.log
-      - .local/no-emoji-20261016/layout.log
-      - .local/no-emoji-20261016/capture.log
-      - .local/no-emoji-20261016/workbench.log
-      - .local/no-emoji-20261016/quick-final.log
-      - .local/no-emoji-20261016/macos-package-final.log
-  - id: check-glass-full-20261016
-    title: 玻璃工作台完整自动检查
-    result: passed
-    at: 2026-10-16T04:14:25.459711+08:00
-    scope: npm run check：147单元及生产构建、可编辑同步、图标、布局、工作台、共享表单、展示、智能录入、对话与可靠性；2项.NET跳过。最终局部修改另记专项。
-    evidence:
-      - docs/validation/2026-10-16-glass-workbench.md
-      - .local/workbench-20261016/check-final.log
-  - id: check-glass-final-20261016
-    title: 最终工作台专项与构建
-    result: passed
-    at: 2026-10-16T01:36:08.049Z
-    scope: 宿主留白断言先失败后修复；最终标准构建及工作台循环、目录树、草稿引用、失败重试、联合筛选、100卡、窄屏助手通过。此前87项卡片及对话专项按原时间保留。
-    evidence:
-      - docs/validation/2026-10-16-glass-workbench.md
-      - .local/workbench-20261016/build-unlocked.log
-      - .local/workbench-20261016/workbench-unlocked.log
-      - .local/workbench-20261016/host-gutter-red.log
-      - .local/workbench-20261016/cards-final.log
-      - .local/workbench-20261016/conversation-final.log
 decisions:
+  - id: decision-release101
+    text: 整批修改按依赖整合main、检查一致性并更新文档和例图，上传远端发布1.0.1。
+    source: docs/validation/2026-10-16-release-101.md
+    basis: 用户本轮明确要求整批合入main并发布release1.0.1。
+  - id: decision-brand-type-20261016
+    text: 品牌保留T与轨迹点并减轻银灰底和字标；界面尊重宿主字体，统一文字层级与圆角线性操作图标，插件和快捷工具同步。
+    source: docs/design/brand-type.md
+    basis: 用户询问当前风格的图标与字体是否需要适配；助手提出具体适配范围后，用户明确“好啊”确认实施。
+  - id: decision-workbench-settings-20261016
+    text: 牌组贴近窗口底部并与右侧栏对齐；低频操作收入设置，保留顶栏图标加文字；设置与独立快捷程序统一工作台风格。
+    source: docs/validation/2026-10-16-workbench-settings.md
+    basis: 2026-10-16用户本轮明确提出；随后明确回答“独立快捷程序也统一风格”。
+  - id: decision-stage-no-click-expand-20261016
+    text: 展示台取消标题／正文／空白单击展开编辑；待办独立操作，进展结束编辑与提交同排且保留草稿。菜单只评估，未授权精简。
+    source: docs/validation/2026-10-16-workbench-edit-review.md
+    basis: 本对话用户明确“改”，随后要求“展示台不再继承之前的点击展开的逻辑”，菜单要求为评估。
   - id: decision-release100-desktop
     text: 快捷工具同步最新玻璃UI，与插件一同发布1.0.0；正式版本已按此执行。
     source: docs/releases/1.0.0.md
@@ -199,25 +215,33 @@ decisions:
     text: 待办中的@某人表示该项负责人，并开展卡片内提醒及按日期提示行动的设计。
     source: docs/design/action-reminders.md
     basis: 2026-10-16 用户明确提出待办@负责人语法并要求设计提醒；尚未授权实现。
-  - id: decision-card-refresh-20261015
-    text: 参考此间已用前端资源优化当前卡片，聚焦阅读与动作反馈。
-    source: docs/design/card-refresh.md
-    basis: 2026-10-15 用户明确反馈卡片太死板、缺少推进欲望，并要求进行前端优化。
-  - id: decision-project-scope
-    text: 本工程保留 Tracelo 插件和桌面快捷工具；此间在独立 Herein 工程维护。
-    source: README.md#项目边界
-    basis: 根 README 已记录项目拆分与维护边界。
-  - id: decision-continuation1011
-    text: 仅推进Tracelo四项：日常验证、七天观察、长历史检索来源定位、需求统一，按既有授权本地安装；本轮不包含远端发布。
-    source: task.md#2026-10-11-后续观察
-    basis: 2026-10-11 用户明确“1-4都做下”；本仓AGENTS默认本地安装授权。
-  - id: decision-http-model-20261015
-    text: 模型设置同时支持 HTTP／HTTPS，适配使用 HTTP 的自建服务。
-    source: docs/validation/2026-10-15-http-model.md
-    basis: 2026-10-15 用户明确要求某些自建服务器使用http协议，也要支持。
 feedbacks:
+  - id: feedback-brand-type-20261016
+    time: 2026-10-16T15:28:30+08:00
+    title: 品牌与字体适配已本地交付
+    text: 半透明中性品牌、减重字标和统一线性图标已实现；完整自动检查及原生WebKit通过，本项目插件与macOS工具安装核对通过，实际Obsidian重载确认。正式快捷窗口CUA读取超时，不计为实体快捷键验收；未提交推送发布。
+    evidence:
+      - docs/validation/2026-10-16-brand-type.md
+  - id: feedback-stage-interactions-20261016
+    time: 2026-10-16T07:24:29.518Z
+    title: 补齐视图直接操作与删除入口并本地安装
+    text: 按用户反馈对齐缩略图预览与拖入、标题移动、卡片边缘插行列、悬停加号和删除视图；修复同列落点与实际行高。允许全部移出并恢复原草稿节点；相关回归、安装哈希和数据保留通过，实际宿主确认布局辅助和删除入口。保留并行改动及菜单评估边界，未提交推送发布。
+    evidence:
+      - docs/validation/2026-10-16-stage-interactions.md
+  - id: feedback-workbench-settings-20261016
+    time: 2026-10-16T07:12:36.771Z
+    title: 牌组对齐、设置和快捷工具统一已本地安装
+    text: 完成底部导航与阅读滚动、顶栏收纳及共享设置；相关自动回归和macOS原生检查通过，本项目插件及快捷程序已更新重启，安装哈希与正式数据／草稿保留通过。实际Obsidian重载可见；CUA读取真实快捷窗口超时，Windows原生未运行，未提交推送发布。
+    evidence:
+      - docs/validation/2026-10-16-workbench-settings.md
+  - id: feedback-workbench-edit-coupling-20261016
+    time: 2026-10-16T06:54:03.462Z
+    title: 展示台独立待办与进展操作修复已本地交付
+    text: 先复现后修复待办联动、分行按钮、空清单输入丢失及展示台单击开关；独立发布基线快照测试、打包、安装与真实宿主重载复核通过。快捷程序已更新运行，实际窗口CUA超时；菜单保留并记录精简建议。
+    evidence:
+      - docs/validation/2026-10-16-workbench-edit-review.md
   - id: feedback-release100-delivered
-    time: '2026-10-16T13:55:01.007837+08:00'
+    time: 2026-10-16T13:55:01.007837+08:00
     title: 1.0.0工作台与快捷工具正式发布
     text: 玻璃材质、模块布局、背景与快捷窗口UI同步完成；三平台候选及正式发布通过，七附件下载核验、主线推送及本地正式包安装完成。Mac锁定使宿主重载和实体快捷键未复验。
     evidence:
@@ -324,26 +348,10 @@ feedbacks:
     text: 放开TS／Swift／C#的HTTPS单协议限制，补充地址／请求／设置回归，安装本项目插件及macOS app；真实HTTP夹具通过，原数据和配置保留。Windows原生未运行，未提交推送发布。
     evidence:
       - docs/validation/2026-10-15-http-model.md
-  - id: feedback-card-refresh-20261015
-    time: 2026-10-15 19:40:48+08:00
-    title: 卡片视觉与记录反馈已安装
-    text: 完成卡片与快捷进展局部优化、相关验证及实际安装；保留同期HTTP支持和正式数据。真实使用意愿是否改善仍待用户反馈。
-    evidence:
-      - docs/validation/2026-10-15-card-refresh.md
-      - docs/validation/2026-10-11-usage-observation.md
-  - id: feedback-style-research-20261015
-    time: 2026-10-15 19:56:31+08:00
-    title: 完成整体风格调研与候选小样
-    text: 核对7个官方UI资源，制作3个同内容风格候选与对比页，完成桌面／窄窗口截图和触感卡原位输入检查；未修改产品实现、正式任务或安装，方向待选择。
-    evidence:
-      - docs/design/style-research-20261015/README.md
-      - docs/design/style-research-20261015/validation.md
 ---
 
 ## 交接说明
 
-1.0.0已发布，主线整合到冻结提交后仅追加交付文档；标签保持 `1db159ae88d84f82f555c2c60b837b156649cea8`。三平台候选及标签工作流、七附件和本地正式包核验见[本轮验收](docs/validation/2026-10-16-release-100.md)。快捷工具包含新的折光背景、磨砂面板及圆角控件，插件保留按任务布局与自定义背景。
+本轮进入1.0.1发布交付，源代码、图文与自动检查范围见[本轮验收](docs/validation/2026-10-16-release-101.md)。旧工作树的上下文恢复实现已在主线；未移动1.0.0公开标签，无关harmony不纳入。发布前安全引用和私人安装备份留本机。
 
-安装目标为本项目vault的work-timeline插件和本机Tracelo Capture.app。配置、任务／附件、偏好与草稿保留。Mac仍锁定，最终实际宿主重载和实体快捷键复核未执行；Windows自动窗口通过不代表完整人工矩阵。人工边界继续见task.md。
-
-原工作区修改保留在本地安全引用 `refs/safety/pre-1.0.0-20261016`，原始设计图还在原位；无关harmony未纳入发布。私人配置备份保留在本地，不上传。负责人／行动提醒仍是设计提案，七天观察继续。
+三平台候选、正式附件与本地安装仍需按验收记录核对，不把本地通过当远端已发布。负责人／行动提醒及菜单精简仍为提案；真实IME、听写、多屏和Windows完整人工矩阵、七天观察继续保留。

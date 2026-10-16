@@ -18,7 +18,7 @@ export class WorkbenchBackgroundModal extends Modal {
  private revision=0;private busy=false;
  constructor(app:App,private value:WorkbenchBackground,private save:(v:WorkbenchBackground)=>Promise<void>){super(app);this.value={...value};}
  onOpen():void {
-  this.modalEl.addClass('wt-modal','wt-background-modal');this.setTitle('背景设置');
+  this.modalEl.addClass('wt-modal','wt-background-modal','wt-workbench-dialog');this.setTitle('背景设置');
   const content=this.contentEl;
   const label=content.createEl('label',{text:'背景'});
   const select=label.createEl('select',{attr:{'aria-label':'工作台背景'}});
@@ -57,7 +57,7 @@ export class WorkbenchBackgroundModal extends Modal {
   }
   const actions=content.createDiv({cls:'wt-background-actions'});
   actions.createEl('button',{text:'恢复银灰背景',attr:{type:'button'}}).onclick=()=>void update({...this.value,preset:'abstract',brightness:100,blur:4});
-  actions.createEl('button',{text:'完成',cls:'mod-cta',attr:{type:'button'}}).onclick=()=>{if(!this.busy)this.close();};
+  actions.createEl('button',{text:'完成',cls:'wt-primary-action',attr:{type:'button'}}).onclick=()=>{if(!this.busy)this.close();};
  }
  onClose():void{this.revision++;this.contentEl.empty();}
 }

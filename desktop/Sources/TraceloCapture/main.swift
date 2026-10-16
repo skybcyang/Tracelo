@@ -10,23 +10,6 @@ final class CapturePanel: NSPanel {
         } else { super.sendEvent(event) }
     }
 }
-final class ShortcutRecorder: NSTextField {
-    var recorded: ((UInt32, UInt32, String) -> Void)?
-    override var acceptsFirstResponder: Bool { true }
-    override func mouseDown(with event: NSEvent) { window?.makeFirstResponder(self); stringValue = "请按组合键…" }
-    override func keyDown(with event: NSEvent) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags.contains(.command) || flags.contains(.control) || flags.contains(.option) else { stringValue = "请包含 ⌘、⌃ 或 ⌥"; return }
-        var modifiers: UInt32 = 0
-        if flags.contains(.command) { modifiers |= UInt32(cmdKey) }
-        if flags.contains(.control) { modifiers |= UInt32(controlKey) }
-        if flags.contains(.option) { modifiers |= UInt32(optionKey) }
-        if flags.contains(.shift) { modifiers |= UInt32(shiftKey) }
-        let label = (flags.contains(.control) ? "⌃" : "") + (flags.contains(.option) ? "⌥" : "") + (flags.contains(.shift) ? "⇧" : "") + (flags.contains(.command) ? "⌘" : "") + (event.charactersIgnoringModifiers ?? "?").uppercased()
-        stringValue = label
-        recorded?(UInt32(event.keyCode), modifiers, label)
-    }
-}
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // Bundled builds already use this domain; keep CLI builds compatible with it.
     private let preferences = CommandLine.arguments.contains("--smart-smoke-test") ? UserDefaults(suiteName: "app.tracelo.capture.qa.\(ProcessInfo.processInfo.processIdentifier)")! : Bundle.main.bundleIdentifier == "app.tracelo.capture"
@@ -206,6 +189,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         case "dismiss": if !smoke { dismiss() }
         case "settings": if !smoke { settings() }
+        case "browseSettingsVault": if !smoke { browseSettingsVault(value) }
+        case "saveSettings": if !smoke { saveNativeSettings(value) }
         case "resize":
             if let height = value["height"] as? Double, height.isFinite {
                 let available = (panel.screen ?? NSScreen.main)?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
@@ -401,62 +386,65 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let old = progressHotKey { UnregisterEventHotKey(old) }; progressHotKey = candidate; return true
     }
     @objc func settings() {
-        let open = NSOpenPanel()
-        open.title = "选择 Obsidian vault"
+        do { try persistDraft() } catch { errorMessage = error.localizedDescription; refreshSurface(); return }
+        show()
+        surface.update(["nativeSettings": [
+            "vault": preferences.string(forKey: "vault") ?? "",
+            "directory": preferences.string(forKey: "taskDirectory") ?? "工作记录/任务",
+            "shortcut": ["key": preferences.object(forKey: "shortcutKey") as? UInt32 ?? UInt32(kVK_Space), "modifiers": preferences.object(forKey: "shortcutModifiers") as? UInt32 ?? UInt32(controlKey | optionKey), "label": preferences.string(forKey: "shortcutLabel") ?? "⌃⌥Space"],
+            "progressShortcut": ["key": preferences.object(forKey: "progressKey") as? UInt32 ?? UInt32(kVK_ANSI_P), "modifiers": preferences.object(forKey: "progressModifiers") as? UInt32 ?? UInt32(controlKey | optionKey), "label": preferences.string(forKey: "progressLabel") ?? "⌃⌥P"]
+        ]])
+    }
+    private func browseSettingsVault(_ value: [String: Any]) {
+        let open = NSOpenPanel(); open.title = "选择 Obsidian vault"
         open.canChooseDirectories = true; open.canChooseFiles = false
-        if let vault = preferences.string(forKey: "vault") { open.directoryURL = URL(fileURLWithPath: vault) }
-        NSApp.activate(ignoringOtherApps: true)
-        guard open.runModal() == .OK, let vault = open.url else { return }
-        let sheet = NSAlert()
-        sheet.messageText = "任务目录与全局快捷键"
-        sheet.informativeText = "填写插件设置中的实际任务目录（相对于 vault，目录须已存在）。分组与任务字段由共享创建表单提供。点击快捷键栏可录入新组合。"
-        sheet.addButton(withTitle: "保存"); sheet.addButton(withTitle: "取消")
-        let view = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 108))
-        let directory = NSTextField(string: preferences.string(forKey: "taskDirectory") ?? "工作记录/任务")
-        directory.frame = NSRect(x: 0, y: 80, width: 380, height: 24)
-        directory.setAccessibilityLabel("任务相对目录")
-        let recorder = ShortcutRecorder(string: preferences.string(forKey: "shortcutLabel") ?? "⌃⌥空格")
-        recorder.isEditable = false
-        recorder.frame = NSRect(x: 0, y: 42, width: 380, height: 26)
-        recorder.setAccessibilityLabel("全局快捷键，点击录入")
-        var shortcut: (UInt32, UInt32, String)?
-        recorder.recorded = { shortcut = ($0, $1, $2) }
-        view.addSubview(directory); view.addSubview(recorder)
-        let progressRecorder = ShortcutRecorder(string: preferences.string(forKey: "progressLabel") ?? "记录进展：⌃⌥P")
-        progressRecorder.isEditable = false; progressRecorder.frame = NSRect(x: 0, y: 4, width: 380, height: 26)
-        progressRecorder.setAccessibilityLabel("记录进展快捷键，点击录入")
-        var progressShortcut: (UInt32, UInt32, String)?
-        progressRecorder.recorded = { progressShortcut = ($0, $1, $2) }; view.addSubview(progressRecorder)
-        sheet.accessoryView = view
-        guard sheet.runModal() == .alertFirstButtonReturn else { return }
+        if let path = value["vault"] as? String, !path.isEmpty { open.directoryURL = URL(fileURLWithPath: path) }
+        open.beginSheetModal(for: panel) { [weak self] result in
+            if result == .OK, let url = open.url { self?.surface.update(["settingsVault": url.path]) }
+        }
+    }
+    private func saveNativeSettings(_ value: [String: Any]) {
+        var candidates: [EventHotKeyRef] = []
+        var committed = false
+        defer { if !committed { candidates.forEach { UnregisterEventHotKey($0) } } }
         do {
-            _ = try CaptureConfiguration(vault: vault.path, taskDirectory: directory.stringValue).destination()
-            if let (key, modifiers, label) = progressShortcut {
-                guard registerProgress(key, modifiers) else { alert("快捷键冲突", "记录进展组合键无法注册，原设置已保留。"); return }
-                preferences.set(key, forKey: "progressKey"); preferences.set(modifiers, forKey: "progressModifiers"); preferences.set(label, forKey: "progressLabel")
-            }
-            if let (key, modifiers, label) = shortcut {
-                let oldKey = preferences.object(forKey: "shortcutKey") as? UInt32 ?? UInt32(kVK_Space)
-                let oldModifiers = preferences.object(forKey: "shortcutModifiers") as? UInt32 ?? UInt32(controlKey | optionKey)
-                if key != oldKey || modifiers != oldModifiers {
-                    guard register(key, modifiers) else { alert("快捷键冲突", "该组合键无法注册，原快捷键和设置已保留。"); return }
-                    preferences.set(key, forKey: "shortcutKey"); preferences.set(modifiers, forKey: "shortcutModifiers")
-                    preferences.set(label, forKey: "shortcutLabel")
+            guard let vault = value["vault"] as? String, let directory = value["directory"] as? String else { throw CaptureError.invalid("保存位置无效") }
+            _ = try CaptureConfiguration(vault: vault, taskDirectory: directory).destination()
+            var changes: [(String, UInt32, UInt32, String, EventHotKeyRef?)] = []
+            for (field, prefix, defaultKey, id) in [("shortcut", "shortcut", UInt32(kVK_Space), UInt32(1)), ("progressShortcut", "progress", UInt32(kVK_ANSI_P), UInt32(2))] {
+                guard let shortcut = value[field] as? [String: Any], let key = shortcut["key"] as? UInt32, key <= 126,
+                      let modifiers = shortcut["modifiers"] as? UInt32, modifiers & UInt32(cmdKey | controlKey | optionKey) != 0,
+                      modifiers & ~UInt32(cmdKey | controlKey | optionKey | shiftKey) == 0,
+                      let label = shortcut["label"] as? String, !label.isEmpty else { throw CaptureError.invalid("快捷键无效，请重新录入") }
+                let oldKey = preferences.object(forKey: prefix == "shortcut" ? "shortcutKey" : "progressKey") as? UInt32 ?? defaultKey
+                let oldModifiers = preferences.object(forKey: prefix == "shortcut" ? "shortcutModifiers" : "progressModifiers") as? UInt32 ?? UInt32(controlKey | optionKey)
+                var candidate: EventHotKeyRef?
+                if key != oldKey || modifiers != oldModifiers || (prefix == "shortcut" ? hotKey == nil : progressHotKey == nil) {
+                    guard RegisterEventHotKey(key, modifiers, EventHotKeyID(signature: 0x5452434C, id: id), GetApplicationEventTarget(), 0, &candidate) == noErr, let registered = candidate else { throw CaptureError.invalid("快捷键已被占用，原设置已保留，请选择其他组合") }
+                    candidates.append(registered)
                 }
+                changes.append((prefix, key, modifiers, label, candidate))
             }
-            let destinationChanged = preferences.string(forKey: "vault") != vault.path
-                || (preferences.string(forKey: "taskDirectory") ?? "工作记录/任务") != directory.stringValue
+            guard changes[0].1 != changes[1].1 || changes[0].2 != changes[1].2 else { throw CaptureError.invalid("两个入口请使用不同的快捷键") }
             try persistDraft()
-            preferences.set(vault.path, forKey: "vault")
-            preferences.set(directory.stringValue, forKey: "taskDirectory")
-            if destinationChanged {
-                pending = nil; pendingDraftData = nil
-                draft = try persistence.load(draftKey).map { try CaptureFormDraft(data: $0) }
-                surface.update(["resetPending": true])
+            let destinationChanged = preferences.string(forKey: "vault") != vault || (preferences.string(forKey: "taskDirectory") ?? "工作记录/任务") != directory
+            // Read the destination draft before changing preferences or registrations.
+            let newDraftKey = "creationDraft." + Data((vault + "\n" + directory).utf8).base64EncodedString()
+            let restored = destinationChanged ? try persistence.load(newDraftKey).map { try CaptureFormDraft(data: $0) } : draft
+            for (prefix, key, modifiers, label, candidate) in changes {
+                if let candidate {
+                    if prefix == "shortcut" { if let old = hotKey { UnregisterEventHotKey(old) }; hotKey = candidate }
+                    else { if let old = progressHotKey { UnregisterEventHotKey(old) }; progressHotKey = candidate }
+                }
+                preferences.set(key, forKey: prefix == "shortcut" ? "shortcutKey" : "progressKey")
+                preferences.set(modifiers, forKey: prefix == "shortcut" ? "shortcutModifiers" : "progressModifiers")
+                preferences.set(label, forKey: prefix == "shortcut" ? "shortcutLabel" : "progressLabel")
             }
-            errorMessage = ""
-            refreshSurface()
-        } catch { alert("设置未保存", error.localizedDescription) }
+            preferences.set(vault, forKey: "vault"); preferences.set(directory, forKey: "taskDirectory")
+            committed = true
+            if destinationChanged { pending = nil; pendingDraftData = nil; draft = restored; surface.update(["resetPending": true]) }
+            errorMessage = ""; refreshSurface(); surface.update(["nativeSettingsSaved": true])
+        } catch { surface.update(["nativeSettingsError": error.localizedDescription]) }
     }
     private func alert(_ title: String, _ message: String) {
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = message; alert.runModal()

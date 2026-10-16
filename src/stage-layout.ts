@@ -13,7 +13,7 @@ export function defaultStageLayout(files: boolean): StageLayout {
  return {columns: groups.map(rows=>({width:1/groups.length, rows:rows.map(module=>({module,height:1/rows.length}))}))};
 }
 export function normalizeStageLayout(value: unknown): StageLayout | null {
- if (!record(value) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length>4) return null;
+ if (!record(value) || !Array.isArray(value.columns) || value.columns.length>4) return null;
  const seen=new Set<string>(), columns:StageColumn[]=[];
  for (const c of value.columns) {
   if (!record(c) || typeof c.width!=='number' || !Number.isFinite(c.width) || c.width<=0 || !Array.isArray(c.rows) || !c.rows.length || c.rows.length>4) return null;
@@ -43,9 +43,11 @@ export function insertStageModule(layout: StageLayout, module: StageModule, colu
  const next=structuredClone(layout);
  // Retain the target column's identity while removing the module from its old location.
  const target=next.columns[column];
+ const oldRow=target?.rows.findIndex(r=>r.module===module)??-1;
+ if(!newColumn&&oldRow>=0&&(row===oldRow||row===oldRow+1))return next;
  for (const c of next.columns) c.rows=c.rows.filter(r=>r.module!==module);
  if (newColumn) next.columns.splice(column,0,{width:1,rows:[{module,height:1}]});
- else if (target) {target.rows.splice(row,0,{module,height:1}); target.rows.forEach(r=>r.height=1/target.rows.length);}
+ else if (target) {target.rows.splice(row-(oldRow>=0&&oldRow<row?1:0),0,{module,height:1}); target.rows.forEach(r=>r.height=1/target.rows.length);}
  else return layout;
  next.columns=next.columns.filter(c=>c.rows.length);
  next.columns.forEach(c=> {const hs=ratios(c.rows.map(r=>r.height)); c.rows.forEach((r,i)=>r.height=hs[i]);});
@@ -53,7 +55,6 @@ export function insertStageModule(layout: StageLayout, module: StageModule, colu
  next.columns.forEach((c,i)=>c.width=widths[i]); return next;
 }
 export function removeStageModule(layout: StageLayout, module: StageModule): StageLayout {
- if(layout.columns.flatMap(c=>c.rows).length<=1)return structuredClone(layout);
  const next=structuredClone(layout); next.columns.forEach(c=>c.rows=c.rows.filter(r=>r.module!==module)); next.columns=next.columns.filter(c=>c.rows.length);
  next.columns.forEach(c=>c.rows.forEach(r=>r.height=1/c.rows.length));
  next.columns.forEach(c=>c.width=1/next.columns.length); return next;
