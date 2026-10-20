@@ -1,0 +1,36 @@
+{
+  "databaseId": 39364148113,
+  "headSha": "118209075c07983f7d6b1e8307e70c2cd8960d62",
+  "headBranch": "codex/release-1.0.2",
+  "status": "completed",
+  "conclusion": "success",
+  "createdAt": "2026-10-20T03:24:45Z",
+  "updatedAt": "2026-10-20T03:29:38Z",
+  "url": "https://github.com/skybcyang/Tracelo/actions/runs/39364148113",
+  "jobs": [
+    {
+      "name": "windows",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T03:24:48Z",
+      "completedAt": "2026-10-20T03:26:24Z"
+    },
+    {
+      "name": "macos",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T03:24:52Z",
+      "completedAt": "2026-10-20T03:26:12Z"
+    },
+    {
+      "name": "plugin",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T03:24:48Z",
+      "completedAt": "2026-10-20T03:29:38Z"
+    },
+    {
+      "name": "publish",
+      "conclusion": "skipped",
+      "startedAt": "2026-10-20T03:29:38Z",
+      "completedAt": "2026-10-20T03:29:38Z"
+    }
+  ]
+}

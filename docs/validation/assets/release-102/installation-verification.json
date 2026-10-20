@@ -1,0 +1,56 @@
+{
+  "result": "passed",
+  "at": "2026-10-20T11:47:22.918570+08:00",
+  "sourceSha": "118209075c07983f7d6b1e8307e70c2cd8960d62",
+  "scope": "正式插件三件套与macOS应用树哈希一致；实际WorkAssistant Obsidian重载并只读复核工作台、可选API Key及HTTP说明，取消设置后焦点恢复；安装版原生WebKit创建／直接进展及空密钥HTTP请求通过。任务／附件、既有插件设置、桌面偏好及全部草稿保留，正式应用进程运行；实体全局快捷键及完整人工设备矩阵除外。",
+  "pluginTarget": ".obsidian/plugins/work-timeline/",
+  "captureTarget": "/Applications/Tracelo Capture.app",
+  "pluginSha256": {
+    "main.js": "51bf692f73583fb1aa16dbdf3206c7c7c3179064d9d93676b1d2654d097103c3",
+    "styles.css": "12454fb43e04825f2d3d911b4c582d53260bd8eeaeda9c87fd24f6135434ddac",
+    "manifest.json": "32cd62b0d6af5b60ee79b180044fca81a32c9106214f01bc31780f4d4a97eaa6"
+  },
+  "captureExecutableSha256": "5680eeb2d19862330bf51061460835622162b3b8bb58a3f514594db5032bcc37",
+  "formalFilesVerified": 18,
+  "appFilesVerified": 8,
+  "preserved": [
+    "formal task and attachment bytes",
+    "existing plugin settings and drafts",
+    "capture preferences",
+    "capture drafts"
+  ],
+  "nativeHttp": {
+    "at": "2026-10-20T03:45:39.407Z",
+    "finishedAt": "2026-10-20T03:45:40.922Z",
+    "result": "passed",
+    "customPortAndPath": true,
+    "authorizationHeaderPresent": false,
+    "requests": [
+      {
+        "path": "/self-hosted/v1/chat/completions",
+        "method": "POST",
+        "model": "fixture-http"
+      }
+    ],
+    "dataScope": "synthetic fixture in isolated temporary vault; no user model or real credentials"
+  },
+  "actualHost": {
+    "application": "Obsidian 1.14.4",
+    "vault": "WorkAssistant",
+    "reloaded": true,
+    "workbenchReadOnly": true,
+    "optionalKeyLabel": true,
+    "httpHttpsHelp": true,
+    "settingsCancelled": true,
+    "focusReturnedToModelSettingsButton": true
+  },
+  "captureProcessRunning": true,
+  "privateBackup": ".local/release-102/official-install/install-backup/",
+  "notRun": [
+    "physical global hotkeys and full focus matrix",
+    "real IME candidate window",
+    "microphone dictation",
+    "multi-monitor/fullscreen",
+    "full manual Windows device matrix"
+  ]
+}

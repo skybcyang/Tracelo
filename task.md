@@ -1,8 +1,8 @@
 # Tracelo 当前待办
 
-本文件保留未完成工作与验收边界。1.0.1 已整合并推送 main、完成三平台候选及正式发布、七附件实际下载校验和本项目正式包安装；实际 Obsidian 已重载，macOS 快捷程序已更新运行，配置、任务、附件和草稿保留。见[发布说明](docs/releases/1.0.1.md)、[本轮验收](docs/validation/2026-10-16-release-101.md)及[历史记录](docs/task-history.md)。
+本文件保留未完成工作与验收边界。1.0.2 已推送 main、完成三平台候选及正式发布、七附件实际下载校验和本项目正式包安装；实际 Obsidian 已重载，macOS 快捷程序已更新运行，配置、任务、附件和草稿保留。见[发布说明](docs/releases/1.0.2.md)、[本轮验收](docs/validation/2026-10-20-release-102.md)及[历史记录](docs/task-history.md)。
 
-2026-10-19 后续开发已取消模型密钥必填、长度和格式限制，保留 HTTP 服务支持，并完成当日本地安装。用户于10月20日要求上传并发布1.0.2，当前执行发布流程；[原始验收](docs/validation/2026-10-19-optional-model-key.md)保留当日范围，本轮进展见[1.0.2发布验收](docs/validation/2026-10-20-release-102.md)。
+1.0.2 取消模型密钥必填、长度和格式限制，保留 HTTP 服务支持；插件和两平台快捷工具同步发布。[10月19日原始验收](docs/validation/2026-10-19-optional-model-key.md)保留当日范围，10月20日新增Windows CI原生及正式包证据，不替代下列完整人工设备矩阵。
 
 ## 后续观察
 
