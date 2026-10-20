@@ -2,7 +2,7 @@ import type { Modal as ObsidianModal, App } from 'obsidian';
 import { captureId } from './capture-id';
 import { dayKey, quadrantId, type WorkGroup, type WorkTask } from './domain';
 import { mountNewTaskForm, type NewTaskDraft, type NewTaskValues } from './new-task-form';
-import { type CaptureContext, type CapturePlan, type CaptureConfig, parseCapture, validateEndpoint, validateApiKey } from './smart-capture';
+import { type CaptureContext, type CapturePlan, type CaptureConfig, parseCapture, validateEndpoint } from './smart-capture';
 
 export interface SmartCaptureHost {
   groups: WorkGroup[]; tasks: WorkTask[];
@@ -96,7 +96,7 @@ return class SmartCaptureModal extends Modal {
     const settings = heading.createEl('button', { text: '模型设置', cls: 'wt-secondary-action', attr: { type: 'button' } });
     const configStatus = source.createEl('p', { cls: 'wt-smart-help', attr: { role: 'status' } });
     if (!this.taskId) heading.prepend(configStatus);
-    const showConfig = () => { configStatus.textContent = this.host.config.apiKey || this.host.config.keyFile ? this.host.config.model : '未配置模型'; };
+    const showConfig = () => { configStatus.textContent = this.host.config.baseUrl && this.host.config.model ? this.host.config.model : '未配置模型'; };
     showConfig(); settings.onclick = () => this.openSettings(showConfig);
     const label = source.createEl('label', { cls: 'wt-field' });
     label.createSpan({ cls: 'wt-field-label', text: '说说要做的事' });
@@ -310,14 +310,19 @@ return class SmartCaptureModal extends Modal {
     };
     const base = input('服务地址', this.host.config.baseUrl, 'https://api.moonshot.cn/v1');
     const model = input('模型名称', this.host.config.model, '填写该服务支持的模型 ID');
-    const key = input('API Key', this.host.config.apiKey ?? '', this.host.config.keyFile ? '已保留旧密钥，输入可替换' : '粘贴 API Key');
-    key.type = 'password'; key.autocomplete = 'off'; key.spellcheck = false; key.maxLength = 4096; key.setAttribute('aria-label', 'API Key');
-    key.required = !this.host.config.keyFile;
+    const key = input('API Key（可选）', this.host.config.apiKey ?? '', this.host.config.keyFile ? '已保留旧密钥，输入可替换' : '无需密钥可留空');
+    key.type = 'password'; key.autocomplete = 'off'; key.spellcheck = false; key.setAttribute('aria-label', 'API Key');
+    key.required = false;
+    let keyEdited = false;
     const keyRow = key.parentElement!.createDiv({ cls: 'wt-smart-key' }); keyRow.append(key);
     const reveal = keyRow.createEl('button', { cls: 'wt-secondary-action', attr: { type: 'button', 'aria-label': '显示密钥', 'aria-pressed': 'false' } });
     const showKey = () => { const visible = key.type === 'text'; reveal.setAttribute('aria-label', visible ? '隐藏密钥' : '显示密钥'); reveal.setAttribute('aria-pressed', String(visible)); reveal.replaceChildren(); setIcon(reveal, visible ? 'eye-off' : 'eye'); };
     showKey(); reveal.onclick = () => { key.type = key.type === 'password' ? 'text' : 'password'; showKey(); };
-    settingsBody.createEl('p', { cls: 'wt-smart-help', text: 'API Key 保存在本机配置中，不写入任务。支持 HTTP／HTTPS Chat Completions 接口；测试连接只发送固定测试句，可能产生少量调用费用。' });
+    if (this.host.config.keyFile) {
+      const clear = keyRow.createEl('button', { text: '清除旧密钥', cls: 'wt-secondary-action', attr: { type: 'button' } });
+      clear.onclick = () => { key.value = ''; keyEdited = true; key.dispatchEvent(new Event('input')); key.placeholder = '无需密钥可留空'; clear.remove(); };
+    }
+    settingsBody.createEl('p', { cls: 'wt-smart-help', text: 'API Key 可留空，保存在本机配置中，不写入任务。支持 HTTP／HTTPS Chat Completions 接口；测试连接只发送固定测试句，可能产生少量调用费用。' });
     const error = settingsBody.createEl('p', { cls: 'wt-form-error', attr: { role: 'alert' } });
     const status = settingsBody.createEl('p', { cls: 'wt-smart-help', attr: { role: 'status', 'aria-live': 'polite' } });
     const actions = form.createDiv({ cls: 'wt-modal-actions' });
@@ -329,11 +334,10 @@ return class SmartCaptureModal extends Modal {
     const config = () => {
       validateEndpoint(base.value.trim());
       if (!model.value.trim()) throw Error('请填写模型名称。');
-      const apiKey = key.value.trim() ? validateApiKey(key.value) : '';
-      if (!apiKey && !this.host.config.keyFile) throw Error('请填写 API Key。');
-      return { baseUrl: base.value.trim(), model: model.value.trim(), apiKey, keyFile: apiKey ? '' : this.host.config.keyFile };
+      const apiKey = key.value.trim();
+      return { baseUrl: base.value.trim(), model: model.value.trim(), apiKey, keyFile: apiKey || keyEdited ? '' : this.host.config.keyFile };
     };
-    for (const field of [base, model, key]) field.oninput = () => { revision++; status.textContent = '配置已修改，尚未测试连接'; error.textContent = ''; };
+    for (const field of [base, model, key]) field.oninput = () => { if (field === key) keyEdited = true; revision++; status.textContent = '配置已修改，尚未测试连接'; error.textContent = ''; };
     test.onclick = async () => {
       if (busy) return;
       const current = revision;

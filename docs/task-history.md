@@ -2,6 +2,10 @@
 
 本页保留原任务记录及当时的验收状态，不代表当前安装结果或全部验收完成。当前待办见 [task.md](../task.md)；长期约束以 [AGENTS.md](../AGENTS.md) 为准。
 
+## 2026-10-19 自建模型可选密钥
+
+按用户明确要求取消 API Key 必填、长度和格式限制，插件、共享设置、Swift及C#同步支持无密钥调用，空Key不发送Authorization，保留HTTP／HTTPS及旧文件兼容／显式清除入口。完整单元、相关浏览器、构建、Swift和macOS原生检查通过；本项目插件已重载、macOS工具已更新运行，安装版向本机HTTP夹具的空密钥请求通过，正式数据和配置草稿保留。本轮未提交、推送或发布，Windows原生因缺少SDK／设备未执行。见[验收记录](validation/2026-10-19-optional-model-key.md)。
+
 ## 2026-10-16 1.0.1 交互整合与发布
 
 整合 1.0.0 发布后的四组修改：展示台独立进展／待办操作与同排按钮、模块标题拖动／边缘插入／实际尺寸调整及移出恢复、底部牌组与插件／原生设置统一、银灰品牌与字体图标适配。旧工作树的上下文恢复功能已在主线，未反向合入旧实现；正式任务协议不变。原始实施记录见[独立编辑](validation/2026-10-16-workbench-edit-review.md)、[模块操作](validation/2026-10-16-stage-interactions.md)、[设置统一](validation/2026-10-16-workbench-settings.md)及[品牌适配](validation/2026-10-16-brand-type.md)。

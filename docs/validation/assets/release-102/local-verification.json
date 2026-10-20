@@ -1,0 +1,22 @@
+{
+  "at": "2026-10-20T03:23:30.239Z",
+  "result": "passed",
+  "version": "1.0.2",
+  "unit": {
+    "passed": 152,
+    "skipped": 2,
+    "reason": "No local .NET SDK; Windows candidate CI follows"
+  },
+  "versionTests": 6,
+  "swiftCore": 10,
+  "fullBrowserSuites": "passed",
+  "macosUniversalAndWebKit": "passed",
+  "httpNoAuthorization": "passed",
+  "logHashes": {
+    "version.log": "cb3f9ff1f68f017863e4ece0fd480afe5a9b5255550f0df8eb4f8508701e0760",
+    "check.log": "92cc89882d29330315ec0f3347193ee45d9ea5764a12ed2b81d5a94badf01203",
+    "swift-core.log": "a122e9e417eb3eba93ff1f9b7ef39867bee37fed1e28f0ef3212ad8a168ba5a0",
+    "macos.log": "88d61eedff49562ec79db94f0fe79f7442fbdf7f14858080d9a3343772f4e311",
+    "native-http.log": "88c616e4a27bf625c380870e65cb7ba5f4efc8321feb1daa42e817b698764623"
+  }
+}

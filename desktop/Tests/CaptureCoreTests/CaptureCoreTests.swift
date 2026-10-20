@@ -123,10 +123,15 @@ let tests = CaptureCoreTests()
 let directConfig = try SmartCaptureTransport.configuration(["baseUrl": "https://example.com/v1", "model": "test", "apiKey": "  test-direct-token-1234567890  ", "keyFile": "/missing/legacy"])
 XCTAssertEqual(directConfig["apiKey"], "test-direct-token-1234567890")
 XCTAssertEqual(directConfig["keyFile"], "")
-XCTAssertThrowsError(try SmartCaptureTransport.configuration(["baseUrl": "https://example.com/v1", "model": "test", "apiKey": "invalid key", "keyFile": "/missing/legacy"]))
+for key in ["", "x", "custom key:@!#$%^&*()", String(repeating: "x", count: 70000)] {
+    XCTAssertEqual(try SmartCaptureTransport.configuration(["baseUrl": "http://localhost:11434/v1", "model": "test", "apiKey": key])["apiKey"], key)
+    XCTAssertEqual(try SmartCaptureTransport.readKey(key), key)
+    XCTAssertEqual(try SmartCaptureTransport.readKey("API_KEY=" + key), key)
+}
+XCTAssertEqual(try SmartCaptureTransport.configuration(["baseUrl": "http://localhost:11434/v1", "model": "test"])["apiKey"], "")
+XCTAssertThrowsError(try SmartCaptureTransport.configuration(["baseUrl": "http://localhost:11434/v1", "model": "test", "keyFile": "relative-key.txt"]))
 XCTAssertEqual(try SmartCaptureTransport.readKey("opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890")
 XCTAssertEqual(try SmartCaptureTransport.readKey("# Key\nAPI_KEY=opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890")
-XCTAssertThrowsError(try SmartCaptureTransport.readKey("first-token-12345678\nsecond-token-12345678"))
 XCTAssertEqual(try SmartCaptureTransport.endpoint("https://example.com/v1/chat/completions/").absoluteString, "https://example.com/v1/chat/completions")
 for base in ["http://localhost:11434/v1", "http://192.168.1.10:8080/api/v1", "http://models.example.com/v1", "http://[::1]:11434/v1"] {
     XCTAssertEqual(try SmartCaptureTransport.endpoint(base).absoluteString, base + "/chat/completions")

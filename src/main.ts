@@ -82,7 +82,7 @@ import {
 import { mountGroupOverflow } from './group-navigation';
 import { themeMenu } from './themed-menu';
 import { createSmartCaptureModal, type SmartCaptureMount } from './smart-capture-modal';
-import { applySmartProgress, extractCapture, requestModel, readApiKey, validateApiKey, CONNECTION_TEST_TEXT, connectionTestContext, type CaptureConfig, type CaptureContext, type CapturePlan } from './smart-capture';
+import { applySmartProgress, extractCapture, requestModel, readApiKey, CONNECTION_TEST_TEXT, connectionTestContext, type CaptureConfig, type CaptureContext, type CapturePlan } from './smart-capture';
 import { ConversationPanel } from './conversation-panel';
 import type { ConversationHistoryQuery } from './conversation-history';
 import { applyConversationUpdate, buildConversationRequest, parseConversationReply, type ConversationMessage, type ConversationProposal } from './work-conversation';
@@ -2003,14 +2003,13 @@ export default class WorkTimelinePlugin extends Plugin {
   }
 
   private async modelKey(config: CaptureConfig): Promise<string> {
-    if (!config.apiKey && !config.keyFile) throw Error('请先在“模型设置”中填写 API Key。');
-    let key = config.apiKey?.trim() ? validateApiKey(config.apiKey) : '';
-    if (!key) try {
+    let key = config.apiKey?.trim() ?? '';
+    if (!key && config.keyFile) try {
       // Obsidian desktop exposes Node through window.require; keep it out of the shared/browser bundle.
       const nodeRequire = (window as unknown as { require: (name: string) => { promises: { readFile: (path: string, encoding: string) => Promise<string> } } }).require;
       const source = await nodeRequire('fs').promises.readFile(config.keyFile!, 'utf8');
       key = readApiKey(source);
-    } catch { throw Error('无法读取唯一密钥，请检查文件路径，并使用一行密钥或 API_KEY= 格式。'); }
+    } catch { throw Error('旧密钥无法读取，请在模型设置中重新输入或清除旧密钥。'); }
     return key;
   }
 

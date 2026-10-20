@@ -120,11 +120,20 @@ try {
     await page.setViewportSize({width:560,height:520});
     await page.screenshot({path:`test-results/smart-capture/desktop-${platform}-settings.png`});
     assert.equal(await settings.getByRole('button',{name:'选择密钥文件',exact:true}).count(),0);
+    await settings.getByRole('button',{name:'清除旧密钥',exact:true}).click();
+    assert.equal(await key.evaluate(el=>el.required),false);
+    assert.equal(await key.getAttribute('maxlength'),null);
+    for(const value of ['x','custom key:@!#$%^&*()','x'.repeat(5000),'']) {
+      await key.fill(value);
+      await settings.getByRole('button',{name:'测试连接',exact:true}).click();
+      await settings.getByRole('status').filter({hasText:'连接成功'}).waitFor();
+      assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='request').params.config.apiKey),value);
+    }
     await settings.getByRole('button',{name:'测试连接',exact:true}).click();
     await settings.getByRole('status').filter({hasText:'连接成功'}).waitFor();
     await settings.getByRole('button',{name:'保存设置',exact:true}).click();
     await settings.waitFor({state:'detached'});
-    assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='configure').params.config.apiKey),'test-direct-token-1234567890');
+    assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='configure').params.config.apiKey),'');
     assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='configure').params.config.keyFile),'');
     assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='configure').params.config.baseUrl),'http://192.168.1.10:8080/v1');
     assert.equal(await page.evaluate(()=>window.messages.findLast(m=>m.method==='request').params.config.baseUrl),'http://192.168.1.10:8080/v1');

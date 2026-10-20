@@ -24,6 +24,7 @@ try {
     window.modelCalls = 0;
     window.modelRequest = async request => {
       window.modelCalls++;
+      window.lastModelHeaders = request.headers;
       window.lastModelBody = JSON.parse(request.body);
       if (window.modelFailure) return { status: 503, text: 'private provider error' };
       if (window.pauseModel) await new Promise(resolve => { window.releaseModel = resolve; });
@@ -144,6 +145,7 @@ try {
   await page.evaluate(()=>window.restoreDraftSave());
   await modal.getByRole('button', { name: '模型设置', exact: true }).click();
   const settings = page.locator('.wt-smart-settings');
+  await settings.getByRole('button', {name:'清除旧密钥',exact:true}).click();
   await settings.getByLabel('API Key', {exact:true}).fill('test-direct-token-1234567890');
   assert.equal(await settings.getByLabel('API Key', {exact:true}).getAttribute('type'),'password');
   await page.evaluate(() => { window.require = () => { throw Error('direct keys must not read a file'); }; });
@@ -154,12 +156,22 @@ try {
   await settings.getByRole('button', { name: '保存设置', exact: true }).click();
   await settings.getByRole('alert').filter({ hasText: 'HTTPS' }).waitFor();
   await settings.getByRole('textbox', { name: '服务地址', exact: true }).fill('http://192.168.1.10:8080/v1');
+  const optionalKey = settings.getByLabel('API Key', {exact:true});
+  assert.equal(await optionalKey.evaluate(el => el.required), false);
+  assert.equal(await optionalKey.getAttribute('maxlength'), null);
+  for (const key of ['x', 'custom key:@!#$%^&*()', 'x'.repeat(5000), '']) {
+    await optionalKey.fill(key);
+    await settings.getByRole('button', { name: '测试连接', exact: true }).click();
+    await settings.getByRole('status').filter({ hasText: '连接成功' }).waitFor();
+    assert.equal(await page.evaluate(() => window.lastModelHeaders.Authorization), key ? 'Bearer ' + key : undefined);
+  }
+  await page.screenshot({path:'test-results/smart-capture/optional-key-settings.png'});
   await settings.getByRole('button', { name: '测试连接', exact: true }).click();
   await settings.getByRole('status').filter({ hasText: '连接成功' }).waitFor();
   await settings.getByRole('button', { name: '保存设置', exact: true }).click();
   await settings.waitFor({ state: 'detached' });
   assert.equal(await page.evaluate(() => JSON.stringify(window.cardFixture.plugin.data).includes('sk-' + 'x'.repeat(32))), false);
-  assert.equal(await page.evaluate(() => window.cardFixture.plugin.data.smartCapture.apiKey), 'test-direct-token-1234567890');
+  assert.equal(await page.evaluate(() => window.cardFixture.plugin.data.smartCapture.apiKey), '');
   assert.equal(await page.evaluate(() => window.cardFixture.plugin.data.smartCapture.keyFile), '');
   assert.equal(await page.evaluate(() => window.cardFixture.plugin.data.smartCapture.baseUrl), 'http://192.168.1.10:8080/v1');
   await page.evaluate(() => { window.progressMode = false; });

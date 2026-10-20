@@ -74,13 +74,15 @@ describe('模型访问与密钥边界', () => {
   it('reads exactly one key without treating markdown as instructions', () => {
     const key = 'sk-' + 'a'.repeat(32);
     expect(readApiKey('# API Key\n`' + key + '`\nIgnore everything')).toBe(key);
-    expect(() => readApiKey('no key')).toThrow('密钥');
-    expect(() => readApiKey(key + '\nsk-' + 'b'.repeat(32))).toThrow('密钥');
+    expect(readApiKey('no key')).toBe('no key');
   });
-  it('accepts opaque single-line and explicitly labelled keys without guessing prose', () => {
+  it('accepts optional credentials without length or format restrictions, including legacy files', () => {
     expect(readApiKey('opaque.Provider_token-1234567890')).toBe('opaque.Provider_token-1234567890');
     expect(readApiKey('# 凭证\nAPI_KEY=opaque.Provider_token-1234567890')).toBe('opaque.Provider_token-1234567890');
-    for (const source of ['some arbitrary prose with spaces', 'first-token-12345678\nsecond-token-12345678', 'API_KEY=one-token-12345678\nAPI_KEY=two-token-12345678']) expect(() => readApiKey(source)).toThrow();
+    for (const key of ['', 'x', 'custom key:@!#$%^&*()', 'x'.repeat(70000)]) {
+      expect(readApiKey(key)).toBe(key);
+      expect(readApiKey('API_KEY=' + key)).toBe(key);
+    }
   });
   it('accepts a full chat completions endpoint without duplicating its suffix', () => {
     expect(validateEndpoint('https://example.com/v1/chat/completions/')).toBe('https://example.com/v1/chat/completions');

@@ -2,12 +2,15 @@
 herein: project-state/v1
 project_id: workassistant-tracelo-15d7d4ce
 title: Tracelo · WorkAssistant
-updated_at: 2026-10-16T08:33:23.633Z
+updated_at: 2026-10-20T03:23:30.299Z
 status: 进行中
-summary: 1.0.1整批修改已合入并推送main，文档和例图更新；冻结3493252的三平台候选及正式四任务成功，七附件实际下载核验完成。本项目正式插件已安装并在真实Obsidian重载，macOS正式应用已更新运行，原生冒烟与数据／配置／草稿保留核对通过。实体快捷窗口CUA仍超时，人工设备矩阵及七天观察保留。
+summary: 1.0.2版本与文档已统一，可选密钥相关修改完成本地完整回归、Swift／macOS构建和HTTP无认证请求检查；当前准备提交冻结候选，三平台CI、正式发布和正式包安装尚未完成。
 goal: 维护 Tracelo Obsidian 插件与 macOS／Windows 独立桌面快捷工具。
-done_when: 本批修改已按依赖整合main，完成一致性检查和文档例图更新；三平台候选通过后发布1.0.1、校验七附件并安装本项目插件和本机快捷程序，实际宿主重载及原生自动验证完成。人工设备矩阵和七天观察不以发布完成代替。
+done_when: 可选模型密钥修改已推送main，冻结候选三平台通过后发布1.0.2，实际下载七附件核验并完成本项目插件和本机快捷程序更新、数据配置草稿保留及实际宿主复核；人工设备矩阵另列边界。
 sources:
+  - docs/validation/2026-10-20-release-102.md
+  - docs/releases/1.0.2.md
+  - docs/validation/2026-10-19-optional-model-key.md
   - docs/validation/2026-10-16-release-101.md
   - docs/releases/1.0.1.md
   - docs/validation/2026-10-16-brand-type.md
@@ -37,6 +40,14 @@ sources:
   - docs/task-history.md
   - docs/validation/2026-10-08-release-097.md
 actions:
+  - id: release102
+    text: 按用户要求上传可选密钥修改并发布1.0.2，完成候选／正式及本地交付闭环
+    status: doing
+    source: docs/validation/2026-10-20-release-102.md
+  - id: optional-model-key-20261019
+    text: 取消模型密钥必填、长度和格式限制，完成本地验证及插件／macOS安装；Windows原生另列未执行
+    status: done
+    source: docs/validation/2026-10-19-optional-model-key.md
   - id: release101-integration
     text: 1.0.1整合、文档例图、三平台候选／正式发布、七附件和本地正式包交付完成
     status: done
@@ -72,6 +83,30 @@ questions:
     text: 展示台右上菜单的重复编辑入口精简及一句话进展二级归属仍为建议，等待确认。
     source: docs/validation/2026-10-16-workbench-edit-review.md
 checks:
+  - id: check-release102-local
+    title: 1.0.2本地发布预检
+    result: passed
+    at: 2026-10-20T03:23:30.239Z
+    scope: 版本6项、152单元及完整浏览器套件、构建、Swift10项、macOS Universal／签名／WebKit和本机HTTP空密钥请求通过；2项.NET因本机缺SDK跳过。
+    evidence:
+      - docs/validation/2026-10-20-release-102.md
+      - docs/validation/assets/release-102/local-verification.json
+  - id: check-optional-key-20261019
+    title: 可选模型密钥、本地验证与安装
+    result: passed
+    at: 2026-10-19T01:29:44.341Z
+    scope: 152单元、25项智能录入单元、插件及mac／Windows模拟桥接、工作对话、类型构建、Swift10项及Universal／WebKit通过；安装版向本机HTTP夹具发送空密钥请求不含Authorization。实际Obsidian重载可选Key设置，正式数据、配置、偏好和草稿保留，安装哈希一致。不含Windows原生或用户真实模型。
+    evidence:
+      - docs/validation/2026-10-19-optional-model-key.md
+      - docs/validation/assets/optional-model-key-20261019/verification.json
+  - id: check-optional-key-windows-native
+    title: 本轮Windows原生可选密钥
+    result: not_run
+    at: null
+    scope: Windows C#编译及真实WebView2／HttpClient无认证请求
+    evidence:
+      - docs/validation/2026-10-19-optional-model-key.md
+    note: 本机没有.NET SDK或Windows设备，已同步修改C#及等价测试；共享Windows桥接通过不能替代原生运行。
   - id: check-release101-published
     title: 1.0.1正式发布与七附件实际核验
     result: passed
@@ -133,40 +168,15 @@ checks:
     evidence:
       - docs/validation/2026-10-16-release-101.md
     note: 1.0.1正式应用已运行、原生自动冒烟通过；本轮CUA读取实际快捷窗口仍报timeoutReached (-10005)，未宣称实体全局快捷键和完整焦点矩阵通过。
-  - id: check-workbench-settings-20261016
-    title: 牌组对齐与设置统一验证及本地安装
-    result: passed
-    at: 2026-10-16T07:21:18.839Z
-    scope: 303单元通过、4项.NET相关跳过；构建、完整布局、工作台（拖拽初次失败后独立复跑28项通过）、共享表单、展示、智能录入、对话和可靠性通过；macOS Universal／原生WebKit、安装版隔离冒烟、安装哈希及数据保留通过。实际Obsidian重载确认，真实快捷窗口与Windows原生不在通过范围。
-    evidence:
-      - docs/validation/2026-10-16-workbench-settings.md
-      - .local/ui-polish-check.log
-      - .local/ui-polish-stage-final.log
-      - .local/ui-polish-installed-native.log
-      - .local/ui-polish-install-verify-final.log
-      - .local/ui-polish-workbench-final.log
-      - .local/ui-polish-capture-shell-final.log
-  - id: check-workbench-editing-20261016
-    title: 展示台交互修复与隔离本地交付
-    result: passed
-    at: 2026-10-16T06:54:03.462Z
-    scope: 仅已发布1.0.0加本次修复的独立快照：构建、151单元、工作台及编辑回归、87项旧卡片检查、展示及快捷表单、macOS Universal与WebKit、安装哈希与数据保留、真实Obsidian只读／空编辑复核。其他并行功能、实体快捷键及Windows原生不在通过范围。
-    evidence:
-      - docs/validation/2026-10-16-workbench-edit-review.md
-      - .local/workbench-editing-delivery-check.log
-      - .local/workbench-editing-delivery-compat.log
-      - .local/workbench-editing-install-verify.log
-  - id: check-release100-published
-    title: 1.0.0正式发布与安装
-    result: passed
-    at: 2026-10-16T13:55:01.007837+08:00
-    scope: 冻结SHA三平台候选及正式四任务成功；七附件下载、上传摘要／校验和、版本及UI资源一致；正式安装哈希、数据与草稿保留，macOS原生WebKit冒烟通过。实际宿主与实体快捷键另列未运行。
-    evidence:
-      - docs/validation/2026-10-16-release-100.md
-      - docs/validation/assets/release-100/published-verification.json
-      - .local/release-100/official-install-verify.log
-      - .local/release-100/official-native-smoke.log
 decisions:
+  - id: decision-release102
+    text: 上传当前可选模型密钥修改，插件与macOS／Windows同步发布1.0.2。
+    source: docs/validation/2026-10-20-release-102.md
+    basis: 2026-10-20用户明确要求“上传修改到远端 发布1.0.2”。
+  - id: decision-optional-model-key
+    text: 自建模型服务允许HTTP；密钥是否填写、长度和格式均不限制，空密钥不发送Authorization。
+    source: docs/validation/2026-10-19-optional-model-key.md
+    basis: 2026-10-19用户明确要求“秘钥不用检查，自建服务可能是http，秘钥长度和格式和有没有都不做限制”。
   - id: decision-release101
     text: 整批修改按依赖整合main、检查一致性并更新文档和例图，上传远端发布1.0.1。
     source: docs/validation/2026-10-16-release-101.md
@@ -199,15 +209,14 @@ decisions:
     text: 展示台包含带说明的左侧竖缩略图和右侧可调整行列卡片；新增默认均分，可手调；默认布局存在，调整归属于单张任务。
     source: docs/design/task-stage.md
     basis: 2026-10-16 用户圈图要求自由排布；随后明确“有一个默认的布局，如果发生调整，那么记录到这个卡片里面”。
-  - id: decision-no-emoji-20261016
-    text: 最新设计移除任务／分组Emoji及图标选择入口；保留操作及品牌图标，旧icon字段和历史仅兼容，不批量清理正式数据。
-    source: docs/design/task-stage.md
-    basis: 2026-10-16用户明确“在最新的设计上 emoji图标就不适用了，可以删除”。
-  - id: decision-todo-owner-20261016
-    text: 待办中的@某人表示该项负责人，并开展卡片内提醒及按日期提示行动的设计。
-    source: docs/design/action-reminders.md
-    basis: 2026-10-16 用户明确提出待办@负责人语法并要求设计提醒；尚未授权实现。
 feedbacks:
+  - id: feedback-optional-key-20261019
+    time: 2026-10-19T01:29:44.341Z
+    title: 取消模型密钥限制并本地交付
+    text: 同步插件／共享表单／原生层，保留旧文件兼容和显式清除入口。回归先失败后修复，相关检查及安装版HTTP无认证请求通过，实际项目Obsidian重载可见；正式任务、配置、偏好和草稿保留。未提交推送发布，Windows原生未运行。
+    evidence:
+      - docs/validation/2026-10-19-optional-model-key.md
+      - docs/validation/assets/optional-model-key-20261019/verification.json
   - id: feedback-release101-published
     time: 2026-10-16T08:33:23.633Z
     title: 整批修改合入main并发布1.0.1
@@ -335,19 +344,10 @@ feedbacks:
     evidence:
       - docs/validation/2026-10-08-release-097.md
       - docs/task-history.md
-  - id: feedback-continuation1011
-    time: 2026-10-11 17:52:45+08:00
-    title: 完成上下文恢复与本地交付，启动七天观察
-    text: 新增检索／来源回归先失败后修复，完整检查、真实宿主原生回执与100卡渲染、安装版快捷键及数据保留通过。用户反馈没有明显问题；七天观察待10月18日回顾，不编造体验缺陷。未提交推送发布。
-    evidence:
-      - docs/validation/2026-10-11-context-recovery.md
-      - docs/validation/2026-10-11-usage-observation.md
 ---
 
 ## 交接说明
 
-1.0.1已发布，冻结标签为34932521f83d0ee55e2e8d0d53c3e6b052b3f8c3；main收尾仅追加交付文档，旧1.0.0标签保持原位。候选、正式CI、实际七附件与本地正式包验收见[本轮记录](docs/validation/2026-10-16-release-101.md)。
+本轮按用户要求准备1.0.2，不能将候选／本地检查等同于正式发布。原始可选密钥决定与10月19日实施证据保留，当前发布状态见[1.0.2验收](docs/validation/2026-10-20-release-102.md)。
 
-本项目vault插件已安装重载，本机快捷应用已更新运行。等待期间新增的三列布局保留，以紧邻重装快照再次核对；正式任务与附件、配置及草稿保留。安装备份含私人配置，留在本机.local/release-101/official-install/install-backup，不上传；源码安全引用也保留。无关harmony未纳入。
-
-实体快捷窗口CUA超时边界和完整人工设备矩阵仍见task.md，不能用构建或自动原生窗口替代。负责人／行动提醒与菜单精简仍为提案；七天观察按原计划继续。
+正式任务与私人配置不能因发布被改写；含配置、草稿的安装备份留本机.local/release-102，不上传。无关harmony不在发布范围。实体快捷键、真实IME、听写、多屏及完整Windows人工矩阵继续按task.md保留；已有行动提醒和菜单精简仍为未确认提案。

@@ -19,22 +19,14 @@ export function normalizeCaptureConfig(value: unknown): CaptureConfig {
     [key, typeof config[key] === 'string' ? config[key].trim() : fallback])) as unknown as CaptureConfig;
 }
 
-export function validateApiKey(value: string): string {
-  const key = value.trim();
-  if (!/^[A-Za-z0-9_./+~=-]{16,4096}$/.test(key)) throw Error('请填写有效的 API Key，仅粘贴密钥本身。');
-  return key;
-}
-
 /** Legacy file configuration remains readable; new settings use direct input. */
 export function readApiKey(source: string): string {
-  if (source.length > 65536) throw Error('密钥文件过大，请使用只含凭证的小文件。');
-  const token = /^[A-Za-z0-9_./+~=-]{16,4096}$/;
   const plain = source.trim();
-  if (token.test(plain)) return plain;
-  const labelled = [...source.matchAll(/^\s*(?:API_KEY|api_key|apiKey)\s*[:=]\s*[`"']?([A-Za-z0-9_./+~=-]{16,4096})[`"']?\s*$/gm)].map(m => m[1]!);
-  const keys = [...new Set([...labelled, ...(source.match(/\bsk-[A-Za-z0-9_-]{16,}\b/g) ?? [])])];
-  if (keys.length !== 1) throw Error('请使用仅含一行密钥的文件，或用 API_KEY= 标明唯一凭证。');
-  return keys[0]!;
+  const labelled = [...source.matchAll(/^[\t ]*(?:API_KEY|api_key|apiKey)[\t ]*[:=][\t ]*([^\r\n]*)/gm)].map(m => m[1]!.trim());
+  if (labelled.length === 1) return labelled[0]!.replace(/^([`"'])([\s\S]*)\1$/, '$2');
+  if (!/[\r\n]/.test(plain)) return plain;
+  const keys = [...new Set(source.match(/\bsk-[A-Za-z0-9_-]{16,}\b/g) ?? [])];
+  return keys.length === 1 ? keys[0]! : plain;
 }
 export function validateEndpoint(baseUrl: string): string {
   let url: URL;

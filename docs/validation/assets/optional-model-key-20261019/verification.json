@@ -1,0 +1,46 @@
+{
+  "at": "2026-10-19T01:29:44.341Z",
+  "result": "passed",
+  "installedAt": "2026-10-19T09:29:44.198656+08:00",
+  "scope": "Optional model credentials and HTTP compatibility; plugin browser and macOS/Windows simulated bridges, local unit/build, installed macOS native HTTP and real Obsidian settings; synthetic fixtures only",
+  "checks": {
+    "unit": {
+      "passed": 152,
+      "skipped": 2,
+      "note": "No local .NET SDK"
+    },
+    "smartUnit": 25,
+    "swiftCore": 10,
+    "pluginBrowser": "passed",
+    "desktopBridges": [
+      "mac",
+      "windows"
+    ],
+    "conversationBrowser": "passed",
+    "macosUniversalAndWebKit": "passed",
+    "installedNativeHTTP": {
+      "result": "passed",
+      "requestCount": 1,
+      "authorizationHeader": "absent"
+    },
+    "installedHashesAndDataPreserved": "passed",
+    "realObsidianReloadAndOptionalKeyLabel": "passed"
+  },
+  "notRun": [
+    "Windows C# build/native requests: no local .NET SDK or Windows device",
+    "real user model service",
+    "physical global shortcut and full focus/IME/multi-screen matrix"
+  ],
+  "logHashes": {
+    "smart.log": "e312ef39d4669fed978d60c6359866b658ad00ddeac07396083f7e2c3ecd3536",
+    "unit.log": "670421acf239438f19f011ba02624bb9965f66ec925233e89bb8f37bad30b535",
+    "build.log": "b0c66b4f4ca9bbf4b374e12416d72d3c134a9472ba576df6e1471e9dc393bcd0",
+    "swift-core.log": "10c06ee0398dc94671f0b07902a72b469bfebf2e893129fb06a3d91bf9168187",
+    "macos.log": "5355d7075e0b17059684f0589c7b3ac204256ba5cd515e7c925640082b332998",
+    "conversation.log": "df5231013dc7b41760c515827ab508097e86183a7abcac9a45f4c1a67fcec7b7",
+    "desktop-final.log": "4f763f3fc7de985052e02d94231b538607bee2a41f00660d93b5e935ceca0667",
+    "native-http.log": "57b88b293b8fb8fd0e05b017ffedb7c30f211db51d02dd2024d2a0adbe896478",
+    "install-final.log": "98fe5d0d27701a0bb3f107e57bc59ad29b3fbe89cc86a72a2b82b416c1e42c8b",
+    "install-after-host.log": "98fe5d0d27701a0bb3f107e57bc59ad29b3fbe89cc86a72a2b82b416c1e42c8b"
+  }
+}

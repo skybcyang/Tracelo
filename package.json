@@ -1,6 +1,6 @@
 {
   "name": "tracelo",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Tracelo — task cards and append-only progress timelines for Obsidian.",
   "repository": {

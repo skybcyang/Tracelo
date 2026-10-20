@@ -26,11 +26,18 @@ try {
         var config = SmartCaptureTransport.Configuration(direct.RootElement);
         Equal(config["apiKey"], "test-direct-token-1234567890");
         Equal(config["keyFile"], "");
-        using var invalid = JsonDocument.Parse("""{"baseUrl":"https://example.com/v1","model":"test","apiKey":"invalid key","keyFile":"/missing/legacy"}""");
-        Reject(() => SmartCaptureTransport.Configuration(invalid.RootElement));
+        foreach (var key in new[] { "", "x", "custom key:@!#$%^&*()", new string('x', 70000) }) {
+            using var optional = JsonDocument.Parse(JsonSerializer.Serialize(new { baseUrl = "http://localhost:11434/v1", model = "test", apiKey = key }));
+            Equal(SmartCaptureTransport.Configuration(optional.RootElement)["apiKey"], key);
+            Equal(SmartCaptureTransport.ReadKey(key), key);
+            Equal(SmartCaptureTransport.ReadKey("API_KEY=" + key), key);
+        }
+        using var missing = JsonDocument.Parse("""{"baseUrl":"http://localhost:11434/v1","model":"test"}""");
+        Equal(SmartCaptureTransport.Configuration(missing.RootElement)["apiKey"], "");
+        using var relative = JsonDocument.Parse("""{"baseUrl":"http://localhost:11434/v1","model":"test","keyFile":"relative-key.txt"}""");
+        Reject(() => SmartCaptureTransport.Configuration(relative.RootElement));
         Equal(SmartCaptureTransport.ReadKey("opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890");
         Equal(SmartCaptureTransport.ReadKey("# Key\nAPI_KEY=opaque.Provider_token-1234567890"), "opaque.Provider_token-1234567890");
-        Reject(() => SmartCaptureTransport.ReadKey("first-token-12345678\nsecond-token-12345678"));
         Equal(SmartCaptureTransport.Endpoint("https://example.com/v1/chat/completions/").AbsoluteUri, "https://example.com/v1/chat/completions");
         foreach (var baseUrl in new[] { "http://localhost:11434/v1", "http://192.168.1.10:8080/api/v1", "http://models.example.com/v1", "http://[::1]:11434/v1" }) {
             Equal(SmartCaptureTransport.Endpoint(baseUrl).AbsoluteUri, baseUrl + "/chat/completions");

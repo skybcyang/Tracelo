@@ -20,11 +20,11 @@ Tracelo 将任务看板、工作对话与进展历史放在一起：用分组和
 
 桌面快捷工具的安装与配置见[使用说明](desktop/README.md)。升级时保留 `data.json` 和任务目录，并按对应版本的发布说明操作。
 
-当前版本为 1.0.1，提供独立进展／待办编辑、按任务保存的自由排布视图，以及统一的银灰设置与桌面快捷窗口。更新与迁移说明见[发布说明](docs/releases/1.0.1.md)。
+当前版本为 1.0.2，模型 API Key 可留空，不限制长度或格式；支持 HTTP／HTTPS 自建服务，插件与桌面快捷工具同步。更新与迁移说明见[发布说明](docs/releases/1.0.2.md)。
 
-![1.0.1 工作台：当前任务与底部牌组](docs/validation/assets/release-101/workbench-light.png)
+![工作台：当前任务与底部牌组（布局沿用 1.0.1）](docs/validation/assets/release-101/workbench-light.png)
 
-深色工作台、编辑及快捷窗口例图见[本版说明](docs/releases/1.0.1.md)。
+深色工作台、编辑及快捷窗口例图见[本版说明](docs/releases/1.0.2.md)。
 
 ## 项目边界
 
@@ -42,4 +42,4 @@ Tracelo 将任务看板、工作对话与进展历史放在一起：用分组和
 
 工作对话支持引用任务的长历史查找：可按问题、关键词或日期找回较早记录，回答来源能跳回原历史。
 
-[版本更新](docs/releases/1.0.1.md) · [开发与文档](docs/development.md) · [问题反馈](https://github.com/skybcyang/Tracelo/issues)
+[版本更新](docs/releases/1.0.2.md) · [开发与文档](docs/development.md) · [问题反馈](https://github.com/skybcyang/Tracelo/issues)
