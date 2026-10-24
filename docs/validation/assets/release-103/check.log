@@ -1,0 +1,164 @@
+
+> tracelo@1.0.3 check
+> npm test && npm run build && node tests/editable-sync.browser.mjs && npm run test:icons && npm run test:layout && npm run test:workbench && npm run test:capture && npm run test:presentation && node tests/smart-capture.browser.mjs && node tests/smart-desktop.browser.mjs && node tests/work-conversation.browser.mjs && node tests/conversation-history.browser.mjs && npm run test:reliability
+
+
+> tracelo@1.0.3 test
+> vitest run
+
+
+ RUN  v5.0.1 <repo>
+
+
+ Test Files  20 passed | 1 skipped (21)
+      Tests  152 passed | 2 skipped (154)
+   Start at  09:54:01
+   Duration  1.69s (tests 64%, import 18%, transform 17%, worker 1%)
+
+
+> tracelo@1.0.3 build
+> tsc --noEmit --skipLibCheck && node esbuild.config.mjs production
+
+PASS editable archive: immediate external edits, invalid YAML preservation, correction, double-click, rename and deletion
+
+> tracelo@1.0.3 test:icons
+> node tests/color-icons.browser.mjs
+
+PASS emoji removal: stage, covers, overview, board, task/group menus; legacy fields/history preserved; light/dark screenshots
+
+> tracelo@1.0.3 test:layout
+> node tests/monochrome-theme.browser.mjs && node tests/header-navigation.browser.mjs && node tests/collection-interface.browser.mjs && node tests/auxiliary-theme.browser.mjs && node tests/card-layout.browser.mjs && node tests/card-masonry.browser.mjs && node tests/pane-scroll.browser.mjs && node tests/card-interactions.browser.mjs && node tests/card-content.browser.mjs && node tests/card-polish.browser.mjs && node tests/card-readability.browser.mjs && node tests/view-details.browser.mjs && node tests/task-acceptance.browser.mjs && node tests/timeline.browser.mjs && node tests/create-task.browser.mjs && node tests/search-navigation.browser.mjs
+
+Monochrome: defaults, theme picker, unchanged layout, neutral palette, shared centered brand passed.
+PASS header navigation: visible icon labels and no overlap at nine widths, ordered overflow, hidden-group selection, keyboard dismissal, contextual creation and ten appearances
+PASS collection: permanent timeline, visible checklist, inline progress, five themes × two appearances, draft retention, desktop projection, responsive panes
+PASS 95 auxiliary theme checks: group contrast, independent appearance, action shapes, image previews and narrow dialogs
+27 browser layout cases passed (width, height, alignment, resize, overlap, zoom).
+81 card layout preference and masonry checks passed.
+PASS board and dialog scrolling: fixed headings, background isolation, containment, reading position, narrow panes
+87 real-render card checks passed with Obsidian host CSS.
+78 content-adaptive card checks passed.
+10 card hierarchy checks passed.
+Card readability checks passed (41 checks).
+4 display isolation and task-details checks passed.
+PASS collapse returns to all tasks: group title
+PASS collapse returns to all tasks: group body
+PASS collapse returns to all tasks: group keyboard
+PASS collapse returns to all tasks: group close
+PASS collapse returns to all tasks: group escape
+PASS collapse returns to all tasks: quadrant title
+PASS collapse returns to all tasks: quadrant body
+PASS collapse returns to all tasks: quadrant keyboard
+PASS collapse returns to all tasks: quadrant close
+PASS collapse returns to all tasks: quadrant escape
+PASS collapsing an ended task returns to the previously selected daily date
+PASS hover does not move or scale cards in either theme
+PASS failed progress retains text; retry saves once with static success feedback
+PASS Escape protects composition, then closes with draft and title focus retained
+PASS rename cancellation, empty title and composing Enter leave the task unchanged
+PASS rename failure retains input and archive; retry preserves identity, history and images
+PASS compact cards keep details behind their existing expand control
+PASS collapse returns an offscreen title to the reading area
+18 task acceptance boundary checks passed.
+7 timeline continuity and reading checks passed.
+PASS compact default and expanded body keep header and actions visible at desktop, short and narrow sizes
+PASS cancel restores all fields and collapsed optional values; explicit clear discards draft
+PASS IME cannot submit, shortcut creates once, failed write preserves every field for retry
+PASS property-only draft retains group and priority
+PASS state preference failure after task archive commit does not invite duplicate creation
+PASS deferred initial focus respects the field already selected by the user
+6 compact task creation checks passed.
+PASS presentation expands reading without opening editors and keeps drafts
+PASS Chinese composition keeps the focused input until commit (final input first: false)
+PASS Chinese composition keeps the focused input until commit (final input first: true)
+PASS cancelling Chinese composition keeps the existing query and results
+PASS old progress results retain source/date and keyboard jump to exact original event
+PASS no results explains scope and clear restores all cards and keyboard focus
+PASS ended task matches are directly visible without opening the archive
+PASS current details result opens current card rather than an unrelated historical event
+PASS narrow 720px pane switch retains draft and scroll position
+PASS narrow 390px pane switch retains draft and scroll position
+PASS milestones are visibly emphasized without dropping or folding property records
+PASS narrow history keeps its reading position across pane switches and background updates
+PASS creating a task while viewing narrow history returns to the new card
+13 search/navigation checks passed
+
+> tracelo@1.0.3 test:workbench
+> node tests/workbench.browser.mjs && node tests/workbench-viewport.browser.mjs && node tests/modular-stage.browser.mjs && node tests/workbench-editing.browser.mjs && node tests/stage-interactions.browser.mjs && node tests/stage-scroll.browser.mjs
+
+Workbench selection, bounded browsing, drafts, overview, folder tree and appearance passed.
+PASS workbench short viewport: send visible at 720/650, expanded history reachable
+PASS modular stage: hover/drag, equal columns, resize, row move, undo/reset, task-local readback, failure/draft retention; custom image readback/restore/corruption, background settings, bounded equal covers
+PASS independent workbench todos, same-row progress actions, draft/failed-save recovery, task switching, narrow/dark rendering and successful save
+PASS stage mockup interactions: 28 checks
+PASS stage body scrolling: long content stays inside equal-height modules; independent body scrolling and fixed actionable heading; body adapts at 720/650px; last content remains reachable (outer fallback scrolling allowed); identical-text progress appends one new event, resets only progress reading and clears its submitted draft; checking a scrolled todo retains module reading positions, draft and editor identity; layout reparenting preserves existing scroll and editor nodes; 80-row asynchronous directory refresh retains scroll across details editing; directory tree semantics and draft preserved; 390px fallback has no horizontal overflow and exposes module controls
+
+> tracelo@1.0.3 test:capture
+> node tests/capture-shell.browser.mjs && node tests/entry-audit.browser.mjs && node tests/calendar.browser.mjs && node tests/create-images.browser.mjs && node tests/quick-progress.browser.mjs && node tests/quick-sync.browser.mjs && node tests/quick-feedback.browser.mjs
+
+mac: complete shared form, archive fields, IME, retry, drafts, groups, themes and footer passed.
+windows: complete shared form, archive fields, IME, retry, drafts, groups, themes and footer passed.
+PASS hidden native surface: suspended frames still measure the next window opening
+PASS card context and overflow menus expose details without duplicate card controls
+PASS new todo keeps text during composing Escape and Enter, then submits normally
+PASS group and quadrant choices stay in checked submenus and save correctly
+PASS 象限 · 重要且紧急 reports a failed archive write without changing the task
+PASS 分组 · 未分组 reports a failed archive write without changing the task
+PASS 重新打开 reports a failed archive write without changing the task
+PASS card drop reports a failed state write and keeps a readable board
+PASS empty-area drop reports a failed archive write
+PASS group reorder reports a failed write
+PASS 四象限 reports a failed setting write
+PASS 缩小看板 reports a failed setting write
+11 user-entry error and input checks passed.
+PASS deadline calendar: summaries, live reschedule, midnight, months, today, responsive, escape and focus
+PASS delayed image clear/undo, preview Escape and mixed clipboard deduplication
+PASS image drafts: multi-select, insertion, remove/undo, clear/undo, reopen, attachment failure and atomic creation
+PASS compact quick editor: direct entry, mockup hierarchy, visible quadrants, task switching, responsive footer, drafts, IME and durable receipts
+PASS quick inbox: serialized merge, rename, lost receipt retry, unchanged todos and ended-task rejection
+PASS quick feedback: saving/queued/applied/failed, retry identity, preserved draft, duplicate prevention and reduced motion
+
+> tracelo@1.0.3 test:presentation
+> node tests/card-display.browser.mjs && node tests/presentation-mode.browser.mjs && node tests/presentation-edge.browser.mjs && node tests/view-motion.browser.mjs && node tests/masonry-refresh.browser.mjs
+
+100 compact-card and presentation reading/editing checks passed.
+PASS presentation mode: toolbar/keyboard, persistence/failure, single editing, draft/order/task preservation, timeline identity and settings consolidation
+PASS toolbar mode click retains an unsubmitted new-todo draft
+PASS deferred card focus respects a newly selected todo input
+PASS a delayed mode preference write does not detach a composing editor
+PASS pending progress remains locked across mode redraw until its write workflow settles
+PASS pending notes save keeps its editor disabled and saving feedback across mode redraw
+PASS mode waits for pending todo archive write, then preserves one confirmed event
+PASS mode redraw after failed progress retains retry text and never duplicates events
+PASS switching task preserves the progress draft and only one composer
+PASS successful progress returns keyboard focus to its remaining task control
+PASS a pending notes save never steals focus from a different task being edited
+PASS normal motion keeps the real 100-card masonry reading anchor and column order
+PASS real progress commit produces one event and highlights only that new timeline node
+Presentation edge browser checks passed: 12
+View motion browser checks passed: 9
+14 stable masonry refresh checks passed (mode, replacement nodes, order, draft, focus and selection).
+PASS create preview, editing, draft recovery, failure and cancellation
+PASS selected task progress, todo completion and duplicate-submit protection
+PASS narrow layout and no uncaught browser errors
+PASS mac: masked key, connection, confirmed AI creation, direct progress without AI entry and independent drafts
+PASS windows: masked key, connection, confirmed AI creation, direct progress without AI entry and independent drafts
+conversation: calendar retained, multi-turn, refs, confirmation, create, drafts, history, failure, cancellation and widths passed
+PASS conversation history: older records/date filters, validated citations, source focus, read-only archives, drafts and responsive controls
+
+> tracelo@1.0.3 test:reliability
+> node tests/archive-reliability.browser.mjs && node tests/calendar-viewport.browser.mjs
+
+PASS archive reliability: daily-snapshot
+PASS archive reliability: damaged-groups
+PASS archive reliability: move-outside
+PASS archive reliability: rename-extension
+PASS archive reliability: removed-reference
+PASS calendar viewport: light 1280x720
+PASS calendar viewport: light 1280x560
+PASS calendar viewport: light 1280x420
+PASS calendar viewport: light 390x560
+PASS calendar viewport: dark 1280x720
+PASS calendar viewport: dark 1280x560
+PASS calendar viewport: dark 1280x420
+PASS calendar viewport: dark 390x560

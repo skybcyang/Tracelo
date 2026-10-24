@@ -1,0 +1,12 @@
+Whitespace-only capture.css verified, copied, strictly re-signed and ZIP updated. Final source/app/ZIP resources match.
+{
+  "stylesSha256": "cbc55f6cf362502b99ae57204436f15157164d73a446b7d5224362dd2406fa7b",
+  "captureCssSha256": "aedbb1187136d7c87ed09c5347657e4725f32c119bfe63d9b42908b7e9bce4c9",
+  "executableSha256": "ca639c158428a67e47bec3109d6f5d58885e343169b4155262a13625df83eb7d",
+  "zipSha256": "777041d50ec6bfb0420ea54b120f0fe4bbe2d49fa95f4a9f20e093744c6b5d19",
+  "sourceAppAndZipStylesMatch": true,
+  "appPath": "<repo>/dist/macos/Tracelo Capture.app",
+  "installed": false,
+  "sourceAppAndZipCaptureCssMatch": true,
+  "whitespaceSyncAt": "2026-10-24T01:44:58.936280+08:00"
+}

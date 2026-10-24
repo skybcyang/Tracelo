@@ -9,7 +9,7 @@ button { appearance: none; -webkit-appearance: none; }
 .wt-modal.wt-new-task-modal.capture-modal { width: 100%; max-height: 100vh; min-height: 100%; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .capture-modal .modal-close-button { position: absolute; padding: 0; background: transparent; font-size: 23px; font-weight: 400; line-height: 1; }
 .capture-modal .modal-content { flex: 1; }
-.capture-modal .wt-new-task-body { align-content: start; }
+
 .capture-context { flex: none; display: flex; margin-top: 8px; min-width: 0; }
 .capture-context #location { border: 0; padding: 0; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .capture-modal .wt-modal-actions { display: flex; flex-wrap: wrap; }
@@ -45,8 +45,7 @@ button { appearance: none; -webkit-appearance: none; }
 .capture-workspace { top:16px; right:46px; }
 .capture-workspace { display:none; }
 .capture-modal .capture-context,.capture-modal.is-progress-mode .capture-context { display:flex; position:absolute; top:15px; right:46px; max-width:42%; padding:0; margin:0; border:0; background:transparent; }
-.capture-modal .wt-capture-tabs { min-height:44px; padding:0 23px; margin:0; gap:23px; flex:none; }
-.capture-modal .wt-capture-tabs button { min-height:44px; padding:0; display:flex; align-items:center; gap:7px; }
+
 .capture-modal .wt-capture-tabs svg { width:14px; height:14px; }
 .capture-modal .modal-content,.capture-modal.is-progress-mode .modal-content { margin:0; padding:0; min-height:0; }
 .capture-modal .wt-new-task-body { padding:19px 23px 16px; gap:15px; }
@@ -105,26 +104,9 @@ body.theme-dark:not([data-tracelo-appearance=light]) .capture-modal {--capture-r
 .capture-modal .capture-context,.capture-modal.is-progress-mode .capture-context {top:17px;right:52px;max-width:48%;}
 .capture-modal .modal-close-button {top:12px;right:15px;border-radius:8px;color:var(--wt-muted);}
 .capture-modal .modal-close-button:hover {background:var(--capture-reading);color:var(--wt-text);}
-.capture-modal .wt-capture-tabs {min-height:40px;padding:0 18px 4px;gap:5px;border-bottom:0;}
-.capture-modal .wt-capture-tabs button {min-height:34px;height:34px;padding:7px 12px;gap:7px;border:1px solid transparent;border-radius:10px;font-size:12px;font-weight:400;box-shadow:none;color:var(--wt-muted);background:transparent;}
-.capture-modal .wt-capture-tabs button[aria-pressed=true] {background:var(--capture-reading);border-color:var(--capture-rim);color:var(--wt-text);box-shadow:inset 0 1px #ffffff30,0 3px 9px #24394b08;}
-.capture-modal .wt-capture-tabs button[aria-pressed=true]::after {display:none;}
-.capture-modal .wt-create-methods {margin:5px 20px 0;min-height:30px;padding:0;gap:4px;}
-.capture-modal .wt-create-methods button {font-size:11px;border-radius:8px;height:28px;min-height:28px;}
-.capture-modal .wt-create-methods button[aria-pressed=true] {background:var(--capture-reading);font-weight:500;}
-.capture-modal .wt-new-task-body {
- margin:12px 16px 0;padding:16px;gap:13px;border:1px solid var(--capture-rim);border-radius:16px;
- background:var(--capture-reading);box-shadow:inset 0 1px #ffffff40,0 8px 20px -20px #24394b70;
- backdrop-filter:blur(22px) saturate(1.12);-webkit-backdrop-filter:blur(22px) saturate(1.12);
-}
-.capture-modal .wt-modal-form input:not([type=radio]):not([type=checkbox]):not(.wt-modal-title),
-.capture-modal .wt-modal-form textarea,.capture-modal .wt-modal-form select,
-.capture-modal .wt-card-composer textarea,.capture-modal .wt-quick-toolbar input {background:var(--capture-field);border-radius:10px;border-color:color-mix(in srgb,var(--wt-line) 65%,transparent);box-shadow:inset 0 1px #ffffff12;}
-.capture-modal .wt-modal-form input.wt-modal-title {font-size:21px;font-weight:500;letter-spacing:-.4px;background:transparent;}
-.capture-modal .wt-quadrant-option {border-radius:9px;background:transparent;}
-.capture-modal .wt-quadrant-option:has(input:checked) {background:var(--capture-field);border-color:var(--wt-accent);}
+
 .capture-modal .wt-new-task-footer,.capture-modal.is-progress-mode .wt-composer-footer {background:var(--capture-reading);border-top:1px solid var(--capture-rim);padding:12px 20px;margin:12px 0 0;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);}
-.capture-modal .wt-primary-action {border-radius:10px;min-height:34px;padding-inline:16px;box-shadow:inset 0 1px #ffffff20;}
+
 .capture-modal .wt-quick-progress {background:transparent;}
 .capture-modal.is-progress-mode .wt-quick-editor .wt-card-body {margin:12px 16px 0;padding:16px;border:1px solid var(--capture-rim);border-radius:16px;background:var(--capture-reading);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);gap:14px;}
 .capture-modal .wt-quick-target {background:var(--capture-reading);border:1px solid var(--capture-rim);border-radius:12px;box-shadow:inset 0 1px #ffffff30;}
@@ -140,7 +122,7 @@ body.theme-dark:not([data-tracelo-appearance=light]) .capture-modal {--capture-r
 body > dialog.wt-smart-settings {border-radius:22px;background:color-mix(in srgb,var(--wt-card) 92%,var(--wt-bg));border-color:var(--wt-line);}
 body > dialog.wt-smart-settings .wt-smart-settings-body {padding:18px 20px;}
 body > dialog.wt-smart-settings input {border-radius:10px;}
-.capture-modal :is(button,input,textarea,select):focus-visible {outline:2px solid var(--wt-accent);outline-offset:2px;}
+
 @media(max-width:480px) {.capture-modal .wt-new-task-body,.capture-modal.is-progress-mode .wt-quick-editor .wt-card-body{margin-inline:10px;padding:14px;}.capture-modal .wt-capture-tabs{padding-inline:12px;}.capture-modal .wt-create-methods{margin-inline:14px;}}
 @media(prefers-reduced-transparency:reduce) {.capture-modal{--capture-reading:var(--wt-card);--capture-field:var(--wt-raised);}.capture-wallpaper{display:none;}.capture-modal .wt-new-task-body,.capture-modal .wt-quick-editor .wt-card-body{backdrop-filter:none;-webkit-backdrop-filter:none;}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {.capture-modal{--capture-reading:var(--wt-card);--capture-field:var(--wt-raised);}}

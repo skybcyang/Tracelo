@@ -1,0 +1,12 @@
+[0/1] Planning build
+Building for production...
+[0/2] Write swift-version--1AB21518FC5DEDBE.txt
+Build of product 'TraceloCapture' complete! (0.09s)
+[0/1] Planning build
+Building for production...
+[0/2] Write swift-version--1AB21518FC5DEDBE.txt
+Build of product 'TraceloCapture' complete! (0.08s)
+dist/macos/Tracelo Capture.app: replacing existing signature
+macOS smoke viewport cap: 780.0, available: 1130.0
+macOS native submit: generated UUID, full shared archive, byte-identical atomic publish and retry passed
+macOS shared form: independent title/details, four quadrants, group selector, plugin styles, light/dark, focus and footer passed

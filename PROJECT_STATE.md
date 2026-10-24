@@ -2,12 +2,16 @@
 herein: project-state/v1
 project_id: workassistant-tracelo-15d7d4ce
 title: Tracelo · WorkAssistant
-updated_at: 2026-10-20T03:47:45.609Z
+updated_at: 2026-10-24T01:58:16.006Z
 status: 进行中
-summary: 可选模型密钥修改已推送main并发布1.0.2；三平台候选及正式四任务成功，七附件实际下载与摘要／版本／资源核验完成。本项目插件及macOS正式包已更新运行并核对数据、配置和草稿保留；实际宿主与人工设备边界见发布验收。
+summary: 用户已授权上传发布1.0.3；版本元数据已统一，正在完成发布检查、冻结候选及三平台验证。范围为界面统一与展示台独立滚动，harmony及私人配置不纳入。
 goal: 维护 Tracelo Obsidian 插件与 macOS／Windows 独立桌面快捷工具。
-done_when: 可选模型密钥修改已推送main，冻结候选三平台通过后发布1.0.2，实际下载七附件核验并完成本项目插件和本机快捷程序更新、数据配置草稿保留及实际宿主复核；人工设备矩阵另列边界。
+done_when: 1.0.3 冻结候选三平台通过，主线和标签推送，正式Release七附件下载校验，本项目插件及macOS正式包安装与实际生效核对完成；人工设备未测项单列。
 sources:
+  - docs/validation/2026-10-24-release-103.md
+  - docs/releases/1.0.3.md
+  - docs/validation/2026-10-24-stage-scroll.md
+  - docs/validation/2026-10-24-flow-polish.md
   - docs/validation/2026-10-20-release-102.md
   - docs/releases/1.0.2.md
   - docs/validation/2026-10-19-optional-model-key.md
@@ -40,22 +44,22 @@ sources:
   - docs/task-history.md
   - docs/validation/2026-10-08-release-097.md
 actions:
-  - id: release102
-    text: 1.0.2推送、正式发布、七附件核验及本项目插件／macOS正式包更新完成
+  - id: release103
+    text: 完成1.0.3发布检查、候选三平台验证、上传发布及正式包本地交付
+    status: doing
+    source: docs/validation/2026-10-24-release-103.md
+  - id: stage-scroll-20261024
+    text: 展示台正文独立滚动、自适应高度与阅读位置保留完成，已回归并在真实Obsidian核验安装效果
     status: done
-    source: docs/validation/2026-10-20-release-102.md
-  - id: optional-model-key-20261019
-    text: 取消模型密钥必填、长度和格式限制，完成本地验证及插件／macOS安装；Windows原生另列未执行
+    source: docs/validation/2026-10-24-stage-scroll.md
+  - id: flow-polish-20261024
+    text: 使用流程验证、共享界面精修及本机安装完成；未测设备矩阵继续保留
     status: done
-    source: docs/validation/2026-10-19-optional-model-key.md
-  - id: release101-integration
-    text: 1.0.1整合、文档例图、三平台候选／正式发布、七附件和本地正式包交付完成
-    status: done
-    source: docs/validation/2026-10-16-release-101.md
+    source: docs/validation/2026-10-24-flow-polish.md
   - id: glass-workbench-production
-    text: 实际Obsidian已重载，正式快捷应用已运行；实体全局快捷键、实际快捷窗口及焦点仍待复核，CUA读取超时
+    text: 10月24日插件重载及安装版原生WebKit复验通过；全局快捷窗口、实体快捷键及焦点仍待复核，CUA读取超时
     status: todo
-    source: docs/validation/2026-10-16-release-101.md
+    source: docs/validation/2026-10-24-flow-polish.md
   - id: continuation1011-observation
     text: 满七天后回顾真实反馈，包含10月15日卡片视觉调整的实际使用效果
     status: doing
@@ -63,10 +67,10 @@ actions:
 blockers:
   - id: risk-installed-desktop-v2
     kind: risk
-    text: 1.0.2本机真实Obsidian重载、安装版WebKit及Windows CI原生检查通过；实体全局快捷窗口此前CUA读取超时，真实中文候选、听写、多屏／全屏及完整Windows人工矩阵仍未完整验收。
+    text: 10月24日本项目插件及macOS最新构建已安装，真实Obsidian重载和安装版WebKit通过；全局快捷窗口CUA读取超时，真实中文候选、听写、多屏／全屏及本轮Windows原生仍未验收。
     impact: 自动原生证据不能替代全部人工系统矩阵。
     evidence:
-      - docs/validation/2026-10-20-release-102.md
+      - docs/validation/2026-10-24-flow-polish.md
       - task.md
   - id: risk-observation-sample
     kind: risk
@@ -83,6 +87,42 @@ questions:
     text: 展示台右上菜单的重复编辑入口精简及一句话进展二级归属仍为建议，等待确认。
     source: docs/validation/2026-10-16-workbench-edit-review.md
 checks:
+  - id: check-release103-local
+    title: 1.0.3本地发布预检
+    result: passed
+    at: 2026-10-24T09:57:11.377111+08:00
+    scope: 152 unit tests, type/production build and complete browser suites including new workbench viewport and stage scroll regression; 2 local .NET-dependent checks skipped, to be covered by Windows CI. Swift核心10项、macOS Universal签名和原生WebKit通过。
+    evidence:
+      - docs/validation/2026-10-24-release-103.md
+      - docs/validation/assets/release-103/local-verification.json
+      - docs/validation/assets/release-103/native/verification.json
+  - id: check-stage-scroll-20261024
+    title: 展示台模块内部滚动与本地安装
+    result: passed
+    at: 2026-10-24T09:40:02.001036+08:00
+    scope: 完整test:workbench六套回归、类型／生产构建、macOS Universal严格签名和原生WebKit；真实Obsidian重载并滚动长详情，其他模块与外框固定。插件及应用哈希一致，正式任务附件、设置偏好和草稿保留。实体快捷键、Windows与真实IME除外。
+    evidence:
+      - docs/validation/2026-10-24-stage-scroll.md
+      - docs/validation/assets/stage-scroll-20261024/result.json
+      - docs/validation/assets/stage-scroll-20261024/installation.json
+  - id: check-flow-polish-shortcuts
+    title: 本轮全局快捷窗口实机核验受阻
+    result: not_run
+    at: null
+    scope: 新建／进展全局快捷窗口、实体键盘与焦点返回
+    note: 已尝试新建快捷键，安装进程运行；CUA按安装路径读取超时，未取得窗口可见证据。
+    evidence:
+      - docs/validation/2026-10-24-flow-polish.md
+      - docs/validation/assets/flow-polish-20261024/installation.json
+  - id: check-flow-polish-20261024
+    title: 使用流程与界面统一
+    result: passed
+    at: 2026-10-23T18:24:40.661Z
+    scope: 152单元、类型／生产构建及完整浏览器套件；最终共享表单、工作台和对话定向复验；Swift10项、Universal签名及原生WebKit。本项目插件重载与安装版原生隔离提交通过，哈希与数据草稿保留。2项Windows .NET跳过，全局快捷窗口／真实IME／听写／多屏除外。
+    evidence:
+      - docs/validation/2026-10-24-flow-polish.md
+      - docs/validation/assets/flow-polish-20261024/checks.json
+      - docs/validation/assets/flow-polish-20261024/installation.json
   - id: check-release102-installed
     title: 1.0.2正式包本地交付
     result: passed
@@ -132,40 +172,19 @@ checks:
     evidence:
       - docs/validation/2026-10-19-optional-model-key.md
     note: 该项保留10月19日本机缺少SDK／设备的历史范围；10月20日候选及标签CI已完成Windows编译、核心测试及真实WebView2冒烟，HttpClient无认证网络请求仍未单独执行。
-  - id: check-release101-published
-    title: 1.0.1正式发布与七附件实际核验
-    result: passed
-    at: 2026-10-16T16:30:24+08:00
-    scope: 冻结3493252；候选三平台和正式四任务成功，七附件实际下载、上传摘要／校验和、插件ZIP与本地main.js、macOS版本及共享UI资源、Windows PE版本一致。
-    evidence:
-      - docs/validation/2026-10-16-release-101.md
-      - docs/validation/assets/release-101/published-verification.json
-      - docs/validation/assets/release-101/release-ci.json
-  - id: check-release101-installed
-    title: 1.0.1正式包本地安装与宿主复核
-    result: passed
-    at: 2026-10-16T16:28:05.224015+08:00
-    scope: 正式三件套和应用树哈希一致，真实Obsidian重载，macOS进程运行及安装版WebKit冒烟通过；任务／附件、配置／偏好／草稿及等待期间新增布局保留。实体快捷键和完整人工矩阵除外。
-    evidence:
-      - docs/validation/2026-10-16-release-101.md
-      - docs/validation/assets/release-101/installation-verification.json
-  - id: check-release101-candidate
-    title: 1.0.1冻结候选三平台CI
-    result: passed
-    at: 2026-10-16T08:14:53.234Z
-    scope: 冻结3493252的plugin、macos、windows全部成功；Windows真实WebView2浅深色／统一设置及创建、草稿、热键冲突等原生冒烟通过。候选不发布Release。
-    evidence:
-      - docs/validation/2026-10-16-release-101.md
-      - docs/validation/assets/release-101/candidate-final.json
-  - id: check-release101-local
-    title: 1.0.1整合本地完整检查
-    result: passed
-    at: 2026-10-16T07:40:29.713Z
-    scope: 152单元与全部浏览器套件通过，2项.NET跳过；构建、Swift10项、macOS Universal／签名及真实WebKit表单和设置冒烟通过。未含Windows本机和人工系统矩阵。
-    evidence:
-      - docs/validation/2026-10-16-release-101.md
-      - docs/validation/assets/release-101/local-verification.json
 decisions:
+  - id: decision-release103
+    text: 上传当前界面统一与展示台内部滚动修改，插件与macOS／Windows同步发布1.0.3。
+    source: docs/validation/2026-10-24-release-103.md
+    basis: 2026-10-24用户明确要求“上传发布1.0.3版本”。
+  - id: decision-stage-scroll-20261024
+    text: 默认展示台内部模块高度随外框可用空间变化，正文独立滚动并固定标题与操作；窄窗口自然排列，过矮窗口保留外层兜底。不改变展开看板。
+    source: docs/validation/2026-10-24-stage-scroll.md
+    basis: 2026-10-24用户结合实际截图提出限制内部卡片高度并改为卡片内滚动；本轮按该明确请求实施局部调整。
+  - id: decision-flow-polish-20261024
+    text: 沿用当前银灰工作台，对完整使用流程验证并再做一轮美化和统一。
+    source: docs/validation/2026-10-24-flow-polish.md
+    basis: 2026-10-24用户明确要求“完整验证使用流程，进行进一轮美化和统一”。
   - id: decision-release102
     text: 上传当前可选模型密钥修改，插件与macOS／Windows同步发布1.0.2。
     source: docs/validation/2026-10-20-release-102.md
@@ -194,19 +213,19 @@ decisions:
     text: 快捷工具同步最新玻璃UI，与插件一同发布1.0.0；正式版本已按此执行。
     source: docs/releases/1.0.0.md
     basis: 用户明确要求继续合并、文档、完整流程验证、上传及发布1.0.0，随后追加快捷工具按新UI同步并发布到1.0.0。
-  - id: decision-stage-background-20261016
-    text: 支持背景切换与用户自定义图片；已在生产工作台接入并通过本地检查，作为1.0.0发布范围。
-    source: docs/design/task-stage.md
-    basis: 2026-10-16用户明确“支持背景切换，支持用户自定义”。
-  - id: decision-module-preview-20261016
-    text: 缩略图鼠标悬停预览，按住拖动后加入右侧；单击不自动加入。
-    source: docs/design/task-stage.md
-    basis: 2026-10-16 用户回答“鼠标悬停预览，点击拖动后加入右侧”。
-  - id: decision-modular-layout-20261016
-    text: 展示台包含带说明的左侧竖缩略图和右侧可调整行列卡片；新增默认均分，可手调；默认布局存在，调整归属于单张任务。
-    source: docs/design/task-stage.md
-    basis: 2026-10-16 用户圈图要求自由排布；随后明确“有一个默认的布局，如果发生调整，那么记录到这个卡片里面”。
 feedbacks:
+  - id: feedback-stage-scroll-20261024
+    time: 2026-10-24T09:40:02.001036+08:00
+    title: 展示台内部滚动已本地交付
+    text: 长正文不再撑高整个展示台；保留固定标题操作、模块阅读位置和原输入节点，补齐异步目录连续重绘回归。工作台与生产构建、原生检查通过；本项目插件及macOS程序更新重启，实际Obsidian长详情滚动效果和数据草稿保留已核对。
+    evidence:
+      - docs/validation/2026-10-24-stage-scroll.md
+  - id: feedback-flow-polish-20261024
+    time: 2026-10-23T18:24:40.661Z
+    title: 流程验证与共享表单统一已本地交付
+    text: 修复短窗口发送区、共享标签间距、深色引用和辅助弹窗一致性；完整检查及本机原生检查通过。安装前备份，核对任务材料、既有配置与草稿保留；未提交推送发布。完整实机边界见原始验收。
+    evidence:
+      - docs/validation/2026-10-24-flow-polish.md
   - id: feedback-release102
     time: 2026-10-20T03:47:45.609Z
     title: 可选密钥修改随1.0.2发布并本地更新
@@ -330,22 +349,10 @@ feedbacks:
     text: 以 8b480e1 为基础恢复主目录独有状态规则及审查记录，逐项解决 13 处旧版本冲突；旧改动保存为 stash 与本地安全引用。
     evidence:
       - docs/validation/2026-10-08-release-097.md
-  - id: feedback-release097-local
-    time: 2026-10-08 01:53:49+08:00
-    title: 完成修复、本地回归与安装
-    text: 新增回归先复现再修复，扩大实机检查后补齐只复制原文的日常备份；安装最终插件与 macOS app 并核对正式任务／配置／草稿保留。远端尚未发布。
-    evidence:
-      - docs/validation/2026-10-08-release-097.md
-  - id: feedback-release097-candidate
-    time: 2026-10-08 02:13:24+08:00
-    title: 候选通过并上传标签
-    text: 候选三平台通过后，确认远端 main 可快进且版本不存在，原子推送 main 与 0.9.7 标签。正式标签工作流执行中，不能作为 Release 完成。
-    evidence:
-      - docs/validation/2026-10-08-release-097.md
 ---
 
 ## 交接说明
 
-1.0.2已发布，冻结标签不移动；main收尾只追加交付文档。原始可选密钥决定与10月19日实施证据保留，当前发布状态见[1.0.2验收](docs/validation/2026-10-20-release-102.md)。
+当前发布范围与实际交付状态见[1.0.3发布验收](docs/validation/2026-10-24-release-103.md)；发布流程冻结候选后不移动标签。之前的[流程精修](docs/validation/2026-10-24-flow-polish.md)和[展示台滚动](docs/validation/2026-10-24-stage-scroll.md)保留各自实施时的验证与本地安装范围，不代替本轮发布检查。
 
-正式任务与私人配置不能因发布被改写；含配置、草稿的安装备份留本机.local/release-102，不上传。无关harmony不在发布范围。实体快捷键、真实IME、听写、多屏及完整Windows人工矩阵继续按task.md保留；已有行动提醒和菜单精简仍为未确认提案。
+默认展示台模块内部滚动覆盖此前按最长正文自然增高的规则，不改变展开看板。正式任务、私人配置和草稿需保留；本轮私人安装备份和实机截图保留本机.local/release-103/，前两轮备份仍在.local/flow-polish-20261024/与.local/stage-scroll-20261024/，不上传。harmony不在发布范围。真实中文候选窗、实体全局快捷键、听写、多屏／全屏及完整人工系统矩阵仍见task.md；行动提醒和菜单精简仍是未确认提案。

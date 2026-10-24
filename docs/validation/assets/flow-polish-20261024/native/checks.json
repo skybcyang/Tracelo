@@ -1,0 +1,58 @@
+{
+  "checks": [
+    {
+      "id": "swift-core",
+      "result": "passed",
+      "at": "2026-10-24T00:27:04.427275+08:00",
+      "command": "swift run --package-path desktop CaptureCoreTests",
+      "scope": "10 core tests; temporary fixtures only",
+      "evidence": [
+        "swift-core.log"
+      ]
+    },
+    {
+      "id": "macos-final-package",
+      "result": "passed",
+      "at": "2026-10-24T01:32:40.512140+08:00",
+      "command": "bash desktop/package-macos.sh",
+      "scope": "Current final resources bundled; arm64/x86_64 Universal, strict ad-hoc signature, native WebKit form/settings/isolation smoke and ZIP",
+      "evidence": [
+        "package-final.log"
+      ],
+      "note": "One final package smoke failed its 2.5-second title/details readiness check; unchanged rerun passed. Failed attempt retained in package-attempt-transient.log; not suppressed or relaxed."
+    },
+    {
+      "id": "native-final-visual",
+      "result": "passed",
+      "at": "2026-10-24T01:32:41.855644+08:00",
+      "command": "dist/macos/Tracelo Capture.app/Contents/MacOS/TraceloCapture --smoke-test --screenshots <output>/native-after",
+      "scope": "Final rebuilt app real WebKit light/dark forms, settings/error, focus/footer, isolated atomic submission/idempotency; three resulting screenshots visually reviewed; tab icon/text spacing restored",
+      "evidence": [
+        "native-after.log",
+        "native-after/shared-form-light.png",
+        "native-after/shared-form-dark.png",
+        "native-after/shared-settings-dark.png"
+      ]
+    }
+  ],
+  "notRun": [
+    "actual physical shortcut and full focus behavior",
+    "real IME candidate window",
+    "real user model service",
+    "multi-monitor/fullscreen",
+    "Windows executable on Windows"
+  ],
+  "formalDataModified": false,
+  "codeModified": false,
+  "configModified": false,
+  "finalBuild": {
+    "stylesSha256": "cbc55f6cf362502b99ae57204436f15157164d73a446b7d5224362dd2406fa7b",
+    "captureCssSha256": "aedbb1187136d7c87ed09c5347657e4725f32c119bfe63d9b42908b7e9bce4c9",
+    "executableSha256": "ca639c158428a67e47bec3109d6f5d58885e343169b4155262a13625df83eb7d",
+    "zipSha256": "777041d50ec6bfb0420ea54b120f0fe4bbe2d49fa95f4a9f20e093744c6b5d19",
+    "sourceAppAndZipStylesMatch": true,
+    "appPath": "dist/macos/Tracelo Capture.app",
+    "sourceAppAndZipCaptureCssMatch": true,
+    "whitespaceSyncAt": "2026-10-24T01:44:58.936280+08:00"
+  }
+}

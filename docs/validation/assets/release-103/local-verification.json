@@ -1,0 +1,25 @@
+{
+  "startedAt": "2026-10-24T09:54:00.909250+08:00",
+  "finishedAt": "2026-10-24T09:57:11.377111+08:00",
+  "result": "passed",
+  "exitCode": 0,
+  "command": "npm run check",
+  "baseCommit": "09461a0987875eeb99838574707bc16bc521797c",
+  "version": "1.0.3",
+  "environment": "macOS-26.3.1-arm64-arm-64bit",
+  "log": "check.log",
+  "logSha256": "3938122606bd2409634d94e107522058d5ae98aa93239fbb1b13b07cf8b4b58c",
+  "originalLogSha256": "62c033993a146362f53bf2d4ef42d6b403acacdef82e3d01728fd70fc2e28155",
+  "sanitized": "Public log replaces absolute repository root with <repo>; original log remains in test-results.",
+  "scope": "152 unit tests, type/production build and complete browser suites including new workbench viewport and stage scroll regression; 2 local .NET-dependent checks skipped, to be covered by Windows CI.",
+  "sourceSha256": {
+    "src/main.ts": "f4b6630f3db5e0d76a494b10b18fb22608934c45820dd5622652400145c66038",
+    "src/stage-panel.ts": "3ec331970ba2cda36384e0c2d936f8ed621d18f24728738be94709ec014b86ed",
+    "styles.css": "a56b881ef89c4ae8131f570c1aed8135b10797cce7f860488a5f80110a42125b",
+    "desktop/Sources/TraceloCapture/Resources/capture.css": "aedbb1187136d7c87ed09c5347657e4725f32c119bfe63d9b42908b7e9bce4c9",
+    "package.json": "0f5720f99a849f1cb5dd80484ae6dc549f4f7da8a824551eceb43808ba154199",
+    "manifest.json": "1da5d720b3c376a5c6f92bf7e31eb909792c4b0f4c92fb18be02cfacfc63dea4",
+    "tests/stage-scroll.browser.mjs": "7d177fc5842d476ff9c7ca94faff43c1b5156f76ea879360b5afaa107217342a",
+    "tests/workbench-viewport.browser.mjs": "5d8c621d9ce0cd5d751b2cfe3cde6e1d337e455dfaf96245a69368391f8a65a8"
+  }
+}

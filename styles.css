@@ -2271,7 +2271,7 @@ body :is(.work-timeline-view,.wt-modal), body.theme-dark :is(.work-timeline-view
 .wt-chat-composer { padding:10px 16px 12px; border-top:1px solid var(--wt-line); flex:none; }
 .wt-chat-refs { display:flex; flex-wrap:wrap; gap:5px; max-height:80px; overflow:auto; }
 .wt-chat-ref { display:inline-flex; align-items:center; min-width:0; max-width:100%; margin-bottom:7px; background:var(--wt-soft); border-radius:var(--wt-small-radius); }
-.work-timeline-view .wt-chat-ref button { min-width:0; min-height:24px; height:auto; padding:3px 5px; font-size:11px; box-shadow:none; border:0; background:none; white-space:normal; overflow-wrap:anywhere; }
+.work-timeline-view .wt-chat-ref button { color:var(--wt-text); min-width:0; min-height:24px; height:auto; padding:3px 5px; font-size:11px; box-shadow:none; border:0; background:none; white-space:normal; overflow-wrap:anywhere; }
 .wt-chat-inputbox { position:relative; border:1px solid var(--wt-line); border-radius:var(--wt-small-radius); padding:8px; background:var(--wt-raised); }
 .wt-chat-inputbox:focus-within { border-color:var(--wt-accent); }
 .work-timeline-view .wt-chat-inputbox textarea { width:100%; min-height:60px; max-height:140px; resize:vertical; border:0; background:transparent; box-shadow:none; padding:2px; color:var(--wt-text); font-size:13px; line-height:1.65; }
@@ -2852,7 +2852,8 @@ body.theme-dark[data-tracelo-theme=monochrome]:not([data-tracelo-appearance=ligh
 .wt-glass-workbench:not(.is-expanded-overview) .wt-workbench-sidebar-tabs {display:flex;gap:18px;padding:16px 24px 8px;}
 .wt-glass-workbench:not(.is-expanded-overview) .wt-workbench-sidebar-tabs button {font-size:12px;background:transparent;border-radius:0;padding:0 0 8px;color:var(--wt-muted);box-shadow:none;border-bottom:1px solid transparent;}
 .wt-glass-workbench:not(.is-expanded-overview) .wt-workbench-sidebar-tabs button[aria-pressed=true] {color:var(--wt-text);border-bottom-color:var(--wt-accent);}
-.wt-glass-workbench:not(.is-expanded-overview) .wt-conversation {background:transparent;border:0;min-height:0;flex:1;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-conversation {background:transparent;border:0;min-height:min-content;flex:1;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-chat-stream {flex:1 1 48px;height:auto;min-height:24px;}
 .wt-glass-workbench:not(.is-expanded-overview) .wt-chat-composer {margin:12px 16px 16px;border:1px solid var(--wt-glass-rim);background:var(--wt-frost);border-radius:18px;}
 .wt-glass-workbench:not(.is-expanded-overview) .wt-reference-current {margin:8px 20px 0;align-self:flex-start;background:transparent;border:0;box-shadow:none;color:var(--wt-muted);font-size:11px;}
 .wt-glass-workbench:not(.is-expanded-overview) .wt-task-stage {padding-bottom:0;}
@@ -3131,10 +3132,10 @@ body.theme-dark:not([data-tracelo-appearance=light]) .wt-glass-workbench[data-ba
 }
 
 /* One material and control vocabulary for plugin dialogs and the offline capture window. */
-body[data-tracelo-theme=monochrome][data-tracelo-appearance] :is(.wt-modal.wt-workbench-dialog,.wt-modal.capture-modal,dialog.wt-smart-settings) {--wt-bg:#e7e9eb;--wt-card:#f9fbfd;--wt-raised:#ffffff;--wt-accent:#496776;--wt-on-accent:#ffffff;--wt-text:#26323c;--wt-muted:#5f6b77;--wt-line:#3f4f5c21;--wt-radius:22px;--wt-small-radius:10px;}
-body[data-tracelo-theme=monochrome][data-tracelo-appearance=dark] :is(.wt-modal.wt-workbench-dialog,.wt-modal.capture-modal,dialog.wt-smart-settings),
-body.theme-dark[data-tracelo-theme=monochrome]:not([data-tracelo-appearance=light]) :is(.wt-modal.wt-workbench-dialog,.wt-modal.capture-modal,dialog.wt-smart-settings) {--wt-bg:#1b2026;--wt-card:#364350;--wt-raised:#42515f;--wt-accent:#b4cbd8;--wt-on-accent:#1b2026;--wt-text:#e9eef2;--wt-muted:#b4bfc8;--wt-line:#c5d3e033;}
-.wt-modal.wt-workbench-dialog {--wt-dialog-reading:color-mix(in srgb,var(--wt-card) 62%,transparent);--wt-dialog-rim:color-mix(in srgb,var(--wt-card) 65%,transparent);border:1px solid var(--wt-dialog-rim);border-radius:26px;background:linear-gradient(135deg,color-mix(in srgb,var(--wt-bg) 82%,var(--wt-accent)),var(--wt-bg) 45%,color-mix(in srgb,var(--wt-bg) 90%,var(--wt-card)));box-shadow:inset 0 1px 0 #ffffff40,0 24px 70px #15283830;backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);color:var(--wt-text);}
+body[data-tracelo-theme=monochrome][data-tracelo-appearance] :is(.wt-modal.wt-modal,.wt-image-preview) {--wt-bg:#e7e9eb;--wt-card:#f9fbfd;--wt-raised:#ffffff;--wt-accent:#496776;--wt-on-accent:#ffffff;--wt-text:#26323c;--wt-muted:#5f6b77;--wt-line:#3f4f5c21;--wt-radius:22px;--wt-small-radius:10px;}
+body[data-tracelo-theme=monochrome][data-tracelo-appearance=dark] :is(.wt-modal.wt-modal,.wt-image-preview),
+body.theme-dark[data-tracelo-theme=monochrome]:not([data-tracelo-appearance=light]) :is(.wt-modal.wt-modal,.wt-image-preview) {--wt-bg:#1b2026;--wt-card:#364350;--wt-raised:#42515f;--wt-accent:#b4cbd8;--wt-on-accent:#1b2026;--wt-text:#e9eef2;--wt-muted:#b4bfc8;--wt-line:#c5d3e033;}
+.wt-modal:not(.wt-smart-embedded):not(.capture-modal) {--wt-dialog-reading:color-mix(in srgb,var(--wt-card) 62%,transparent);--wt-dialog-rim:color-mix(in srgb,var(--wt-card) 65%,transparent);border:1px solid var(--wt-dialog-rim);border-radius:26px;background:linear-gradient(135deg,color-mix(in srgb,var(--wt-bg) 82%,var(--wt-accent)),var(--wt-bg) 45%,color-mix(in srgb,var(--wt-bg) 90%,var(--wt-card)));box-shadow:inset 0 1px 0 #ffffff40,0 24px 70px #15283830;background-color:var(--wt-card);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);color:var(--wt-text);}
 .wt-workbench-dialog .modal-title {font-size:17px;font-weight:550;letter-spacing:-.2px;}
 .wt-settings-modal .modal-title {padding:22px 52px 16px 24px;border:0;}
 .wt-settings-body {padding:0 16px 16px;display:flex;flex-direction:column;gap:12px;}
@@ -3151,7 +3152,7 @@ body.theme-dark[data-tracelo-theme=monochrome]:not([data-tracelo-appearance=ligh
 .wt-background-modal.wt-workbench-dialog .wt-background-hint {color:var(--wt-muted);}
 .wt-background-modal.wt-workbench-dialog select {border-radius:10px;background:var(--wt-dialog-reading);color:var(--wt-text);border-color:var(--wt-line);}
 .wt-background-modal.wt-workbench-dialog input[type=file]::file-selector-button {border:1px solid var(--wt-line);border-radius:9px;padding:8px 12px;background:var(--wt-dialog-reading);color:var(--wt-text);margin-right:12px;}
-@media(prefers-reduced-transparency:reduce) {.wt-modal.wt-workbench-dialog {--wt-dialog-reading:var(--wt-card);backdrop-filter:none;-webkit-backdrop-filter:none;}}
+@media(prefers-reduced-transparency:reduce) {.wt-modal:not(.wt-smart-embedded):not(.capture-modal) {--wt-dialog-reading:var(--wt-card);backdrop-filter:none;-webkit-backdrop-filter:none;}}
 
 /* Stage interactions follow the modular mockup: direct manipulation and discoverable controls. */
 .wt-glass-workbench .wt-module-thumb {border:1px solid transparent;border-radius:12px;padding:6px 4px;min-height:60px;}
@@ -3195,7 +3196,7 @@ body.theme-dark[data-tracelo-theme=monochrome]:not([data-tracelo-appearance=ligh
 .wt-glass-workbench .wt-card-heading-actions .wt-layout-status {flex-basis:100%;text-align:right;}
 .wt-glass-workbench .wt-card-heading-actions .wt-layout-status:empty {display:none;}
 @container work-timeline (max-width:760px){.wt-glass-workbench .wt-card-heading:has(.wt-stage-layout-bar){flex-wrap:wrap;}.wt-glass-workbench .wt-card-heading-actions:has(.wt-stage-layout-bar){max-width:100%;width:100%;}.wt-glass-workbench .wt-card-heading-actions .wt-stage-layout-bar{margin-right:auto;}}
-/* The reading area scrolls as a whole; the deck remains the bottom navigation. */
+/* The outer reading area is a fallback for very short windows or stacked modules. */
 .wt-glass-workbench:not(.is-expanded-overview) .wt-shell[data-pane] .wt-workbench-main {overflow:hidden;}
 .wt-glass-workbench:not(.is-expanded-overview) .wt-task-stage-scroll {flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;overscroll-behavior:contain;border-radius:28px;}
 @container work-timeline (max-width:760px) {
@@ -3205,6 +3206,25 @@ body.theme-dark[data-tracelo-theme=monochrome]:not([data-tracelo-appearance=ligh
 .wt-glass-workbench .wt-module-remove {color:var(--wt-muted);}
 .wt-glass-workbench .wt-module-remove:hover {color:var(--wt-text);background:var(--wt-frost);}
 .wt-glass-workbench .wt-module-mini i {flex-shrink:0;}
+
+/* Bounded module bodies keep neighbouring content, headings and actions in place. */
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-canvas {min-height:0;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-module-scroll {
+ --wt-stage-reading-min:48px;flex:1 1 auto;min-height:0;min-width:0;margin:0;
+ overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-gutter:stable;
+}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-module-scroll:focus-visible {outline:2px solid var(--wt-accent);outline-offset:2px;border-radius:4px;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-canvas :is(h2,.wt-stage-detail-heading,.wt-checklist-heading,.wt-card-composer,.wt-card-footer,.wt-add-todo,.wt-optional-actions) {flex-shrink:0;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-todos>.wt-card-todos {display:flex;flex-direction:column;flex:1;min-height:0;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-card .wt-stage-module-scroll>.wt-card-latest {margin-bottom:0;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-module-scroll:has(>.wt-notes-editor) {--wt-stage-reading-min:180px;overflow:hidden;display:flex;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-module-scroll>.wt-notes-editor {display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-module-scroll>.wt-notes-editor textarea {flex:1;min-height:64px;height:auto;resize:none;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-stage-module-scroll>.wt-notes-editor :is(.wt-notes-help,.wt-notes-status,.wt-notes-actions) {flex-shrink:0;}
+@container work-timeline (max-width:760px) {
+ .wt-glass-workbench:not(.is-expanded-overview) .wt-stage-module-scroll {flex:none;overflow:visible;scrollbar-gutter:auto;}
+ .wt-glass-workbench:not(.is-expanded-overview) .wt-stage-module-scroll>.wt-notes-editor textarea {min-height:160px;resize:vertical;}
+}
 
 /* Shared type and icon rhythm for the silver workbench and capture surfaces.
    Respect the host's interface font; keep the brand neutral across accents. */
@@ -3246,3 +3266,71 @@ body.theme-dark:not([data-tracelo-appearance=light]) .wt-brand-icon {
  .wt-brand-icon rect {stroke:var(--wt-brand-ink);}
  :is(.work-timeline-view, .wt-modal, .wt-themed-menu) {--wt-icon-stroke:2;}
 }
+
+/* Capture material lives with the shared form, so plugin and native hosts stay aligned. */
+.wt-capture-dialog {
+ --capture-rim:color-mix(in srgb,var(--wt-raised) 72%,transparent);
+ --capture-reading:color-mix(in srgb,var(--wt-card) 60%,transparent);
+ --capture-field:color-mix(in srgb,var(--wt-raised) 64%,transparent);
+}
+body[data-tracelo-appearance=dark] .wt-capture-dialog,
+body.theme-dark:not([data-tracelo-appearance=light]) .wt-capture-dialog {
+ --capture-rim:#b8d2e130;--capture-reading:color-mix(in srgb,var(--wt-card) 66%,transparent);
+ --capture-field:color-mix(in srgb,var(--wt-raised) 72%,transparent);
+}
+:is(.capture-modal,.wt-capture-dialog) .wt-capture-tabs {min-height:40px;padding:0 18px 4px;gap:5px;border-bottom:0;}
+:is(.capture-modal,.wt-capture-dialog) .wt-capture-tabs button {display:inline-flex;align-items:center;min-height:34px;height:34px;padding:7px 12px;gap:7px;border:1px solid transparent;border-radius:10px;font-size:12px;font-weight:400;box-shadow:none;color:var(--wt-muted);background:transparent;}
+:is(.capture-modal,.wt-capture-dialog) .wt-capture-tabs button[aria-pressed=true] {background:var(--capture-reading);border-color:var(--capture-rim);color:var(--wt-text);box-shadow:inset 0 1px #ffffff30,0 3px 9px #24394b08;}
+:is(.capture-modal,.wt-capture-dialog) .wt-capture-tabs button[aria-pressed=true]::after {display:none;}
+:is(.capture-modal,.wt-capture-dialog) .wt-create-methods {margin:5px 20px 0;min-height:30px;padding:0;gap:4px;}
+:is(.capture-modal,.wt-capture-dialog) .wt-create-methods button {font-size:11px;border-radius:8px;height:28px;min-height:28px;}
+:is(.capture-modal,.wt-capture-dialog) .wt-create-methods button[aria-pressed=true] {background:var(--capture-reading);font-weight:500;}
+:is(.capture-modal,.wt-capture-dialog) .wt-new-task-body {
+ margin:12px 16px 0;padding:16px;gap:13px;border:1px solid var(--capture-rim);border-radius:16px;
+ background:var(--capture-reading);box-shadow:inset 0 1px #ffffff40,0 8px 20px -20px #24394b70;
+ backdrop-filter:blur(22px) saturate(1.12);-webkit-backdrop-filter:blur(22px) saturate(1.12);
+}
+:is(.capture-modal,.wt-capture-dialog) .wt-modal-form input:not([type=radio]):not([type=checkbox]):not(.wt-modal-title),
+:is(.capture-modal,.wt-capture-dialog) .wt-modal-form textarea,:is(.capture-modal,.wt-capture-dialog) .wt-modal-form select,
+:is(.capture-modal,.wt-capture-dialog) .wt-card-composer textarea,:is(.capture-modal,.wt-capture-dialog) .wt-quick-toolbar input {background:var(--capture-field);border-radius:10px;border-color:color-mix(in srgb,var(--wt-line) 65%,transparent);box-shadow:inset 0 1px #ffffff12;}
+:is(.capture-modal,.wt-capture-dialog) .wt-modal-form input.wt-modal-title {font-size:21px;font-weight:500;letter-spacing:-.4px;background:transparent;}
+:is(.capture-modal,.wt-capture-dialog) .wt-quadrant-option {border-radius:9px;background:transparent;}
+:is(.capture-modal,.wt-capture-dialog) .wt-quadrant-option:has(input:checked) {background:var(--wt-tint);border-color:var(--wt-accent);}
+:is(.capture-modal,.wt-capture-dialog) .wt-primary-action {border-radius:10px;min-height:34px;padding-inline:16px;box-shadow:inset 0 1px #ffffff20;}
+:is(.capture-modal,.wt-capture-dialog) :is(button,input,textarea,select):focus-visible {outline:2px solid var(--wt-accent);outline-offset:2px;}
+.wt-capture-dialog .modal-title {height:48px;min-height:48px;padding-inline:20px;border:0;font-size:16px;font-weight:550;letter-spacing:-.2px;}
+.wt-capture-dialog .wt-capture-brand,.wt-capture-dialog .wt-capture-brand svg {width:25px;height:25px;}
+.wt-capture-dialog .wt-new-task-footer,.wt-capture-dialog .wt-composer-footer,.wt-capture-dialog .wt-smart-footer {
+ background:var(--capture-reading);border-top:1px solid var(--capture-rim);padding:12px 20px;margin:12px 0 0;
+}
+.wt-capture-dialog .wt-quick-progress,.wt-capture-dialog .wt-quick-editor {background:transparent;border:0;box-shadow:none;}
+.wt-capture-dialog .wt-quick-editor .wt-card-body,.wt-capture-dialog .wt-smart-body:not(.is-confirming-create) {
+ margin:12px 16px 0;padding:16px;border:1px solid var(--capture-rim);border-radius:16px;background:var(--capture-reading);
+}
+.wt-capture-dialog .wt-quick-target,.wt-capture-dialog .wt-quick-result {border-radius:12px;background:var(--capture-reading);}
+.wt-capture-dialog .wt-card-composer textarea {border-radius:10px;background:var(--capture-field);}
+.wt-capture-dialog .is-confirming-create .wt-smart-preview .wt-new-task-body {padding:16px;}
+.wt-capture-dialog .is-confirming-create .wt-smart-preview .wt-new-task-footer {margin:12px 0 0;padding:12px 20px;}
+.wt-capture-dialog .wt-modal-form .wt-field-label,.capture-modal .wt-modal-form .wt-field-label {font-size:12px;}
+.wt-modal:not(.wt-smart-embedded) :is(input,textarea,select) {font-family:var(--wt-font-interface);}
+.wt-themed-menu {border-radius:12px;padding:5px;}
+.wt-themed-menu .menu-item {border-radius:7px;}
+/* Compact sidebar chrome leaves the composer visible on laptop-height windows. */
+.wt-glass-workbench:not(.is-expanded-overview) .wt-chat-header {padding-top:6px;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-chat-sessions {background:var(--wt-frost);border-radius:10px;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-chat-composer {padding:10px 12px 12px;margin:8px 16px 12px;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-chat-composer .wt-reference-current {margin:0 0 8px;padding:4px 0;}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-chat-inputbox {border-radius:12px;background:var(--wt-frost);}
+.wt-glass-workbench:not(.is-expanded-overview) .wt-chat-sendrow button {border-radius:8px;}
+@media(max-height:760px) {
+ .wt-glass-workbench:not(.is-expanded-overview) .wt-timeline-header {padding:18px 20px 10px;}
+ .wt-glass-workbench:not(.is-expanded-overview) .wt-workbench-sidebar-tabs {padding:10px 20px 6px;}
+}
+@media(max-width:480px) {.wt-capture-dialog .wt-new-task-body{margin-inline:10px;padding:14px;}}
+@media(prefers-reduced-transparency:reduce) {.wt-capture-dialog{--capture-reading:var(--wt-card);--capture-field:var(--wt-raised);}.wt-capture-dialog .wt-new-task-body{backdrop-filter:none;-webkit-backdrop-filter:none;}}
+
+/* The assistant action remains a labelled control in overview toolbars too. */
+.wt-glass-workbench .wt-header-action {display:inline-flex;align-items:center;gap:7px;width:auto;min-width:max-content;white-space:nowrap;padding:7px 11px;}
+.wt-glass-workbench .wt-header-action svg {flex:none;width:15px;height:15px;}
+
+:is(.capture-modal,.wt-capture-dialog) .wt-modal-actions .wt-secondary-action {border-radius:10px;}

@@ -1,6 +1,6 @@
 # Tracelo 桌面快捷工具
 
-当前版本为 1.0.2，模型密钥可留空且不限制长度或格式，支持 HTTP／HTTPS 自建服务。快捷窗口同步新版银灰折光背景、磨砂阅读面板和圆角选中态；macOS／Windows 使用同一套本地资源。创建与进展共用窗口、四象限、图文草稿及同仓库主题，保存反馈明确区分提交中、待同步、成功和失败。下载与升级见 [1.0.2 发布说明](../docs/releases/1.0.2.md)，验证边界见[发布验收](../docs/validation/2026-10-20-release-102.md)。
+当前版本为 1.0.3，进一步统一插件与快捷窗口的标签、阅读面板、输入和按钮；macOS／Windows 使用同一套本地资源。创建与进展共用窗口、四象限、图文草稿及同仓库主题，保存反馈明确区分提交中、待同步、成功和失败。模型密钥仍可留空，支持 HTTP／HTTPS 自建服务。下载与升级见 [1.0.3 发布说明](../docs/releases/1.0.3.md)，发布验证与平台边界见[发布验收](../docs/validation/2026-10-24-release-103.md)。
 
 2026-10-07 同版本更新移除快捷程序的“一句话记录进展”入口，选定任务后直接记录进展；新建页的“一句话整理”保留。旧版已暂存请求继续由插件处理，详见[更新验收](../docs/validation/2026-10-07-release-095-refresh.md)。
 
@@ -8,14 +8,14 @@
 
 插件、macOS 和 Windows 快捷窗口共用 `src/new-task-form.ts`：任务名称、详情、分组、重要／紧急四象限、待办、截止日期、初始进展及草稿采用同一表单和任务生成逻辑。名称与详情独立填写，象限使用四项直接可见的选择区。macOS 使用系统 WebKit，Windows 使用 WebView2。早期截图与验证见[完整快捷创建](../docs/validation/2026-09-28-capture-shared-ui.md)。
 
-1.0.2 提供 macOS Universal `.app` 压缩包和 Windows x64 自包含 `.exe` 压缩包，均与同版 Obsidian 插件配套使用。macOS 仅作本地 ad-hoc 签名，尚无开发者签名／公证；Windows 尚无代码签名。系统可能提示发布者未经验证。实际输入法选词、多屏和焦点恢复仍需实机复核，自动协议／输入策略测试不等同于全部系统交互验收。
+1.0.3 提供 macOS Universal `.app` 压缩包和 Windows x64 自包含 `.exe` 压缩包，均与同版 Obsidian 插件配套使用。macOS 仅作本地 ad-hoc 签名，尚无开发者签名／公证；Windows 尚无代码签名。系统可能提示发布者未经验证。实际输入法选词、多屏和焦点恢复仍需实机复核，自动协议／输入策略测试不等同于全部系统交互验收。
 
 ## 下载与安装
 
 从 [GitHub Releases](https://github.com/skybcyang/Tracelo/releases/latest) 下载对应平台的 ZIP，并核对 `SHA256SUMS.txt`。
 
-- **macOS 13+（Intel / Apple Silicon）**：解压 `Tracelo-Capture-1.0.2-macos-universal.zip`，将 `Tracelo Capture.app` 放入应用程序目录并打开。通过菜单栏图标进入设置。应用不会自动注册开机启动。
-- **Windows 10/11 x64**：解压 `Tracelo-Capture-1.0.2-windows-x64.zip`，运行 `TraceloCapture.exe`；无需另装 .NET，需安装 WebView2 Evergreen Runtime。通过托盘菜单进入设置，详见 [Windows 使用与开发](windows/README.md)。
+- **macOS 13+（Intel / Apple Silicon）**：解压 `Tracelo-Capture-1.0.3-macos-universal.zip`，将 `Tracelo Capture.app` 放入应用程序目录并打开。通过菜单栏图标进入设置。应用不会自动注册开机启动。
+- **Windows 10/11 x64**：解压 `Tracelo-Capture-1.0.3-windows-x64.zip`，运行 `TraceloCapture.exe`；无需另装 .NET，需安装 WebView2 Evergreen Runtime。通过托盘菜单进入设置，详见 [Windows 使用与开发](windows/README.md)。
 
 选择 vault 后，填写插件设置中的实际任务相对目录。目录须存在。新建直接发布任务；既有任务的进展与修改由插件消费命令并写入历史。两个系统的创建入口默认使用 Control+Alt/Option+Space，可在设置中更改。
 
@@ -37,13 +37,13 @@ desktop/.build/release/TraceloCapture
 
 创建快捷键为 `Control+Option+Space`，记录进展为 `Control+Option+P`；菜单栏也提供两个入口。设置中可分别录入组合键，注册冲突时提示并保留原快捷键。设置保存在 `app.tracelo.capture` UserDefaults 域；图文创建与各任务进展草稿按仓库／任务目录隔离，原子保存于 `~/Library/Application Support/TraceloCapture/Drafts/`。旧草稿会迁移。
 
-记录进展先搜索选择任务，再使用与插件共用的快捷编辑区填写图文进展和更新待办。点击当前任务展开搜索，再点一次收起，不清空草稿。Enter 换行，⌘ Enter 提交。插件未运行时显示“已暂存，打开 Obsidian 后写入任务”，确认正式写入后才清空对应草稿。窗口支持两种模式切换，提交与成功确认期间保护当前会话；待写入命令不会直接覆盖任务文件。请同时升级插件与桌面工具，详见[1.0.2 更新](../docs/releases/1.0.2.md)。
+记录进展先搜索选择任务，再使用与插件共用的快捷编辑区填写图文进展和更新待办。点击当前任务展开搜索，再点一次收起，不清空草稿。Enter 换行，⌘ Enter 提交。插件未运行时显示“已暂存，打开 Obsidian 后写入任务”，确认正式写入后才清空对应草稿。窗口支持两种模式切换，提交与成功确认期间保护当前会话；待写入命令不会直接覆盖任务文件。请同时升级插件与桌面工具，详见[1.0.3 更新](../docs/releases/1.0.3.md)。
 
 ## 输入行为
 
-快捷工具顶栏只保留“新建任务／记录进展”，新建页内切换“手动填写／一句话整理”。整理后进入共享确认表单，可返回原文，两种草稿独立恢复；模型设置另开弹窗；保存位置和全局快捷键也使用统一的银灰设置页，由原生层选择目录和注册快捷键。最新本机安装与验证见[合并创建入口验收](../docs/validation/2026-10-06-unified-create.md)。
+快捷工具顶栏只保留“新建任务／记录进展”，新建页内切换“手动填写／一句话整理”。整理后进入共享确认表单，可返回原文，两种草稿独立恢复；模型设置另开弹窗；保存位置和全局快捷键也使用统一的银灰设置页，由原生层选择目录和注册快捷键。早期入口合并记录见[合并创建入口验收](../docs/validation/2026-10-06-unified-create.md)，本轮界面与安装记录见[流程与界面验收](../docs/validation/2026-10-24-flow-polish.md)。
 
-桌面快捷工具保留“一句话”创建，进展直接输入；Obsidian 的任务菜单保留一句话进展。两端提供直接输入 API Key、连接测试、结果编辑／恢复及持久草稿。模型设置默认隐藏 Key，Key 可留空且不限制长度或格式；支持 HTTP／HTTPS 自建服务，空 Key 不发送 Authorization。旧文件配置保持兼容，可显式清除。模型仅提供建议，保存需确认；进展等待配套插件回执才显示正式成功。历史实机检查见[密钥与界面验收](../docs/validation/2026-10-06-smart-key-ui.md)，本轮后续开发与安装见[可选密钥验收](../docs/validation/2026-10-19-optional-model-key.md)，已发布版本见[1.0.2发布验收](../docs/validation/2026-10-20-release-102.md)。配置与隐私范围见[一句话说明](../docs/smart-capture.md)。
+桌面快捷工具保留“一句话”创建，进展直接输入；Obsidian 的任务菜单保留一句话进展。两端提供直接输入 API Key、连接测试、结果编辑／恢复及持久草稿。模型设置默认隐藏 Key，Key 可留空且不限制长度或格式；支持 HTTP／HTTPS 自建服务，空 Key 不发送 Authorization。旧文件配置保持兼容，可显式清除。模型仅提供建议，保存需确认；进展等待配套插件回执才显示正式成功。历史实机检查见[密钥与界面验收](../docs/validation/2026-10-06-smart-key-ui.md)，可选密钥的开发与发布记录见[可选密钥验收](../docs/validation/2026-10-19-optional-model-key.md)和[1.0.2 发布验收](../docs/validation/2026-10-20-release-102.md)。配置与隐私范围见[一句话说明](../docs/smart-capture.md)。
 
 - 任务名称与 Markdown 详情分别填写。分组从当前任务目录的 `_groups.md` 读取，可选择四种重要／紧急组合。
 - 截止日期输入直接可见但非必填，待办与初始进展按需展开，折叠不清除已填写内容。⌘ Enter（macOS）／Ctrl Enter（Windows）创建，详情与进展中的 Enter 正常换行；组合输入时不提交。

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "check-release103-local",
+    "title": "1.0.3本地发布预检",
+    "result": "passed",
+    "at": "2026-10-24T09:57:11.377111+08:00",
+    "scope": "152 unit tests, type/production build and complete browser suites including new workbench viewport and stage scroll regression; 2 local .NET-dependent checks skipped, to be covered by Windows CI. Swift核心10项、macOS Universal签名和原生WebKit通过。",
+    "evidence": [
+      "docs/validation/2026-10-24-release-103.md",
+      "docs/validation/assets/release-103/local-verification.json",
+      "docs/validation/assets/release-103/native/verification.json"
+    ]
+  }
+]

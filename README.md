@@ -20,11 +20,11 @@ Tracelo 将任务看板、工作对话与进展历史放在一起：用分组和
 
 桌面快捷工具的安装与配置见[使用说明](desktop/README.md)。升级时保留 `data.json` 和任务目录，并按对应版本的发布说明操作。
 
-当前版本为 1.0.2，模型 API Key 可留空，不限制长度或格式；支持 HTTP／HTTPS 自建服务，插件与桌面快捷工具同步。更新与迁移说明见[发布说明](docs/releases/1.0.2.md)。
+当前版本为 1.0.3，展示台长正文在各模块内独立滚动，标题和主要操作保持可见；插件与桌面快捷表单进一步统一，改善短窗口对话与深色文字。更新与升级说明见[发布说明](docs/releases/1.0.3.md)。
 
-![工作台：当前任务与底部牌组（布局沿用 1.0.1）](docs/validation/assets/release-101/workbench-light.png)
+![工作台：模块正文独立滚动，底部保留任务牌组](docs/validation/assets/stage-scroll-20261024/default-1280.png)
 
-深色工作台、编辑及快捷窗口例图见[本版说明](docs/releases/1.0.2.md)。
+共享快捷表单与本轮界面例图见[本版说明](docs/releases/1.0.3.md)。
 
 ## 项目边界
 
@@ -38,8 +38,8 @@ Tracelo 将任务看板、工作对话与进展历史放在一起：用分组和
 
 右侧工作对话支持多轮讨论和 @卡片引用；修改建议由你确认后保存，活动记录和单任务历史仍有独立入口。详见[工作对话说明](docs/design/work-conversation.md)。
 
-提供[银灰工作台](docs/design/task-stage.md)：上方集中查看当前任务，下方浏览不重复的封面；有材料目录时显示目录树，全屏可铺开封面卡。左侧模块悬停预览，拖入右侧后调整行列和大小；布局随当前任务恢复，背景可切换或上传自己的图片。
+提供[银灰工作台](docs/design/task-stage.md)：上方集中查看当前任务，下方浏览不重复的封面；有材料目录时显示目录树，全屏可铺开封面卡。左侧模块悬停预览，拖入右侧后调整行列和大小；长正文在模块内滚动，标题与主要操作保持可见。布局随当前任务恢复，背景可切换或上传自己的图片。
 
 工作对话支持引用任务的长历史查找：可按问题、关键词或日期找回较早记录，回答来源能跳回原历史。
 
-[版本更新](docs/releases/1.0.2.md) · [开发与文档](docs/development.md) · [问题反馈](https://github.com/skybcyang/Tracelo/issues)
+[版本更新](docs/releases/1.0.3.md) · [开发与文档](docs/development.md) · [问题反馈](https://github.com/skybcyang/Tracelo/issues)

@@ -1,0 +1,35 @@
+{
+  "at": "2026-10-24T09:40:02.001036+08:00",
+  "result": "passed",
+  "pluginTarget": ".obsidian/plugins/work-timeline/",
+  "pluginSha256": {
+    "main.js": "5712c9ead92d4cc4a3103dd133cc8dedf77077b307600d116a1f7d861fde8148",
+    "styles.css": "a56b881ef89c4ae8131f570c1aed8135b10797cce7f860488a5f80110a42125b",
+    "manifest.json": "32cd62b0d6af5b60ee79b180044fca81a32c9106214f01bc31780f4d4a97eaa6"
+  },
+  "macOSAppTarget": "/Applications/Tracelo Capture.app",
+  "macOSAppFilesMatchBuild": true,
+  "macOSAppRunning": true,
+  "macOSExecutableSha256": "9db7e1e100cc81b7654ffa97ed62b807e75f270fc855c23f299ee547cbb41227",
+  "preserved": {
+    "formalTaskAndAttachmentFiles": 18,
+    "allFormalBytes": true,
+    "existingPluginSettingsAndDrafts": true,
+    "capturePreferences": true,
+    "captureDraftFiles": 3,
+    "allCaptureDraftBytes": true
+  },
+  "realObsidian": {
+    "reloaded": true,
+    "moduleRegionsVisible": true,
+    "detailsScrolledToEnd": true,
+    "otherModulesAndOuterFrameStayFixed": true,
+    "formalDataWritten": false
+  },
+  "privateBackup": ".local/stage-scroll-20261024/install/install-backup",
+  "privateScreenshots": [
+    ".local/stage-scroll-20261024/installed-plugin.png",
+    ".local/stage-scroll-20261024/installed-scrolled.png"
+  ],
+  "note": "Physical global hotkeys, real IME and Windows remain outside this round; prior CUA capture-window timeout is documented separately."
+}

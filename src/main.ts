@@ -846,17 +846,44 @@ class WorkTimelineView extends ItemView {
     const nextStageKey = JSON.stringify([this.currentDay, chosen, this.expandedTaskId, [...this.editingNotes], this.addingTodoTaskId, this.recordedTaskId, chosen && this.plugin.hasTaskFolder(chosen.id), this.directoryRevision]);
     if (nextStageKey !== this.stageKey) {
       const same = stage.dataset.taskId === chosen?.id;
+      const reading = same ? Object.fromEntries(Array.from(stage.querySelectorAll<HTMLElement>('[data-stage-module]')).map(module => {
+        const scroll = module.querySelector<HTMLElement>('.wt-stage-module-scroll');
+        return [module.dataset.stageModule!, Number(scroll?.dataset.pendingScrollTop ?? scroll?.scrollTop ?? 0)];
+      })) : {};
+      const progressEventId = [...(chosen?.events ?? [])].reverse().find(event => event.kind === 'progress')?.id ?? '';
+      const progressChanged = stage.dataset.progressEventId !== progressEventId;
       const progress = same ? stage.querySelector('.wt-card-composer') : null;
       const notes = same ? stage.querySelector('.wt-notes-editor') : null;
       const todosKey = JSON.stringify(chosen?.todos ?? []);
       const todoForm = same && stage.dataset.todos === todosKey ? stage.querySelector('.wt-add-todo') : null;
-      stage.empty(); stage.dataset.taskId = chosen?.id ?? ''; stage.dataset.todos = todosKey;
+      stage.empty(); stage.dataset.taskId = chosen?.id ?? ''; stage.dataset.todos = todosKey; stage.dataset.progressEventId = progressEventId;
       if (chosen) {
         this.renderCard(stage, chosen, chosen.groupId ?? 'ungrouped', true);
         const newProgress = stage.querySelector('.wt-card-composer'); if (progress && newProgress) newProgress.replaceWith(progress);
         const newNotes = stage.querySelector('.wt-notes-editor'); if (notes && newNotes) newNotes.replaceWith(notes);
         const newTodo = stage.querySelector('.wt-add-todo'); if (todoForm && newTodo) newTodo.replaceWith(todoForm);
         this.arrangeWorkbenchStage(stage, chosen);
+        if (progressChanged) delete reading.progress;
+        for (const [id, top] of Object.entries(reading)) {
+          const scroll = stage.querySelector<HTMLElement>(`[data-stage-module="${id}"] .wt-stage-module-scroll`);
+          if (!scroll || !top) continue;
+          // The directory may finish loading after the synchronous card render.
+          const restore = () => {
+            scroll.scrollTop = top;
+            const restored = scroll.scrollHeight - scroll.clientHeight >= top;
+            if (restored) delete scroll.dataset.pendingScrollTop;
+            return restored;
+          };
+          if (!restore() && id === 'files') {
+            scroll.dataset.pendingScrollTop = String(top);
+            const observer = new MutationObserver(() => { if (!scroll.isConnected || restore()) observer.disconnect(); });
+            observer.observe(scroll, { childList: true, subtree: true });
+            const cancel = () => { observer.disconnect(); delete scroll.dataset.pendingScrollTop; };
+            scroll.addEventListener('wheel', cancel, { once: true, passive: true });
+            scroll.addEventListener('pointerdown', cancel, { once: true });
+            scroll.addEventListener('keydown', cancel, { once: true });
+          }
+        }
       } else stage.createEl('p', { text: '从一件想推进的事情开始。', cls: 'wt-stage-empty' });
       this.stageKey = nextStageKey;
     }
@@ -936,6 +963,25 @@ class WorkTimelineView extends ItemView {
       directory.createEl('p', { text: '尚未添加材料。' });
       directory.createEl('button', { text: '打开文件夹', attr: { type: 'button' } }).onclick = () => void runWithNotice(() => this.plugin.accessTaskFolder(task.id));
     }
+    // Only the reading regions scroll. Keep the original editors and action nodes.
+    const readingRegion = (node: HTMLElement, label: string) => {
+      node.addClass('wt-stage-module-scroll'); node.tabIndex = 0;
+      node.setAttribute('role', 'region'); node.setAttribute('aria-label', label);
+    };
+    const progressReading = document.createElement('div');
+    progress.querySelector('h2')!.after(progressReading);
+    for (const node of Array.from(progress.querySelectorAll<HTMLElement>('.wt-latest-label,.wt-card-latest,.wt-stage-no-progress'))) progressReading.append(node);
+    readingRegion(progressReading, '进展正文');
+    if (checklist instanceof HTMLElement) {
+      const list = document.createElement('div');
+      checklist.querySelector('.wt-checklist-heading')!.after(list);
+      for (const row of Array.from(checklist.querySelectorAll<HTMLElement>(':scope > .wt-todo-row'))) list.append(row);
+      readingRegion(list, '待办列表内容');
+    } else readingRegion(todos.querySelector('p')!, '待办列表内容');
+    readingRegion((notes ?? details.querySelector('p')) as HTMLElement, '详情正文');
+    const directoryReading = directory.querySelector<HTMLElement>('.wt-directory-tree,p')!;
+    readingRegion(directoryReading, directoryReading.classList.contains('wt-directory-tree') ? '任务目录' : '目录内容');
+    if (directoryReading.classList.contains('wt-directory-tree')) directoryReading.setAttribute('role', 'tree');
     bento.remove();
     const key = JSON.stringify([this.plugin.state.taskDirectory, task.id]);
     mountStagePanel(body, { progress, todos, details, files: directory },

@@ -1,0 +1,51 @@
+{
+  "version": "1.0.3",
+  "startedAt": "2026-10-24T09:50:30.090666+08:00",
+  "checks": [
+    {
+      "id": "swift-core",
+      "command": "swift run --package-path desktop CaptureCoreTests",
+      "startedAt": "2026-10-24T09:50:30.090811+08:00",
+      "finishedAt": "2026-10-24T09:50:31.645271+08:00",
+      "result": "passed",
+      "exitCode": 0,
+      "evidence": [
+        "swift-core.log"
+      ]
+    },
+    {
+      "id": "package",
+      "command": "bash desktop/package-macos.sh",
+      "startedAt": "2026-10-24T09:50:31.645548+08:00",
+      "finishedAt": "2026-10-24T09:50:33.767454+08:00",
+      "result": "passed",
+      "exitCode": 0,
+      "evidence": [
+        "package.log"
+      ]
+    }
+  ],
+  "installed": false,
+  "formalDataModified": false,
+  "configurationModified": false,
+  "finishedAt": "2026-10-24T09:50:33.783266+08:00",
+  "result": "passed",
+  "scope": "Swift core 10 tests; final 1.0.3 Universal arm64/x86_64 build and strict ad-hoc signature; real WebKit isolated light/dark shared form, title/details independence, all quadrants, group selector, focus/footer, settings failure/cancel, full archive atomic submission and identical retry; version and five bundled resource hashes agree between source, application and ZIP.",
+  "architectures": "x86_64 arm64",
+  "resourcesSha256": {
+    "styles.css": "a56b881ef89c4ae8131f570c1aed8135b10797cce7f860488a5f80110a42125b",
+    "capture.css": "aedbb1187136d7c87ed09c5347657e4725f32c119bfe63d9b42908b7e9bce4c9",
+    "capture.html": "20cdb91cf5443b6b902124ff0593421388d1cecd47b48c323df64816d79ba426",
+    "capture.js": "7749059f01b075617731bac8a24daa7266bc634505f2abd7ea449310f44a8ca2",
+    "create-task.js": "27e37700f1dc0c26730e91ac5dc70b9b9df7e8230a1aea1788b5495d6f02e854"
+  },
+  "executableSha256": "a0c43363b8bf972e8efa9a76a7e546c0da18d1e55c57f457dd28bcb2d33d6013",
+  "zipSha256": "06ab52bfeae53ea2ab217bb88c0bdc0536208c22da085cfafe6a2cc58331659d",
+  "notRun": [
+    "physical global shortcut and full focus matrix",
+    "real IME candidate window",
+    "microphone dictation",
+    "multi-monitor/fullscreen",
+    "Windows executable on Windows"
+  ]
+}

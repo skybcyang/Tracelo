@@ -1,0 +1,51 @@
+{
+  "startedAt": "2026-10-24T01:52:02.014Z",
+  "checks": [
+    "long content stays inside equal-height modules; independent body scrolling and fixed actionable heading",
+    "body adapts at 720/650px; last content remains reachable (outer fallback scrolling allowed)"
+  ],
+  "result": "failed",
+  "initial": {
+    "outer": {
+      "top": 88,
+      "bottom": 518,
+      "height": 430
+    },
+    "modules": [
+      {
+        "name": "progress",
+        "top": 178.6875,
+        "bottom": 498.6875,
+        "height": 320
+      },
+      {
+        "name": "todos",
+        "top": 178.6875,
+        "bottom": 498.6875,
+        "height": 320
+      },
+      {
+        "name": "details",
+        "top": 178.6875,
+        "bottom": 498.6875,
+        "height": 320
+      }
+    ]
+  },
+  "repeatedProgress": {
+    "before": {
+      "progress": 240,
+      "todos": 240,
+      "details": 240
+    },
+    "after": {
+      "progress": 240,
+      "todos": 240,
+      "details": 240
+    },
+    "previousEvent": "00680490-d775-4c28-bcd7-620e3a11bd96",
+    "newEvent": "0ae268d8-a85c-468b-ad18-2bed79c256f8"
+  },
+  "error": "a new formal progress event starts at the top even when its text is identical\n\n240 !== 0\n",
+  "finishedAt": "2026-10-24T01:52:03.293Z"
+}

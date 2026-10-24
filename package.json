@@ -1,6 +1,6 @@
 {
   "name": "tracelo",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Tracelo — task cards and append-only progress timelines for Obsidian.",
   "repository": {
@@ -24,7 +24,7 @@
     "test:icons": "node tests/color-icons.browser.mjs",
     "check": "npm test && npm run build && node tests/editable-sync.browser.mjs && npm run test:icons && npm run test:layout && npm run test:workbench && npm run test:capture && npm run test:presentation && node tests/smart-capture.browser.mjs && node tests/smart-desktop.browser.mjs && node tests/work-conversation.browser.mjs && node tests/conversation-history.browser.mjs && npm run test:reliability",
     "test:reliability": "node tests/archive-reliability.browser.mjs && node tests/calendar-viewport.browser.mjs",
-    "test:workbench": "node tests/workbench.browser.mjs && node tests/modular-stage.browser.mjs && node tests/workbench-editing.browser.mjs && node tests/stage-interactions.browser.mjs"
+    "test:workbench": "node tests/workbench.browser.mjs && node tests/workbench-viewport.browser.mjs && node tests/modular-stage.browser.mjs && node tests/workbench-editing.browser.mjs && node tests/stage-interactions.browser.mjs && node tests/stage-scroll.browser.mjs"
   },
   "devDependencies": {
     "@types/markdown-it": "14.1.2",

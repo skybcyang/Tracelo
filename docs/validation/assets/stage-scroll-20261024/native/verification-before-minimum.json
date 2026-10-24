@@ -1,0 +1,18 @@
+{
+  "at": "2026-10-24T09:28:04.403888+08:00",
+  "result": "passed",
+  "exitCode": 0,
+  "command": "bash desktop/package-macos.sh",
+  "scope": "Latest shared resources bundled; arm64/x86_64 Universal and strict signature verification; real WebKit isolated light/dark form, independent title/details, four quadrants, group selector, focus/footer, settings failure/cancel, complete archive atomic publish and byte-identical retry. Does not claim physical hotkey, real IME, full focus or Windows validation.",
+  "evidence": [
+    "package-before-minimum.log"
+  ],
+  "stylesSha256": "e0eee1cb274d24f4ef9eb9bc33ec6aba6ecfb79f3e549e07f6bd525f66369c53",
+  "sourceAppAndZipStylesMatch": true,
+  "captureCssSha256": "aedbb1187136d7c87ed09c5347657e4725f32c119bfe63d9b42908b7e9bce4c9",
+  "executableSha256": "5482e79037e5acaced237c4bc5d26bdc1185e06887d0b033b5e463d6c33e93d3",
+  "zipSha256": "412b010c7d2e0329a7db8d3719650d9fd273d28ce685e1f248f545c17ff1c72c",
+  "installed": false,
+  "formalDataModified": false,
+  "configurationModified": false
+}

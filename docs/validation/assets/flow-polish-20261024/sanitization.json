@@ -1,0 +1,28 @@
+{
+  "sanitizedAt": "2026-10-24T09:55:13.762241+08:00",
+  "scope": "Public evidence copies only; the absolute local repository root is replaced with <repo>.",
+  "note": "Hashes describe these public copies before and after sanitization. Original .local and test-results evidence, screenshots, test outcomes and execution timestamps are unchanged.",
+  "files": [
+    {
+      "file": "check-final.log",
+      "sanitized": true,
+      "replacementCount": 1,
+      "unsanitizedPublicCopySha256": "fbf8cb83a59269501d469a90a969748cf36b3301e89aa9084ed6c9fac201fcd7",
+      "sanitizedPublicCopySha256": "4e1dc9b1eaacc7ac23a1967b3608e772532b404efd54e0011b3e85ef96e8bedf"
+    },
+    {
+      "file": "native/final-resource-sync.log",
+      "sanitized": true,
+      "replacementCount": 1,
+      "unsanitizedPublicCopySha256": "2fca4c27146b082c8d72c6186e3b5ac3ef9139464b2b9a3d5e69e969a5d8b99e",
+      "sanitizedPublicCopySha256": "0b5f48fc2dd47c88ed9d63f2b195500d8e100ec8fd688842961e5c9908964ef1"
+    },
+    {
+      "file": "viewport-red.log",
+      "sanitized": true,
+      "replacementCount": 1,
+      "unsanitizedPublicCopySha256": "68fdfc44897d15e8977ee7ebe2fe39174f90b4b7ffb8ed5e3a50ddaecf21c717",
+      "sanitizedPublicCopySha256": "568a48e7b27505bced475d04de647358dcc51e04d22648b644746586339d8a64"
+    }
+  ]
+}

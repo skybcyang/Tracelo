@@ -1,0 +1,17 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: send stays visible without scrolling at 720: {"x":1159,"y":690.203125,"width":42,"height":30}
+    at file://<repo>/tests/workbench-viewport.browser.mjs:17:10
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:541:9) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.7.0

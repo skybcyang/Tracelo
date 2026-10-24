@@ -1,0 +1,11 @@
+{
+  "version": "1.0.3",
+  "result": "passed",
+  "at": "2026-10-24T09:46:52.217620+08:00",
+  "command": "npx vitest run tests/version-metadata.test.ts tests/plugin-contract.test.ts",
+  "scope": "Plugin/package/lockfile/native metadata alignment and plugin contracts; 6 tests passed",
+  "log": "version-contract.log",
+  "logSha256": "1db4b3a77259a6877594bf7dd01456aca08096f7b5a4efd98e33619ed4f55fd1",
+  "originalLogSha256": "9e8bd8955360e868a331fb4303df0b6c3ebcafd3a42fcaccfe782494bad2ea37",
+  "sanitized": "Public log replaces absolute project root with <repo>; original test-results evidence preserved locally. Trailing blank lines removed."
+}

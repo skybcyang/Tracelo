@@ -1,0 +1,56 @@
+{
+  "at": "2026-10-24T02:14:23.548402+08:00",
+  "result": "passed",
+  "scope": "Installation hashes and data preservation, actual Obsidian reload/new form, installed native isolated smoke; global shortcut window excluded",
+  "pluginTarget": ".obsidian/plugins/work-timeline",
+  "pluginHashes": {
+    "main.js": "51bf692f73583fb1aa16dbdf3206c7c7c3179064d9d93676b1d2654d097103c3",
+    "styles.css": "cbc55f6cf362502b99ae57204436f15157164d73a446b7d5224362dd2406fa7b",
+    "manifest.json": "32cd62b0d6af5b60ee79b180044fca81a32c9106214f01bc31780f4d4a97eaa6"
+  },
+  "appTarget": "/Applications/Tracelo Capture.app",
+  "appFileCount": 8,
+  "appTreeMatchesBuild": true,
+  "appExecutableSha256": "ca639c158428a67e47bec3109d6f5d58885e343169b4155262a13625df83eb7d",
+  "appRunning": true,
+  "formalTaskAndAttachmentFileCount": 18,
+  "preserved": [
+    "formal task and attachment bytes",
+    "existing plugin settings and drafts",
+    "native preferences",
+    "all native drafts"
+  ],
+  "actualObsidian": {
+    "vault": "WorkAssistant",
+    "reloaded": true,
+    "unifiedCreateFormVisuallyVerified": true,
+    "closedWithoutSubmit": true,
+    "screenshot": "Private local screenshot retained; contains user tasks and is not published"
+  },
+  "installedNative": {
+    "result": "passed",
+    "at": "2026-10-24T02:13:17.721763+08:00",
+    "scope": "Real WebKit light/dark shared form, quadrant/group fields, footer/focus, isolated atomic full archive submit and idempotent retry",
+    "evidence": [
+      "native/installed-native.log",
+      "native/installed-native/shared-form-light.png",
+      "native/installed-native/shared-form-dark.png",
+      "native/installed-native/shared-settings-dark.png"
+    ]
+  },
+  "globalShortcutWindow": {
+    "result": "not_run",
+    "at": null,
+    "note": "Attempted Ctrl+Alt+Space. CUA could not bind/read the installed app: bundle ID ambiguous among backups, exact /Applications path returned timeoutReached. Running process and configured target verified, but visible shortcut entry/focus behavior not confirmed."
+  },
+  "backup": ".local/flow-polish-20261024/install/install-backup",
+  "notRun": [
+    "Windows native this round",
+    "physical shortcut / focus matrix",
+    "real IME candidates",
+    "microphone dictation",
+    "multi-monitor/fullscreen",
+    "real user model service"
+  ],
+  "gitCommitPushRelease": false
+}

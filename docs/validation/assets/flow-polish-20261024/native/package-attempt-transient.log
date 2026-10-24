@@ -1,0 +1,12 @@
+[0/1] Planning build
+Building for production...
+[0/2] Write swift-version--1AB21518FC5DEDBE.txt
+Build of product 'TraceloCapture' complete! (0.23s)
+[0/1] Planning build
+Building for production...
+[0/2] Write swift-version--1AB21518FC5DEDBE.txt
+Build of product 'TraceloCapture' complete! (0.18s)
+dist/macos/Tracelo Capture.app: replacing existing signature
+Shared form light smoke failed: failure(Error Domain=WKErrorDomain Code=4 "A JavaScript exception occurred" UserInfo={WKJavaScriptExceptionLineNumber=0, WKJavaScriptExceptionMessage=Error: title and details must be independent fields, WKJavaScriptExceptionColumnNumber=0, NSLocalizedDescription=A JavaScript exception occurred})
+macOS smoke viewport cap: 780.0, available: 1130.0
+macOS capture interface verification failed

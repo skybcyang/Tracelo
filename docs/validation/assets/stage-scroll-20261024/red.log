@@ -1,0 +1,15 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: long module content must remain within the stage viewport: {"outer":{"top":88,"bottom":518,"height":430},"modules":[{"name":"progress","top":178.6875,"bottom":3592.6875,"height":3414},{"name":"todos","top":178.6875,"bottom":3592.6875,"height":3414},{"name":"details","top":178.6875,"bottom":3592.6875,"height":3414}]}
+    at file://<repo>/tests/stage-scroll.browser.mjs:51:10 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.7.0

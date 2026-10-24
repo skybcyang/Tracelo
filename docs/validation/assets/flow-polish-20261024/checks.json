@@ -1,0 +1,53 @@
+{
+  "at": "2026-10-24T01:27:26.858866+08:00",
+  "result": "passed",
+  "scope": "Full check; shared capture and short-window regression; final workbench/conversation checks after icon-spacing and dark reference-label fixes",
+  "unitTests": {
+    "passed": 152,
+    "skipped": 2,
+    "skipReason": "No local Windows .NET SDK"
+  },
+  "logs": {
+    "check-final.log": {
+      "completedAt": "2026-10-24T01:20:14.730496+08:00",
+      "sha256": "4e1dc9b1eaacc7ac23a1967b3608e772532b404efd54e0011b3e85ef96e8bedf",
+      "unsanitizedSha256": "fbf8cb83a59269501d469a90a969748cf36b3301e89aa9084ed6c9fac201fcd7",
+      "sanitized": true,
+      "sha256Scope": "Sanitized public log copy; unsanitizedSha256 retains the previously recorded digest."
+    },
+    "capture-final.log": {
+      "completedAt": "2026-10-24T01:20:50.744571+08:00",
+      "sha256": "bf32903498816a058ca2dbfde44885a33285938f6d3d452d63dcd7e67e70b469"
+    },
+    "auxiliary.log": {
+      "completedAt": "2026-10-24T01:15:12.114569+08:00",
+      "sha256": "1940ddaf7aeca3faecaf8db554dddfa35d47df11d3efedb608ac0e04a6439f9e"
+    },
+    "workbench-final.log": {
+      "completedAt": "2026-10-24T01:24:18.046019+08:00",
+      "sha256": "ed476f8a1c12070bcfa005b5e29b956419f3ee86ed83e13347eeb7c135a5af78"
+    },
+    "conversation-final.log": {
+      "completedAt": "2026-10-24T01:24:20.630407+08:00",
+      "sha256": "df5231013dc7b41760c515827ab508097e86183a7abcac9a45f4c1a67fcec7b7"
+    },
+    "viewport-red.log": {
+      "completedAt": "2026-10-24T01:09:12.309264+08:00",
+      "sha256": "568a48e7b27505bced475d04de647358dcc51e04d22648b644746586339d8a64",
+      "unsanitizedSha256": "68fdfc44897d15e8977ee7ebe2fe39174f90b4b7ffb8ed5e3a50ddaecf21c717",
+      "sanitized": true,
+      "sha256Scope": "Sanitized public log copy; unsanitizedSha256 retains the previously recorded digest."
+    },
+    "viewport-final.log": {
+      "completedAt": "2026-10-24T02:21:31.302402+08:00",
+      "sha256": "9ce3c47ef51b89455ec3cfd82de509ee7dab12bbbe443ea66b4fcaa50d0db434"
+    }
+  },
+  "notRun": [
+    "Windows native this round",
+    "real IME candidate window",
+    "microphone dictation",
+    "multi-monitor/fullscreen device matrix"
+  ],
+  "sanitization": "sanitization.json"
+}

@@ -1,0 +1,10 @@
+
+> tracelo@1.0.2 test:workbench
+> node tests/workbench.browser.mjs && node tests/workbench-viewport.browser.mjs && node tests/modular-stage.browser.mjs && node tests/workbench-editing.browser.mjs && node tests/stage-interactions.browser.mjs && node tests/stage-scroll.browser.mjs
+
+Workbench selection, bounded browsing, drafts, overview, folder tree and appearance passed.
+PASS workbench short viewport: send visible at 720/650, expanded history reachable
+PASS modular stage: hover/drag, equal columns, resize, row move, undo/reset, task-local readback, failure/draft retention; custom image readback/restore/corruption, background settings, bounded equal covers
+PASS independent workbench todos, same-row progress actions, draft/failed-save recovery, task switching, narrow/dark rendering and successful save
+PASS stage mockup interactions: 28 checks
+PASS stage body scrolling: long content stays inside equal-height modules; independent body scrolling and fixed actionable heading; body adapts at 720/650px; last content remains reachable (outer fallback scrolling allowed); checking a scrolled todo retains module reading positions, draft and editor identity; layout reparenting preserves existing scroll and editor nodes; 80-row asynchronous directory refresh retains scroll across details editing; directory tree semantics and draft preserved; 390px fallback has no horizontal overflow and exposes module controls

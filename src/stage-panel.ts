@@ -113,24 +113,30 @@ export function mountStagePanel(body:HTMLElement, modules:Record<StageModule,HTM
  function applyRatios(){
   canvas.style.gridTemplateColumns=layout.columns.map(c=>`minmax(0,${c.width}fr)`).join(' 10px ');
   const columns=Array.from(canvas.querySelectorAll<HTMLElement>(':scope > .wt-stage-column'));
-  canvas.style.height='auto';
-  // Measure natural content first. A definite, sufficiently tall canvas lets fractional
-  // rows actually resize; min-content-only tracks otherwise pin the divider in place.
-  let height=parseFloat(getComputedStyle(canvas).minHeight)||0;
-  columns.forEach((column,i)=>{
-   column.style.alignContent='start';
-   column.style.gridTemplateRows=layout.columns[i].rows.map(()=>'auto').join(' 10px ');
-  });
+  const viewport=body.closest<HTMLElement>('.wt-task-stage-scroll');
+  const bounded=getComputedStyle(canvas).display==='grid' && !!viewport;
+  // The viewport owns the height; long text no longer enlarges every sibling card.
+  // Keep room for headings/actions and a readable body when rows become very short.
+  let height=0;
+  if(bounded){
+   const stage=viewport.querySelector<HTMLElement>('.wt-task-stage')!;
+   const inset=area.getBoundingClientRect().top-viewport.getBoundingClientRect().top+viewport.scrollTop;
+   height=viewport.clientHeight-inset-parseFloat(getComputedStyle(stage).paddingBottom)-1;
+  }
   columns.forEach((column,i)=>{
    const rows=layout.columns[i].rows;
-   const sizes=Array.from(column.querySelectorAll<HTMLElement>(':scope > [data-stage-module]')).map(m=>m.getBoundingClientRect().height);
    const gaps=10*(rows.length-1);
-   height=Math.max(height,Math.max(...sizes)*rows.length+gaps,...sizes.map((size,r)=>size/rows[r].height+gaps));
+   for(const [r,module] of Array.from(column.querySelectorAll<HTMLElement>(':scope > [data-stage-module]')).entries()){
+    const scroll=module.querySelector<HTMLElement>('.wt-stage-module-scroll');
+    if(!scroll)continue;
+    const chrome=module.getBoundingClientRect().height-scroll.getBoundingClientRect().height;
+    const minimum=chrome+(parseFloat(getComputedStyle(scroll).getPropertyValue('--wt-stage-reading-min'))||48);
+    height=Math.max(height,minimum/rows[r].height+gaps);
+   }
   });
-  if(columns.length&&getComputedStyle(canvas).display==='grid')canvas.style.height=`${Math.ceil(height)}px`;
+  canvas.style.height=bounded?`${Math.max(120,Math.floor(height))}px`:'auto';
   columns.forEach((column,i)=>{
-   column.style.alignContent='';
-   column.style.gridTemplateRows=layout.columns[i].rows.map(r=>`minmax(min-content,${r.height}fr)`).join(' 10px ');
+   column.style.gridTemplateRows=layout.columns[i].rows.map(r=>`minmax(0,${r.height}fr)`).join(' 10px ');
   });
   positionSlots();
  }
@@ -150,6 +156,7 @@ export function mountStagePanel(body:HTMLElement, modules:Record<StageModule,HTM
  }
  function render(){
   hidePreview();
+  const reading=Object.values(modules).map(module=>{const scroll=module.querySelector<HTMLElement>('.wt-stage-module-scroll');return {scroll,top:scroll?.scrollTop??0};});
   const active=focusState();
   const removedModule=active?.closest<HTMLElement>('[data-stage-module]')?.dataset.stageModule;
   const resizeKey=active?.classList.contains('wt-stage-resizer')?{col:active.dataset.resizeCol,row:active.dataset.resizeRow}:null;
@@ -181,7 +188,8 @@ export function mountStagePanel(body:HTMLElement, modules:Record<StageModule,HTM
    const slot=insert(canvas,c,0,true);slot.style.left=`${layout.columns.slice(0,c).reduce((s,c)=>s+c.width,0)*100}%`;
   }
   shelf.querySelectorAll<HTMLElement>('[data-module]').forEach(b=>{const placed=layout.columns.some(c=>c.rows.some(r=>r.module===b.dataset.module));b.classList.toggle('is-placed',placed);b.querySelector('small')!.textContent=placed?'已放入':'拖入展示台';});
-  applyRatios();if(active?.isConnected)active.focus({preventScroll:true});
+  applyRatios();for(const {scroll,top} of reading)if(scroll)scroll.scrollTop=top;
+  if(active?.isConnected)active.focus({preventScroll:true});
   else if(resizeKey)canvas.querySelector<HTMLElement>(`[data-resize-col="${resizeKey.col}"][data-resize-row="${resizeKey.row}"]`)?.focus({preventScroll:true});
   else if(removedModule)shelf.querySelector<HTMLElement>(`[data-module="${removedModule}"]`)?.focus({preventScroll:true});
  }
@@ -190,5 +198,6 @@ export function mountStagePanel(body:HTMLElement, modules:Record<StageModule,HTM
  revert.onclick=()=>{if(undo)void commit(undo);};reset.onclick=()=>void commit(null);
  render();
  const observer=new ResizeObserver(()=>{if(!body.isConnected){observer.disconnect();return;}applyRatios();});
- observer.observe(canvas);for(const module of Object.values(modules))observer.observe(module);
+ observer.observe(canvas);observer.observe(body);const viewport=body.closest('.wt-task-stage-scroll');if(viewport)observer.observe(viewport);
+ for(const module of Object.values(modules))observer.observe(module);
 }

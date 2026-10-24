@@ -1,0 +1,21 @@
+{
+  "sanitizedAt": "2026-10-24T09:55:13.762241+08:00",
+  "scope": "Public evidence copies only; the absolute local repository root is replaced with <repo>.",
+  "note": "Hashes describe these public copies before and after sanitization. Original .local and test-results evidence, screenshots, test outcomes and execution timestamps are unchanged.",
+  "files": [
+    {
+      "file": "directory.log",
+      "sanitized": true,
+      "replacementCount": 1,
+      "unsanitizedPublicCopySha256": "d63003913403b42e0b7d690698d066e4acdd2ff0bdff409f3cb9d8d7a767d3bb",
+      "sanitizedPublicCopySha256": "2aa17827a8b438648e72fec48c782b0607d6e1659aba39377c5f554331582945"
+    },
+    {
+      "file": "red.log",
+      "sanitized": true,
+      "replacementCount": 1,
+      "unsanitizedPublicCopySha256": "bbbbeec610be5083f43c926a050062c2046f599e0fbae4bcf958dc1300d66af3",
+      "sanitizedPublicCopySha256": "3813568a96539b3eb9330c2361ec8ec45eaebb0864772fc051f13a2d1d9b9f88"
+    }
+  ]
+}

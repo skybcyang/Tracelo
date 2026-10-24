@@ -1,0 +1,44 @@
+{
+  "startedAt": "2026-10-24T01:24:20.845Z",
+  "checks": [
+    "long content stays inside equal-height modules; independent body scrolling and fixed actionable heading",
+    "body adapts at 720/650px; last content remains reachable (outer fallback scrolling allowed)",
+    "checking a scrolled todo retains module reading positions, draft and editor identity",
+    "layout reparenting preserves existing scroll and editor nodes"
+  ],
+  "result": "failed",
+  "initial": {
+    "outer": {
+      "top": 88,
+      "bottom": 518,
+      "height": 430
+    },
+    "modules": [
+      {
+        "name": "progress",
+        "top": 178.6875,
+        "bottom": 498.6875,
+        "height": 320
+      },
+      {
+        "name": "todos",
+        "top": 178.6875,
+        "bottom": 498.6875,
+        "height": 320
+      },
+      {
+        "name": "details",
+        "top": 178.6875,
+        "bottom": 498.6875,
+        "height": 320
+      }
+    ]
+  },
+  "directory": {
+    "before": 480,
+    "after": 0,
+    "rows": 81
+  },
+  "error": "delayed directory refresh preserves reading position across another interaction: 480 -> 0",
+  "finishedAt": "2026-10-24T01:24:22.216Z"
+}

@@ -100,7 +100,12 @@ try {
     await page.evaluate(appearance => window.cardFixture.plugin.setAppearance('monochrome', appearance), appearance);
     await page.evaluate(() => document.fonts.ready);
     await page.waitForFunction(() => !document.querySelector('.work-timeline-view').getAnimations({ subtree: true }).some(a => a.playState === 'running' && a.effect?.getTiming().iterations !== Infinity));
-    const a = await close.boundingBox(), b = await submit.boundingBox();
+    // Measure both controls in one frame while ResizeObserver adapts the module height.
+    const [a, b] = await composer.locator('.wt-composer-footer').evaluate(el =>
+      ['.wt-composer-close', 'button[type=submit]'].map(selector => {
+        const bounds = el.querySelector(selector)?.getBoundingClientRect();
+        return bounds ? { y: bounds.y, height: bounds.height } : null;
+      }));
     assert.ok(a && b && Math.abs(a.y + a.height / 2 - b.y - b.height / 2) < 1, `same action row at ${width}`);
     assert.ok(await page.locator('.view-content').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `no horizontal overflow at ${width}`);
     await page.screenshot({ path: `${output}/${appearance}-${width}.png` });

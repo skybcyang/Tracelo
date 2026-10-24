@@ -1,0 +1,34 @@
+{
+  "startedAt": "2026-10-24T01:18:44.194Z",
+  "checks": [],
+  "result": "failed",
+  "initial": {
+    "outer": {
+      "top": 88,
+      "bottom": 518,
+      "height": 430
+    },
+    "modules": [
+      {
+        "name": "progress",
+        "top": 178.6875,
+        "bottom": 3592.6875,
+        "height": 3414
+      },
+      {
+        "name": "todos",
+        "top": 178.6875,
+        "bottom": 3592.6875,
+        "height": 3414
+      },
+      {
+        "name": "details",
+        "top": 178.6875,
+        "bottom": 3592.6875,
+        "height": 3414
+      }
+    ]
+  },
+  "error": "long module content must remain within the stage viewport: {\"outer\":{\"top\":88,\"bottom\":518,\"height\":430},\"modules\":[{\"name\":\"progress\",\"top\":178.6875,\"bottom\":3592.6875,\"height\":3414},{\"name\":\"todos\",\"top\":178.6875,\"bottom\":3592.6875,\"height\":3414},{\"name\":\"details\",\"top\":178.6875,\"bottom\":3592.6875,\"height\":3414}]}",
+  "finishedAt": "2026-10-24T01:18:45.199Z"
+}

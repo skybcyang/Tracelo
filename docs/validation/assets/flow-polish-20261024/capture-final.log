@@ -1,0 +1,3 @@
+mac: complete shared form, archive fields, IME, retry, drafts, groups, themes and footer passed.
+windows: complete shared form, archive fields, IME, retry, drafts, groups, themes and footer passed.
+PASS hidden native surface: suspended frames still measure the next window opening

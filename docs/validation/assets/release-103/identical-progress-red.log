@@ -1,0 +1,18 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: a new formal progress event starts at the top even when its text is identical
+
+240 !== 0
+
+    at file://<repo>/tests/stage-scroll.browser.mjs:112:10 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 240,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.7.0
