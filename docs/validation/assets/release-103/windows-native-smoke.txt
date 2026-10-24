@@ -1,0 +1,20 @@
+PASS shared form fits monitor work area
+PASS group dropdown loads strict vault archive
+PASS complete structured draft restored
+PASS surface uses the shared silver monochrome palette
+PASS native surface renders the workbench glass material
+PASS cancel persists all form fields
+PASS native hotkey reopens shared form
+PASS reserve competing shortcut
+PASS shortcut conflict retains original settings
+PASS IME confirmation does not publish task
+PASS shared silver monochrome surface applies light appearance
+PASS shared silver monochrome surface applies dark appearance
+PASS group rename rejects stale request before writing
+PASS group refresh retains draft and updates dropdown
+PASS shared form retry saves refreshed group and quadrant
+PASS shared form saves due date and todos
+PASS initial progress saved as its own event
+PASS successful creation clears persistent draft
+PASS save failure retains complete draft
+Windows shared-form native smoke test passed

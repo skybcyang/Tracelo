@@ -1,0 +1,65 @@
+{
+  "at": "2026-10-24T10:16:47.258120+08:00",
+  "candidateSha": "106310c0167272a1088270798508aeea8e6e2f6e",
+  "result": "passed",
+  "tag": "1.0.3",
+  "url": "https://github.com/skybcyang/Tracelo/releases/tag/1.0.3",
+  "publishedAt": "2026-10-24T02:15:23Z",
+  "assets": [
+    {
+      "name": "main.js",
+      "size": 571101,
+      "sha256": "948ab4b88fc20bbcd0bd9aa61951d7dae9c30ff371141d8fd2aa62c4915137e9",
+      "uploadDigest": "sha256:948ab4b88fc20bbcd0bd9aa61951d7dae9c30ff371141d8fd2aa62c4915137e9"
+    },
+    {
+      "name": "manifest.json",
+      "size": 278,
+      "sha256": "1da5d720b3c376a5c6f92bf7e31eb909792c4b0f4c92fb18be02cfacfc63dea4",
+      "uploadDigest": "sha256:1da5d720b3c376a5c6f92bf7e31eb909792c4b0f4c92fb18be02cfacfc63dea4"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "size": 536,
+      "sha256": "f76922dd67b78da178ede3a32e53f29b467a77d07642709f8bbf0d7eb41a12f5",
+      "uploadDigest": "sha256:f76922dd67b78da178ede3a32e53f29b467a77d07642709f8bbf0d7eb41a12f5"
+    },
+    {
+      "name": "styles.css",
+      "size": 222406,
+      "sha256": "a56b881ef89c4ae8131f570c1aed8135b10797cce7f860488a5f80110a42125b",
+      "uploadDigest": "sha256:a56b881ef89c4ae8131f570c1aed8135b10797cce7f860488a5f80110a42125b"
+    },
+    {
+      "name": "Tracelo-1.0.3-obsidian.zip",
+      "size": 215004,
+      "sha256": "f61594ab118e05de4508e2c726930b78145d36633e698411f26ff232aeacb199",
+      "uploadDigest": "sha256:f61594ab118e05de4508e2c726930b78145d36633e698411f26ff232aeacb199"
+    },
+    {
+      "name": "Tracelo-Capture-1.0.3-macos-universal.zip",
+      "size": 588297,
+      "sha256": "73ede45dc07e8d61c645da41a8d96141d09645e339eaf33159d98fe0dbfdb040",
+      "uploadDigest": "sha256:73ede45dc07e8d61c645da41a8d96141d09645e339eaf33159d98fe0dbfdb040"
+    },
+    {
+      "name": "Tracelo-Capture-1.0.3-windows-x64.zip",
+      "size": 68528490,
+      "sha256": "02c8ed4900949e78bccd6447b2a7dd7bf48cc207983a71e0719e7da63488a366",
+      "uploadDigest": "sha256:02c8ed4900949e78bccd6447b2a7dd7bf48cc207983a71e0719e7da63488a366"
+    }
+  ],
+  "windowsVersion": {
+    "FileVersion": "1.0.3.0",
+    "ProductVersion": "1.0.3+106310c0167272a1088270798508aeea8e6e2f6e"
+  },
+  "checks": [
+    "seven actual downloads",
+    "GitHub upload digests",
+    "six payload checksums",
+    "plugin ZIP byte match",
+    "macOS bundle versions and exact UI resources",
+    "Windows PE versions",
+    "candidate main.js, styles.css and manifest byte match"
+  ]
+}

@@ -2,9 +2,9 @@
 herein: project-state/v1
 project_id: workassistant-tracelo-15d7d4ce
 title: Tracelo · WorkAssistant
-updated_at: 2026-10-24T01:58:16.006Z
+updated_at: 2026-10-24T02:24:31.150Z
 status: 进行中
-summary: 用户已授权上传发布1.0.3；版本元数据已统一，正在完成发布检查、冻结候选及三平台验证。范围为界面统一与展示台独立滚动，harmony及私人配置不纳入。
+summary: 1.0.3 已上传主线并正式发布：界面统一、短窗口对话和展示台独立滚动完成，本地完整检查及三平台候选／标签CI通过，七附件实际下载核验、本项目插件和macOS正式包更新完成。完整人工设备矩阵仍保留明确边界。
 goal: 维护 Tracelo Obsidian 插件与 macOS／Windows 独立桌面快捷工具。
 done_when: 1.0.3 冻结候选三平台通过，主线和标签推送，正式Release七附件下载校验，本项目插件及macOS正式包安装与实际生效核对完成；人工设备未测项单列。
 sources:
@@ -45,8 +45,8 @@ sources:
   - docs/validation/2026-10-08-release-097.md
 actions:
   - id: release103
-    text: 完成1.0.3发布检查、候选三平台验证、上传发布及正式包本地交付
-    status: doing
+    text: 1.0.3主线推送、三平台正式发布、七附件实际核验和本机正式包交付完成
+    status: done
     source: docs/validation/2026-10-24-release-103.md
   - id: stage-scroll-20261024
     text: 展示台正文独立滚动、自适应高度与阅读位置保留完成，已回归并在真实Obsidian核验安装效果
@@ -57,9 +57,9 @@ actions:
     status: done
     source: docs/validation/2026-10-24-flow-polish.md
   - id: glass-workbench-production
-    text: 10月24日插件重载及安装版原生WebKit复验通过；全局快捷窗口、实体快捷键及焦点仍待复核，CUA读取超时
+    text: 1.0.3正式插件与安装版WebKit已核验；实体全局快捷键及完整焦点矩阵仍待复核，CUA窗口读取超时的历史边界保留
     status: todo
-    source: docs/validation/2026-10-24-flow-polish.md
+    source: docs/validation/2026-10-24-release-103.md
   - id: continuation1011-observation
     text: 满七天后回顾真实反馈，包含10月15日卡片视觉调整的实际使用效果
     status: doing
@@ -67,10 +67,10 @@ actions:
 blockers:
   - id: risk-installed-desktop-v2
     kind: risk
-    text: 10月24日本项目插件及macOS最新构建已安装，真实Obsidian重载和安装版WebKit通过；全局快捷窗口CUA读取超时，真实中文候选、听写、多屏／全屏及本轮Windows原生仍未验收。
+    text: 1.0.3本项目插件及macOS正式包已安装，实际Obsidian和安装版WebKit隔离入口通过，Windows候选与标签CI原生通过；实体全局快捷键、真实中文候选、听写及完整多屏／全屏人工矩阵仍未验收。
     impact: 自动原生证据不能替代全部人工系统矩阵。
     evidence:
-      - docs/validation/2026-10-24-flow-polish.md
+      - docs/validation/2026-10-24-release-103.md
       - task.md
   - id: risk-observation-sample
     kind: risk
@@ -87,6 +87,33 @@ questions:
     text: 展示台右上菜单的重复编辑入口精简及一句话进展二级归属仍为建议，等待确认。
     source: docs/validation/2026-10-16-workbench-edit-review.md
 checks:
+  - id: check-release103-installed
+    title: 1.0.3正式包本地交付
+    result: passed
+    at: 2026-10-24T10:23:58.694436+08:00
+    scope: 正式插件三件套与macOS应用树哈希匹配下载包；真实Obsidian1.14.5重载及模块独立滚动确认；安装版WebKit隔离创建落盘、直接进展和本机HTTP通过。任务附件、设置偏好与草稿保留；实体快捷键与完整人工矩阵除外。
+    evidence:
+      - docs/validation/2026-10-24-release-103.md
+      - docs/validation/assets/release-103/installation-verification.json
+      - docs/validation/assets/release-103/installed-native-http.json
+  - id: check-release103-published
+    title: 1.0.3正式发布与七附件
+    result: passed
+    at: 2026-10-24T10:16:47.258120+08:00
+    scope: 冻结106310c的标签CI四项全部成功；七附件实际下载，上传摘要与六载荷校验和一致；插件ZIP三件套和本地候选字节一致，macOS版本资源和Windows外层PE版本一致。
+    evidence:
+      - docs/validation/2026-10-24-release-103.md
+      - docs/validation/assets/release-103/published-verification.json
+      - docs/validation/assets/release-103/release-ci.json
+  - id: check-release103-candidate
+    title: 1.0.3冻结候选三平台
+    result: passed
+    at: 2026-10-24T02:05:35Z
+    scope: 冻结106310c0167272a1088270798508aeea8e6e2f6e，plugin/macOS/Windows全部成功，publish按候选规则跳过。Windows真实WebView2原生19项通过，浅深创建与设置截图已核读；不代替实体快捷键或真实IME人工矩阵。
+    evidence:
+      - docs/validation/2026-10-24-release-103.md
+      - docs/validation/assets/release-103/candidate.json
+      - docs/validation/assets/release-103/windows-native-smoke.txt
   - id: check-release103-local
     title: 1.0.3本地发布预检
     result: passed
@@ -148,30 +175,6 @@ checks:
     evidence:
       - docs/validation/2026-10-20-release-102.md
       - docs/validation/assets/release-102/candidate.json
-  - id: check-release102-local
-    title: 1.0.2本地发布预检
-    result: passed
-    at: 2026-10-20T03:23:30.239Z
-    scope: 版本6项、152单元及完整浏览器套件、构建、Swift10项、macOS Universal／签名／WebKit和本机HTTP空密钥请求通过；2项.NET因本机缺SDK跳过。
-    evidence:
-      - docs/validation/2026-10-20-release-102.md
-      - docs/validation/assets/release-102/local-verification.json
-  - id: check-optional-key-20261019
-    title: 可选模型密钥、本地验证与安装
-    result: passed
-    at: 2026-10-19T01:29:44.341Z
-    scope: 152单元、25项智能录入单元、插件及mac／Windows模拟桥接、工作对话、类型构建、Swift10项及Universal／WebKit通过；安装版向本机HTTP夹具发送空密钥请求不含Authorization。实际Obsidian重载可选Key设置，正式数据、配置、偏好和草稿保留，安装哈希一致。不含Windows原生或用户真实模型。
-    evidence:
-      - docs/validation/2026-10-19-optional-model-key.md
-      - docs/validation/assets/optional-model-key-20261019/verification.json
-  - id: check-optional-key-windows-native
-    title: 10月19日本机Windows原生可选密钥未执行
-    result: not_run
-    at: null
-    scope: Windows C#编译及真实WebView2／HttpClient无认证请求
-    evidence:
-      - docs/validation/2026-10-19-optional-model-key.md
-    note: 该项保留10月19日本机缺少SDK／设备的历史范围；10月20日候选及标签CI已完成Windows编译、核心测试及真实WebView2冒烟，HttpClient无认证网络请求仍未单独执行。
 decisions:
   - id: decision-release103
     text: 上传当前界面统一与展示台内部滚动修改，插件与macOS／Windows同步发布1.0.3。
@@ -214,6 +217,12 @@ decisions:
     source: docs/releases/1.0.0.md
     basis: 用户明确要求继续合并、文档、完整流程验证、上传及发布1.0.0，随后追加快捷工具按新UI同步并发布到1.0.0。
 feedbacks:
+  - id: feedback-release103
+    time: 2026-10-24T02:24:31.150Z
+    title: 界面精修与内部滚动随1.0.3正式发布
+    text: 完成本地完整回归、冻结候选及标签三平台CI、七附件实际下载校验和本项目正式包安装核验；正式任务、附件、既有配置与草稿保留。无关harmony未纳入，已发布标签不移动。
+    evidence:
+      - docs/validation/2026-10-24-release-103.md
   - id: feedback-stage-scroll-20261024
     time: 2026-10-24T09:40:02.001036+08:00
     title: 展示台内部滚动已本地交付
@@ -343,12 +352,6 @@ feedbacks:
       - docs/validation/2026-10-08-plugin-review.md
       - test-results/review-2026-10-08/check-095.log
       - test-results/review-2026-10-08/edge-repro-095.log
-  - id: feedback-release097-integration
-    time: 2026-10-08 01:18:35+08:00
-    title: 安全完成开发入口整合
-    text: 以 8b480e1 为基础恢复主目录独有状态规则及审查记录，逐项解决 13 处旧版本冲突；旧改动保存为 stash 与本地安全引用。
-    evidence:
-      - docs/validation/2026-10-08-release-097.md
 ---
 
 ## 交接说明

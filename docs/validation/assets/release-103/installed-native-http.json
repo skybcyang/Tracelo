@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-24T02:22:38.832Z",
+  "mode": "native",
+  "result": "passed",
+  "scope": "installed/bundled macOS WebKit → Swift URLSession → local HTTP server via loopback IP, custom port and path; synthetic creation and direct progress only in isolated temporary vault",
+  "requests": [
+    {
+      "path": "/self-hosted/v1/chat/completions",
+      "method": "POST",
+      "model": "fixture-http"
+    }
+  ],
+  "finishedAt": "2026-10-24T02:22:40.039Z",
+  "fixture": "127.0.0.1 with an ephemeral local port"
+}

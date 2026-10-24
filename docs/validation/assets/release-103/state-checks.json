@@ -1,5 +1,41 @@
 [
   {
+    "id": "check-release103-installed",
+    "title": "1.0.3正式包本地交付",
+    "result": "passed",
+    "at": "2026-10-24T10:23:58.694436+08:00",
+    "scope": "正式插件三件套与macOS应用树哈希匹配下载包；真实Obsidian1.14.5重载及模块独立滚动确认；安装版WebKit隔离创建落盘、直接进展和本机HTTP通过。任务附件、设置偏好与草稿保留；实体快捷键与完整人工矩阵除外。",
+    "evidence": [
+      "docs/validation/2026-10-24-release-103.md",
+      "docs/validation/assets/release-103/installation-verification.json",
+      "docs/validation/assets/release-103/installed-native-http.json"
+    ]
+  },
+  {
+    "id": "check-release103-published",
+    "title": "1.0.3正式发布与七附件",
+    "result": "passed",
+    "at": "2026-10-24T10:16:47.258120+08:00",
+    "scope": "冻结106310c的标签CI四项全部成功；七附件实际下载，上传摘要与六载荷校验和一致；插件ZIP三件套和本地候选字节一致，macOS版本资源和Windows外层PE版本一致。",
+    "evidence": [
+      "docs/validation/2026-10-24-release-103.md",
+      "docs/validation/assets/release-103/published-verification.json",
+      "docs/validation/assets/release-103/release-ci.json"
+    ]
+  },
+  {
+    "id": "check-release103-candidate",
+    "title": "1.0.3冻结候选三平台",
+    "result": "passed",
+    "at": "2026-10-24T02:05:35Z",
+    "scope": "冻结106310c0167272a1088270798508aeea8e6e2f6e，plugin/macOS/Windows全部成功，publish按候选规则跳过。Windows真实WebView2原生19项通过，浅深创建与设置截图已核读；不代替实体快捷键或真实IME人工矩阵。",
+    "evidence": [
+      "docs/validation/2026-10-24-release-103.md",
+      "docs/validation/assets/release-103/candidate.json",
+      "docs/validation/assets/release-103/windows-native-smoke.txt"
+    ]
+  },
+  {
     "id": "check-release103-local",
     "title": "1.0.3本地发布预检",
     "result": "passed",

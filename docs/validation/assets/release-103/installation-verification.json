@@ -1,0 +1,48 @@
+{
+  "at": "2026-10-24T10:23:58.694436+08:00",
+  "result": "passed",
+  "version": "1.0.3",
+  "pluginTarget": ".obsidian/plugins/work-timeline/",
+  "pluginSha256": {
+    "main.js": "948ab4b88fc20bbcd0bd9aa61951d7dae9c30ff371141d8fd2aa62c4915137e9",
+    "styles.css": "a56b881ef89c4ae8131f570c1aed8135b10797cce7f860488a5f80110a42125b",
+    "manifest.json": "1da5d720b3c376a5c6f92bf7e31eb909792c4b0f4c92fb18be02cfacfc63dea4"
+  },
+  "macOSAppTarget": "/Applications/Tracelo Capture.app",
+  "appTreeMatchesOfficialDownload": true,
+  "appRunning": true,
+  "preserved": {
+    "formalTaskAndAttachmentFiles": 18,
+    "allFormalBytes": true,
+    "existingPluginSettingsAndDrafts": true,
+    "capturePreferences": true,
+    "captureDraftFiles": 3,
+    "allCaptureDraftBytes": true
+  },
+  "realObsidian": {
+    "version": "1.14.5",
+    "reloaded": true,
+    "moduleScrollRegionsVisible": true,
+    "detailsScrolledToEnd": true,
+    "otherModulesAndOuterFrameStayFixed": true,
+    "formalDataWritten": false
+  },
+  "installedNative": {
+    "result": "passed",
+    "at": "2026-10-24T02:22:40.039Z",
+    "scope": "installed/bundled macOS WebKit → Swift URLSession → local HTTP server via loopback IP, custom port and path; synthetic creation and direct progress only in isolated temporary vault",
+    "requests": [
+      {
+        "path": "/self-hosted/v1/chat/completions",
+        "method": "POST",
+        "model": "fixture-http"
+      }
+    ]
+  },
+  "privateBackup": ".local/release-103/official-install/install-backup",
+  "privateScreenshots": [
+    ".local/release-103/installed-stage-before.png",
+    ".local/release-103/installed-stage-after.png"
+  ],
+  "note": "First non-loopback fixture request followed system proxy and failed; loopback fixture passed without product or proxy configuration changes. Physical hotkeys, real IME, microphone and full device matrix remain outside this verification."
+}
